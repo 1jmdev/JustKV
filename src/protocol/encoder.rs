@@ -30,5 +30,12 @@ pub fn encode(frame: &RespFrame, out: &mut BytesMut) {
                 encode(item, out);
             }
         }
+        RespFrame::Map(entries) => {
+            out.extend_from_slice(format!("%{}\r\n", entries.len()).as_bytes());
+            for (key, value) in entries {
+                encode(key, out);
+                encode(value, out);
+            }
+        }
     }
 }

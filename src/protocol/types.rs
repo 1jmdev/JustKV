@@ -5,6 +5,7 @@ pub enum RespFrame {
     Integer(i64),
     Bulk(Option<Vec<u8>>),
     Array(Option<Vec<RespFrame>>),
+    Map(Vec<(RespFrame, RespFrame)>),
 }
 
 impl RespFrame {

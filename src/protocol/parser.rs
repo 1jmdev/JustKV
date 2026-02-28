@@ -37,8 +37,22 @@ fn parse_value(src: &[u8], offset: usize) -> Result<(RespFrame, usize), ParseErr
         b':' => parse_integer(src, offset),
         b'$' => parse_bulk(src, offset),
         b'*' => parse_array(src, offset),
-        other => Err(ParseError::Protocol(format!("unknown frame type: {other}"))),
+        _ => parse_inline(src, offset),
     }
+}
+
+fn parse_inline(src: &[u8], offset: usize) -> Result<(RespFrame, usize), ParseError> {
+    let (line, consumed) = parse_line(src, offset)?;
+    let parts: Vec<RespFrame> = line
+        .split_ascii_whitespace()
+        .map(|part| RespFrame::Bulk(Some(part.as_bytes().to_vec())))
+        .collect();
+
+    if parts.is_empty() {
+        return Err(ParseError::Protocol("empty inline command".to_string()));
+    }
+
+    Ok((RespFrame::Array(Some(parts)), consumed))
 }
 
 fn parse_simple(src: &[u8], offset: usize) -> Result<(RespFrame, usize), ParseError> {

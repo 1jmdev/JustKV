@@ -58,7 +58,11 @@ fn ascii_upper(raw: &[u8]) -> Vec<u8> {
 }
 
 fn auth(args: &[Vec<u8>]) -> RespFrame {
-    if args.len() != 2 && args.len() != 3 {
+    if args.is_empty() {
+        return RespFrame::Error("ERR wrong number of arguments for 'AUTH' command".to_string());
+    }
+
+    if args.len() > 3 {
         return RespFrame::Error("ERR wrong number of arguments for 'AUTH' command".to_string());
     }
 
@@ -67,7 +71,7 @@ fn auth(args: &[Vec<u8>]) -> RespFrame {
 
 fn hello(args: &[Vec<u8>]) -> RespFrame {
     if args.len() == 1 {
-        return hello_response();
+        return hello_response(2);
     }
 
     let version = match std::str::from_utf8(&args[1]) {
@@ -76,19 +80,49 @@ fn hello(args: &[Vec<u8>]) -> RespFrame {
     };
 
     match version {
-        Some(2) | Some(3) => hello_response(),
+        Some(proto) if proto == 2 || proto == 3 => hello_response(proto),
         _ => RespFrame::Error("NOPROTO unsupported protocol version".to_string()),
     }
 }
 
-fn hello_response() -> RespFrame {
+fn hello_response(proto: u8) -> RespFrame {
+    if proto == 3 {
+        return RespFrame::Map(vec![
+            (
+                RespFrame::Bulk(Some(b"server".to_vec())),
+                RespFrame::Bulk(Some(b"valkey".to_vec())),
+            ),
+            (
+                RespFrame::Bulk(Some(b"version".to_vec())),
+                RespFrame::Bulk(Some(env!("CARGO_PKG_VERSION").as_bytes().to_vec())),
+            ),
+            (
+                RespFrame::Bulk(Some(b"proto".to_vec())),
+                RespFrame::Integer(3),
+            ),
+            (RespFrame::Bulk(Some(b"id".to_vec())), RespFrame::Integer(1)),
+            (
+                RespFrame::Bulk(Some(b"mode".to_vec())),
+                RespFrame::Bulk(Some(b"standalone".to_vec())),
+            ),
+            (
+                RespFrame::Bulk(Some(b"role".to_vec())),
+                RespFrame::Bulk(Some(b"master".to_vec())),
+            ),
+            (
+                RespFrame::Bulk(Some(b"modules".to_vec())),
+                RespFrame::Array(Some(vec![])),
+            ),
+        ]);
+    }
+
     RespFrame::Array(Some(vec![
         RespFrame::Bulk(Some(b"server".to_vec())),
         RespFrame::Bulk(Some(b"valkey".to_vec())),
         RespFrame::Bulk(Some(b"version".to_vec())),
         RespFrame::Bulk(Some(env!("CARGO_PKG_VERSION").as_bytes().to_vec())),
         RespFrame::Bulk(Some(b"proto".to_vec())),
-        RespFrame::Integer(2),
+        RespFrame::Integer(proto as i64),
         RespFrame::Bulk(Some(b"id".to_vec())),
         RespFrame::Integer(1),
         RespFrame::Bulk(Some(b"mode".to_vec())),

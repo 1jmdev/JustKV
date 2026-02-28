@@ -1,5 +1,7 @@
 mod support;
 
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
 use support::{connect, send_command, spawn_server};
 use valkey::protocol::types::RespFrame;
 
@@ -40,6 +42,20 @@ async fn mset_mget_flow_works() {
             RespFrame::Bulk(None),
         ]))
     );
+
+    server.abort();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn inline_ping_is_supported() {
+    let (server, port) = spawn_server().await;
+    let mut conn = connect(port).await;
+
+    conn.write_all(b"PING\r\n").await.expect("write inline ping");
+
+    let mut response = [0_u8; 64];
+    let read = conn.read(&mut response).await.expect("read inline response");
+    assert_eq!(&response[..read], b"+PONG\r\n");
 
     server.abort();
 }
