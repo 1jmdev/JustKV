@@ -103,11 +103,23 @@ impl Store {
     }
 
     pub fn key_type(&self, key: &[u8]) -> &'static str {
-        if self.get(key).is_some() {
-            "string"
-        } else {
-            "none"
+        self.value_kind(key).unwrap_or("none")
+    }
+
+    pub fn value_kind(&self, key: &[u8]) -> Option<&'static str> {
+        let idx = self.shard_index(key);
+        let now_ms = monotonic_now_ms();
+        let shard = self.shards[idx].read();
+        let entry = shard.entries.get(key)?;
+        if shard
+            .ttl
+            .get(key)
+            .copied()
+            .is_some_and(|deadline| now_ms >= deadline)
+        {
+            return None;
         }
+        Some(entry.kind())
     }
 
     pub fn dbsize(&self) -> i64 {

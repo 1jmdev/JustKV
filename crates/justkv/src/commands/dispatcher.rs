@@ -1,4 +1,4 @@
-use crate::commands::{connection, keyspace, string, ttl};
+use crate::commands::{connection, hash, keyspace, string, ttl};
 use crate::engine::store::Store;
 use crate::engine::value::CompactArg;
 use crate::protocol::types::{BulkData, RespFrame};
@@ -18,6 +18,9 @@ pub fn dispatch(store: &Store, frame: RespFrame) -> RespFrame {
         return response;
     }
     if let Some(response) = string::handle(store, command, &args) {
+        return response;
+    }
+    if let Some(response) = hash::handle(store, command, &args) {
         return response;
     }
     if let Some(response) = keyspace::handle(store, command, &args) {
