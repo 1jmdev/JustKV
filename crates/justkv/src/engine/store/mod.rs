@@ -15,6 +15,16 @@ use crate::engine::value::{CompactKey, Entry};
 type StoreMap = HashMap<CompactKey, Entry, RandomState>;
 type TtlMap = HashMap<CompactKey, u64, RandomState>;
 
+#[derive(Clone, Copy, Debug)]
+pub enum GetExMode {
+    KeepTtl,
+    Persist,
+    Ex(u64),
+    Px(u64),
+    ExAt(u64),
+    PxAt(u64),
+}
+
 pub(super) struct Shard {
     entries: StoreMap,
     ttl: TtlMap,

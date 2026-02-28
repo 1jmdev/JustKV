@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::commands::util::{Args, eq_ascii, wrong_args};
+use crate::commands::util::{eq_ascii, wrong_args, Args};
 use crate::engine::store::Store;
 use crate::engine::value::CompactArg;
 use crate::protocol::types::{BulkData, RespFrame};
@@ -20,12 +20,6 @@ pub(super) fn handle(store: &Store, command: &[u8], args: &Args) -> Option<RespF
     }
     if eq_ascii(command, b"GETDEL") {
         return Some(getdel(store, args));
-    }
-    if eq_ascii(command, b"APPEND") {
-        return Some(append(store, args));
-    }
-    if eq_ascii(command, b"STRLEN") {
-        return Some(strlen(store, args));
     }
     None
 }
@@ -141,20 +135,6 @@ fn getdel(store: &Store, args: &Args) -> RespFrame {
             .getdel(&args[1])
             .map(|value| BulkData::Arg(CompactArg::from_vec(value))),
     )
-}
-
-fn append(store: &Store, args: &Args) -> RespFrame {
-    if args.len() != 3 {
-        return wrong_args("APPEND");
-    }
-    RespFrame::Integer(store.append(&args[1], &args[2]) as i64)
-}
-
-fn strlen(store: &Store, args: &Args) -> RespFrame {
-    if args.len() != 2 {
-        return wrong_args("STRLEN");
-    }
-    RespFrame::Integer(store.strlen(&args[1]) as i64)
 }
 
 fn parse_u64(raw: &[u8]) -> Result<u64, RespFrame> {
