@@ -1,12 +1,14 @@
 use crate::config::Config;
 use crate::engine::store::Store;
 use crate::net::connection::handle_connection;
+use crate::net::pubsub::PubSubHub;
 use tokio::net::TcpListener;
 use tokio::time::{Duration, sleep};
 
 pub async fn run_listener(config: Config) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let listener = TcpListener::bind(config.addr()).await?;
     let store = Store::new(config.shards);
+    let pubsub = PubSubHub::new();
 
     spawn_expiry_sweeper(
         store.clone(),
@@ -18,8 +20,9 @@ pub async fn run_listener(config: Config) -> Result<(), Box<dyn std::error::Erro
         socket.set_nodelay(true)?;
 
         let shared_store = store.clone();
+        let shared_pubsub = pubsub.clone();
         tokio::spawn(async move {
-            let _ = handle_connection(socket, shared_store).await;
+            let _ = handle_connection(socket, shared_store, shared_pubsub).await;
         });
     }
 }

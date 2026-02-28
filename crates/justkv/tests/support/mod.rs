@@ -64,7 +64,7 @@ pub async fn send_command(stream: &mut TcpStream, parts: &[&[u8]]) -> RespFrame 
     read_frame(stream).await
 }
 
-async fn read_frame(stream: &mut TcpStream) -> RespFrame {
+pub async fn read_frame(stream: &mut TcpStream) -> RespFrame {
     let mut buf = BytesMut::with_capacity(1024);
 
     loop {

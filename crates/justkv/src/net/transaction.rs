@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use crate::commands::dispatcher::dispatch;
 use crate::engine::store::Store;
 use crate::protocol::types::{BulkData, RespFrame};
 
@@ -12,7 +11,15 @@ pub struct TransactionState {
 }
 
 impl TransactionState {
-    pub fn handle_frame(&mut self, store: &Store, frame: RespFrame) -> RespFrame {
+    pub fn handle_frame_with<F>(
+        &mut self,
+        store: &Store,
+        frame: RespFrame,
+        mut execute: F,
+    ) -> RespFrame
+    where
+        F: FnMut(&Store, RespFrame) -> RespFrame,
+    {
         let args = match parse_args(&frame) {
             Ok(value) => value,
             Err(err) => return RespFrame::Error(err),
@@ -27,7 +34,7 @@ impl TransactionState {
             return self.multi(&args);
         }
         if command.eq_ignore_ascii_case(b"EXEC") {
-            return self.exec(store, &args);
+            return self.exec_with(store, &args, execute);
         }
         if command.eq_ignore_ascii_case(b"DISCARD") {
             return self.discard(&args);
@@ -44,7 +51,7 @@ impl TransactionState {
             return RespFrame::Simple("QUEUED".to_string());
         }
 
-        dispatch(store, frame)
+        execute(store, frame)
     }
 
     fn multi(&mut self, args: &[Vec<u8>]) -> RespFrame {
@@ -60,7 +67,10 @@ impl TransactionState {
         RespFrame::ok()
     }
 
-    fn exec(&mut self, store: &Store, args: &[Vec<u8>]) -> RespFrame {
+    fn exec_with<F>(&mut self, store: &Store, args: &[Vec<u8>], mut execute: F) -> RespFrame
+    where
+        F: FnMut(&Store, RespFrame) -> RespFrame,
+    {
         if args.len() != 1 {
             return wrong_args("EXEC");
         }
@@ -78,7 +88,7 @@ impl TransactionState {
         let queued = std::mem::take(&mut self.queued);
         let mut out = Vec::with_capacity(queued.len());
         for item in queued {
-            out.push(dispatch(store, item));
+            out.push(execute(store, item));
         }
         self.watched.clear();
         RespFrame::Array(Some(out))
