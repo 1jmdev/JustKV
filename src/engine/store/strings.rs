@@ -1,12 +1,12 @@
 use std::time::Duration;
 
-use crate::engine::value::{CompactKey, Entry};
+use crate::engine::value::{CompactKey, CompactValue, Entry};
 
 use super::Store;
 use super::helpers::{deadline_from_ttl, monotonic_now_ms, purge_if_expired};
 
 impl Store {
-    pub fn get(&self, key: &[u8]) -> Option<Vec<u8>> {
+    pub fn get(&self, key: &[u8]) -> Option<CompactValue> {
         let idx = self.shard_index(key);
         let now_ms = monotonic_now_ms();
         let shard = self.shards[idx].read();
@@ -20,7 +20,7 @@ impl Store {
                     .copied()
                     .is_none_or(|deadline| now_ms < deadline)
             })
-            .map(|entry| entry.value.to_vec())
+            .map(|entry| entry.value.clone())
     }
 
     pub fn set(&self, key: Vec<u8>, value: Vec<u8>, ttl: Option<Duration>) {
@@ -181,7 +181,7 @@ impl Store {
         Ok(next)
     }
 
-    pub fn mget(&self, keys: &[Vec<u8>]) -> Vec<Option<Vec<u8>>> {
+    pub fn mget(&self, keys: &[Vec<u8>]) -> Vec<Option<CompactValue>> {
         keys.iter().map(|key| self.get(key)).collect()
     }
 

@@ -1,6 +1,6 @@
 use crate::commands::util::{Args, eq_ascii, wrong_args};
 use crate::engine::store::Store;
-use crate::protocol::types::RespFrame;
+use crate::protocol::types::{BulkData, RespFrame};
 
 pub(super) fn handle(store: &Store, command: &[u8], args: &Args) -> Option<RespFrame> {
     if eq_ascii(command, b"MGET") {
@@ -19,9 +19,13 @@ fn mget(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 2 {
         return wrong_args("MGET");
     }
-    let keys = args[1..].to_vec();
-    let values = store.mget(&keys);
-    RespFrame::Array(Some(values.into_iter().map(RespFrame::Bulk).collect()))
+    RespFrame::Array(Some(
+        args[1..]
+            .iter()
+            .map(|key| store.get(key))
+            .map(|value| RespFrame::Bulk(value.map(BulkData::Value)))
+            .collect(),
+    ))
 }
 
 fn mset(store: &Store, args: &Args) -> RespFrame {
@@ -30,7 +34,7 @@ fn mset(store: &Store, args: &Args) -> RespFrame {
     }
     let mut pairs = Vec::with_capacity((args.len() - 1) / 2);
     for chunk in args[1..].chunks(2) {
-        pairs.push((chunk[0].clone(), chunk[1].clone()));
+        pairs.push((chunk[0].to_vec(), chunk[1].to_vec()));
     }
     store.mset(pairs);
     RespFrame::ok()
@@ -42,7 +46,7 @@ fn msetnx(store: &Store, args: &Args) -> RespFrame {
     }
     let mut pairs = Vec::with_capacity((args.len() - 1) / 2);
     for chunk in args[1..].chunks(2) {
-        pairs.push((chunk[0].clone(), chunk[1].clone()));
+        pairs.push((chunk[0].to_vec(), chunk[1].to_vec()));
     }
     RespFrame::Integer(store.msetnx(pairs) as i64)
 }

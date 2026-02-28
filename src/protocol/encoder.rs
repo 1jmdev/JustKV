@@ -22,9 +22,10 @@ pub fn encode(frame: &RespFrame, out: &mut BytesMut) {
         RespFrame::Bulk(None) => out.extend_from_slice(b"$-1\r\n"),
         RespFrame::Bulk(Some(value)) => {
             out.extend_from_slice(b"$");
-            push_usize(out, value.len());
+            let bytes = value.as_slice();
+            push_usize(out, bytes.len());
             out.extend_from_slice(b"\r\n");
-            out.extend_from_slice(value);
+            out.extend_from_slice(bytes);
             out.extend_from_slice(b"\r\n");
         }
         RespFrame::Array(None) => out.extend_from_slice(b"*-1\r\n"),

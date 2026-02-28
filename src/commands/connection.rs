@@ -1,5 +1,5 @@
 use crate::commands::util::{Args, eq_ascii, wrong_args};
-use crate::protocol::types::RespFrame;
+use crate::protocol::types::{BulkData, RespFrame};
 
 pub fn handle(command: &[u8], args: &Args) -> Option<RespFrame> {
     if eq_ascii(command, b"AUTH") {
@@ -56,47 +56,54 @@ fn hello_response(proto: u8) -> RespFrame {
     if proto == 3 {
         return RespFrame::Map(vec![
             (
-                RespFrame::Bulk(Some(b"server".to_vec())),
-                RespFrame::Bulk(Some(b"valkey".to_vec())),
+                RespFrame::Bulk(Some(BulkData::from_vec(b"server".to_vec()))),
+                RespFrame::Bulk(Some(BulkData::from_vec(b"valkey".to_vec()))),
             ),
             (
-                RespFrame::Bulk(Some(b"version".to_vec())),
-                RespFrame::Bulk(Some(env!("CARGO_PKG_VERSION").as_bytes().to_vec())),
+                RespFrame::Bulk(Some(BulkData::from_vec(b"version".to_vec()))),
+                RespFrame::Bulk(Some(BulkData::from_vec(
+                    env!("CARGO_PKG_VERSION").as_bytes().to_vec(),
+                ))),
             ),
             (
-                RespFrame::Bulk(Some(b"proto".to_vec())),
+                RespFrame::Bulk(Some(BulkData::from_vec(b"proto".to_vec()))),
                 RespFrame::Integer(3),
             ),
-            (RespFrame::Bulk(Some(b"id".to_vec())), RespFrame::Integer(1)),
             (
-                RespFrame::Bulk(Some(b"mode".to_vec())),
-                RespFrame::Bulk(Some(b"standalone".to_vec())),
+                RespFrame::Bulk(Some(BulkData::from_vec(b"id".to_vec()))),
+                RespFrame::Integer(1),
             ),
             (
-                RespFrame::Bulk(Some(b"role".to_vec())),
-                RespFrame::Bulk(Some(b"master".to_vec())),
+                RespFrame::Bulk(Some(BulkData::from_vec(b"mode".to_vec()))),
+                RespFrame::Bulk(Some(BulkData::from_vec(b"standalone".to_vec()))),
             ),
             (
-                RespFrame::Bulk(Some(b"modules".to_vec())),
+                RespFrame::Bulk(Some(BulkData::from_vec(b"role".to_vec()))),
+                RespFrame::Bulk(Some(BulkData::from_vec(b"master".to_vec()))),
+            ),
+            (
+                RespFrame::Bulk(Some(BulkData::from_vec(b"modules".to_vec()))),
                 RespFrame::Array(Some(vec![])),
             ),
         ]);
     }
 
     RespFrame::Array(Some(vec![
-        RespFrame::Bulk(Some(b"server".to_vec())),
-        RespFrame::Bulk(Some(b"valkey".to_vec())),
-        RespFrame::Bulk(Some(b"version".to_vec())),
-        RespFrame::Bulk(Some(env!("CARGO_PKG_VERSION").as_bytes().to_vec())),
-        RespFrame::Bulk(Some(b"proto".to_vec())),
+        RespFrame::Bulk(Some(BulkData::from_vec(b"server".to_vec()))),
+        RespFrame::Bulk(Some(BulkData::from_vec(b"valkey".to_vec()))),
+        RespFrame::Bulk(Some(BulkData::from_vec(b"version".to_vec()))),
+        RespFrame::Bulk(Some(BulkData::from_vec(
+            env!("CARGO_PKG_VERSION").as_bytes().to_vec(),
+        ))),
+        RespFrame::Bulk(Some(BulkData::from_vec(b"proto".to_vec()))),
         RespFrame::Integer(proto as i64),
-        RespFrame::Bulk(Some(b"id".to_vec())),
+        RespFrame::Bulk(Some(BulkData::from_vec(b"id".to_vec()))),
         RespFrame::Integer(1),
-        RespFrame::Bulk(Some(b"mode".to_vec())),
-        RespFrame::Bulk(Some(b"standalone".to_vec())),
-        RespFrame::Bulk(Some(b"role".to_vec())),
-        RespFrame::Bulk(Some(b"master".to_vec())),
-        RespFrame::Bulk(Some(b"modules".to_vec())),
+        RespFrame::Bulk(Some(BulkData::from_vec(b"mode".to_vec()))),
+        RespFrame::Bulk(Some(BulkData::from_vec(b"standalone".to_vec()))),
+        RespFrame::Bulk(Some(BulkData::from_vec(b"role".to_vec()))),
+        RespFrame::Bulk(Some(BulkData::from_vec(b"master".to_vec()))),
+        RespFrame::Bulk(Some(BulkData::from_vec(b"modules".to_vec()))),
         RespFrame::Array(Some(vec![])),
     ]))
 }
@@ -147,7 +154,7 @@ fn ping(args: &Args) -> RespFrame {
         return RespFrame::Simple("PONG".to_string());
     }
     if args.len() == 2 {
-        return RespFrame::Bulk(Some(args[1].clone()));
+        return RespFrame::Bulk(Some(BulkData::Arg(args[1].clone())));
     }
     wrong_args("PING")
 }
@@ -156,5 +163,5 @@ fn echo(args: &Args) -> RespFrame {
     if args.len() != 2 {
         return wrong_args("ECHO");
     }
-    RespFrame::Bulk(Some(args[1].clone()))
+    RespFrame::Bulk(Some(BulkData::Arg(args[1].clone())))
 }

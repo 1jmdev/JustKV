@@ -2,7 +2,8 @@ use std::time::Duration;
 
 use crate::commands::util::{Args, eq_ascii, wrong_args};
 use crate::engine::store::Store;
-use crate::protocol::types::RespFrame;
+use crate::engine::value::CompactArg;
+use crate::protocol::types::{BulkData, RespFrame};
 
 pub(super) fn handle(store: &Store, command: &[u8], args: &Args) -> Option<RespFrame> {
     if eq_ascii(command, b"GET") {
@@ -33,7 +34,7 @@ fn get(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 2 {
         return wrong_args("GET");
     }
-    RespFrame::Bulk(store.get(&args[1]))
+    RespFrame::Bulk(store.get(&args[1]).map(BulkData::Value))
 }
 
 fn set(store: &Store, args: &Args) -> RespFrame {
@@ -85,10 +86,14 @@ fn set(store: &Store, args: &Args) -> RespFrame {
         return RespFrame::Error("ERR syntax error".to_string());
     }
 
-    let key = args[1].clone();
-    let value = args[2].clone();
+    let key = args[1].to_vec();
+    let value = args[2].to_vec();
 
-    let old_value = if return_old { store.get(&key) } else { None };
+    let old_value = if return_old {
+        store.get(&key).map(BulkData::Value)
+    } else {
+        None
+    };
     let success = if nx {
         store.setnx(key, value, ttl)
     } else if xx {
@@ -113,28 +118,36 @@ fn setnx(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 3 {
         return wrong_args("SETNX");
     }
-    RespFrame::Integer(store.setnx(args[1].clone(), args[2].clone(), None) as i64)
+    RespFrame::Integer(store.setnx(args[1].to_vec(), args[2].to_vec(), None) as i64)
 }
 
 fn getset(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 3 {
         return wrong_args("GETSET");
     }
-    RespFrame::Bulk(store.getset(args[1].clone(), args[2].clone()))
+    RespFrame::Bulk(
+        store
+            .getset(args[1].to_vec(), args[2].to_vec())
+            .map(|value| BulkData::Arg(CompactArg::from_vec(value))),
+    )
 }
 
 fn getdel(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 2 {
         return wrong_args("GETDEL");
     }
-    RespFrame::Bulk(store.getdel(&args[1]))
+    RespFrame::Bulk(
+        store
+            .getdel(&args[1])
+            .map(|value| BulkData::Arg(CompactArg::from_vec(value))),
+    )
 }
 
 fn append(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 3 {
         return wrong_args("APPEND");
     }
-    RespFrame::Integer(store.append(args[1].clone(), &args[2]) as i64)
+    RespFrame::Integer(store.append(args[1].to_vec(), &args[2]) as i64)
 }
 
 fn strlen(store: &Store, args: &Args) -> RespFrame {

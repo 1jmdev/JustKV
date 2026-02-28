@@ -1,7 +1,8 @@
 use bytes::{Buf, BytesMut};
 use thiserror::Error;
 
-use crate::protocol::types::RespFrame;
+use crate::engine::value::CompactArg;
+use crate::protocol::types::{BulkData, RespFrame};
 
 #[derive(Debug, Error)]
 pub enum ParseError {
@@ -46,7 +47,7 @@ fn parse_inline(src: &[u8], offset: usize) -> Result<(RespFrame, usize), ParseEr
     let parts: Vec<RespFrame> = line
         .split(|byte| byte.is_ascii_whitespace())
         .filter(|part| !part.is_empty())
-        .map(|part| RespFrame::Bulk(Some(part.to_vec())))
+        .map(|part| RespFrame::Bulk(Some(BulkData::Arg(CompactArg::from_vec(part.to_vec())))))
         .collect();
 
     if parts.is_empty() {
@@ -93,7 +94,7 @@ fn parse_bulk(src: &[u8], offset: usize) -> Result<(RespFrame, usize), ParseErro
     }
 
     let end = cursor + size;
-    let payload = src[cursor..end].to_vec();
+    let payload = BulkData::Arg(CompactArg::from_vec(src[cursor..end].to_vec()));
     cursor = end;
 
     if src.get(cursor) != Some(&b'\r') || src.get(cursor + 1) != Some(&b'\n') {

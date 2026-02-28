@@ -3,7 +3,7 @@ mod support;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use support::{connect, send_command, spawn_server};
-use valkey::protocol::types::RespFrame;
+use valkey::protocol::types::{BulkData, RespFrame};
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn set_get_del_flow_works() {
@@ -14,7 +14,10 @@ async fn set_get_del_flow_works() {
     assert_eq!(set, RespFrame::Simple("OK".to_string()));
 
     let get = send_command(&mut conn, &[b"GET", b"name"]).await;
-    assert_eq!(get, RespFrame::Bulk(Some(b"maty".to_vec())));
+    assert_eq!(
+        get,
+        RespFrame::Bulk(Some(BulkData::from_vec(b"maty".to_vec())))
+    );
 
     let del = send_command(&mut conn, &[b"DEL", b"name"]).await;
     assert_eq!(del, RespFrame::Integer(1));
@@ -37,8 +40,8 @@ async fn mset_mget_flow_works() {
     assert_eq!(
         mget,
         RespFrame::Array(Some(vec![
-            RespFrame::Bulk(Some(b"1".to_vec())),
-            RespFrame::Bulk(Some(b"2".to_vec())),
+            RespFrame::Bulk(Some(BulkData::from_vec(b"1".to_vec()))),
+            RespFrame::Bulk(Some(BulkData::from_vec(b"2".to_vec()))),
             RespFrame::Bulk(None),
         ]))
     );

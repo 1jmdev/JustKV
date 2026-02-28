@@ -1,5 +1,6 @@
 use std::borrow::Borrow;
 use std::hash::{Hash, Hasher};
+use std::ops::Deref;
 
 const INLINE_BYTES_CAPACITY: usize = 22;
 const INLINE_VALUE_CAPACITY: usize = 7;
@@ -70,8 +71,23 @@ impl<const INLINE_CAPACITY: usize> Borrow<[u8]> for CompactBytes<INLINE_CAPACITY
     }
 }
 
+impl<const INLINE_CAPACITY: usize> AsRef<[u8]> for CompactBytes<INLINE_CAPACITY> {
+    fn as_ref(&self) -> &[u8] {
+        self.as_slice()
+    }
+}
+
+impl<const INLINE_CAPACITY: usize> Deref for CompactBytes<INLINE_CAPACITY> {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        self.as_slice()
+    }
+}
+
 pub type CompactKey = CompactBytes<INLINE_BYTES_CAPACITY>;
 pub type CompactValue = CompactBytes<INLINE_VALUE_CAPACITY>;
+pub type CompactArg = CompactBytes<INLINE_BYTES_CAPACITY>;
 
 #[derive(Clone, Debug)]
 pub struct Entry {

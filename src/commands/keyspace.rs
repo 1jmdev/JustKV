@@ -1,6 +1,6 @@
 use crate::commands::util::{Args, eq_ascii, wrong_args};
 use crate::engine::store::Store;
-use crate::protocol::types::RespFrame;
+use crate::protocol::types::{BulkData, RespFrame};
 
 pub fn handle(store: &Store, command: &[u8], args: &Args) -> Option<RespFrame> {
     if eq_ascii(command, b"DEL") {
@@ -37,21 +37,24 @@ fn del(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 2 {
         return wrong_args("DEL");
     }
-    RespFrame::Integer(store.del(&args[1..]))
+    let keys: Vec<Vec<u8>> = args[1..].iter().map(|key| key.to_vec()).collect();
+    RespFrame::Integer(store.del(&keys))
 }
 
 fn exists(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 2 {
         return wrong_args("EXISTS");
     }
-    RespFrame::Integer(store.exists(&args[1..]))
+    let keys: Vec<Vec<u8>> = args[1..].iter().map(|key| key.to_vec()).collect();
+    RespFrame::Integer(store.exists(&keys))
 }
 
 fn touch(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 2 {
         return wrong_args("TOUCH");
     }
-    RespFrame::Integer(store.touch(&args[1..]))
+    let keys: Vec<Vec<u8>> = args[1..].iter().map(|key| key.to_vec()).collect();
+    RespFrame::Integer(store.touch(&keys))
 }
 
 fn key_type(store: &Store, args: &Args) -> RespFrame {
@@ -65,7 +68,7 @@ fn rename(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 3 {
         return wrong_args("RENAME");
     }
-    if store.rename(&args[1], args[2].clone()) {
+    if store.rename(&args[1], args[2].to_vec()) {
         RespFrame::ok()
     } else {
         RespFrame::Error("ERR no such key".to_string())
@@ -76,7 +79,7 @@ fn renamenx(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 3 {
         return wrong_args("RENAMENX");
     }
-    match store.renamenx(&args[1], args[2].clone()) {
+    match store.renamenx(&args[1], args[2].to_vec()) {
         Ok(value) => RespFrame::Integer(value),
         Err(_) => RespFrame::Error("ERR no such key".to_string()),
     }
@@ -98,7 +101,7 @@ fn keys(store: &Store, args: &Args) -> RespFrame {
         store
             .keys(&args[1])
             .into_iter()
-            .map(|key| RespFrame::Bulk(Some(key)))
+            .map(|key| RespFrame::Bulk(Some(BulkData::from_vec(key))))
             .collect(),
     ))
 }
