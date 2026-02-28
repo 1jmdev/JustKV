@@ -15,6 +15,12 @@ pub fn dispatch(store: &Store, frame: RespFrame) -> RespFrame {
 
     let command = ascii_upper(&args[0]);
     match command.as_slice() {
+        b"AUTH" => auth(&args),
+        b"HELLO" => hello(&args),
+        b"CLIENT" => client(&args),
+        b"COMMAND" => command_introspection(&args),
+        b"SELECT" => select_db(&args),
+        b"QUIT" => quit(&args),
         b"PING" => ping(&args),
         b"ECHO" => echo(&args),
         b"GET" => get(store, &args),
@@ -49,6 +55,92 @@ fn parse_command(frame: RespFrame) -> Result<Vec<Vec<u8>>, String> {
 
 fn ascii_upper(raw: &[u8]) -> Vec<u8> {
     raw.iter().map(u8::to_ascii_uppercase).collect()
+}
+
+fn auth(args: &[Vec<u8>]) -> RespFrame {
+    if args.len() != 2 && args.len() != 3 {
+        return RespFrame::Error("ERR wrong number of arguments for 'AUTH' command".to_string());
+    }
+
+    RespFrame::ok()
+}
+
+fn hello(args: &[Vec<u8>]) -> RespFrame {
+    if args.len() == 1 {
+        return hello_response();
+    }
+
+    let version = match std::str::from_utf8(&args[1]) {
+        Ok(raw) => raw.parse::<u8>().ok(),
+        Err(_) => None,
+    };
+
+    match version {
+        Some(2) | Some(3) => hello_response(),
+        _ => RespFrame::Error("NOPROTO unsupported protocol version".to_string()),
+    }
+}
+
+fn hello_response() -> RespFrame {
+    RespFrame::Array(Some(vec![
+        RespFrame::Bulk(Some(b"server".to_vec())),
+        RespFrame::Bulk(Some(b"valkey".to_vec())),
+        RespFrame::Bulk(Some(b"version".to_vec())),
+        RespFrame::Bulk(Some(env!("CARGO_PKG_VERSION").as_bytes().to_vec())),
+        RespFrame::Bulk(Some(b"proto".to_vec())),
+        RespFrame::Integer(2),
+        RespFrame::Bulk(Some(b"id".to_vec())),
+        RespFrame::Integer(1),
+        RespFrame::Bulk(Some(b"mode".to_vec())),
+        RespFrame::Bulk(Some(b"standalone".to_vec())),
+        RespFrame::Bulk(Some(b"role".to_vec())),
+        RespFrame::Bulk(Some(b"master".to_vec())),
+        RespFrame::Bulk(Some(b"modules".to_vec())),
+        RespFrame::Array(Some(vec![])),
+    ]))
+}
+
+fn client(args: &[Vec<u8>]) -> RespFrame {
+    if args.len() < 2 {
+        return RespFrame::Error("ERR wrong number of arguments for 'CLIENT' command".to_string());
+    }
+
+    let sub = ascii_upper(&args[1]);
+    match sub.as_slice() {
+        b"SETINFO" | b"SETNAME" => RespFrame::ok(),
+        b"GETNAME" => RespFrame::Bulk(None),
+        b"ID" => RespFrame::Integer(1),
+        _ => RespFrame::Error("ERR unknown subcommand for CLIENT".to_string()),
+    }
+}
+
+fn command_introspection(_args: &[Vec<u8>]) -> RespFrame {
+    RespFrame::Array(Some(vec![]))
+}
+
+fn select_db(args: &[Vec<u8>]) -> RespFrame {
+    if args.len() != 2 {
+        return RespFrame::Error("ERR wrong number of arguments for 'SELECT' command".to_string());
+    }
+
+    let index = match std::str::from_utf8(&args[1]) {
+        Ok(raw) => raw.parse::<u32>().ok(),
+        Err(_) => None,
+    };
+
+    match index {
+        Some(0) => RespFrame::ok(),
+        Some(_) => RespFrame::Error("ERR DB index is out of range".to_string()),
+        None => RespFrame::Error("ERR value is not an integer or out of range".to_string()),
+    }
+}
+
+fn quit(args: &[Vec<u8>]) -> RespFrame {
+    if args.len() != 1 {
+        return RespFrame::Error("ERR wrong number of arguments for 'QUIT' command".to_string());
+    }
+
+    RespFrame::ok()
 }
 
 fn ping(args: &[Vec<u8>]) -> RespFrame {
