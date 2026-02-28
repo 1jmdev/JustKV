@@ -1,4 +1,3 @@
-use std::hash::BuildHasher;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
