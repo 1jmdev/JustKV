@@ -8,6 +8,5 @@ name = "justkv-server"
 path = "src/main.rs"
 
 [dependencies]
-clap.workspace = true
 justkv = { path = "../justkv" }
 tokio.workspace = true

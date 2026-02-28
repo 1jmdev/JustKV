@@ -27,6 +27,9 @@ cargo run -p justkv-server -- --bind 127.0.0.1 --port 6379
 
 # redis-server style
 cargo run -p justkv-server -- ./redis.conf --port 6379
+
+# show compatible startup flags
+cargo run -p justkv-server -- --help
 ```
 
 Optional tuning:
