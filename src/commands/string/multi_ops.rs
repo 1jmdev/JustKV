@@ -1,14 +1,18 @@
-use crate::commands::util::{wrong_args, Args};
+use crate::commands::util::{eq_ascii, wrong_args, Args};
 use crate::engine::store::Store;
 use crate::protocol::types::RespFrame;
 
 pub(super) fn handle(store: &Store, command: &[u8], args: &Args) -> Option<RespFrame> {
-    match command {
-        b"MGET" => Some(mget(store, args)),
-        b"MSET" => Some(mset(store, args)),
-        b"MSETNX" => Some(msetnx(store, args)),
-        _ => None,
+    if eq_ascii(command, b"MGET") {
+        return Some(mget(store, args));
     }
+    if eq_ascii(command, b"MSET") {
+        return Some(mset(store, args));
+    }
+    if eq_ascii(command, b"MSETNX") {
+        return Some(msetnx(store, args));
+    }
+    None
 }
 
 fn mget(store: &Store, args: &Args) -> RespFrame {

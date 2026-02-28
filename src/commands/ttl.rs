@@ -1,18 +1,30 @@
-use crate::commands::util::{int_error, wrong_args, Args};
+use crate::commands::util::{eq_ascii, int_error, wrong_args, Args};
 use crate::engine::store::Store;
 use crate::protocol::types::RespFrame;
 
 pub fn handle(store: &Store, command: &[u8], args: &Args) -> Option<RespFrame> {
-    match command {
-        b"EXPIRE" => Some(expire(store, args)),
-        b"PEXPIRE" => Some(pexpire(store, args)),
-        b"EXPIREAT" => Some(expireat(store, args)),
-        b"PEXPIREAT" => Some(pexpireat(store, args)),
-        b"PERSIST" => Some(persist(store, args)),
-        b"TTL" => Some(ttl(store, args)),
-        b"PTTL" => Some(pttl(store, args)),
-        _ => None,
+    if eq_ascii(command, b"EXPIRE") {
+        return Some(expire(store, args));
     }
+    if eq_ascii(command, b"PEXPIRE") {
+        return Some(pexpire(store, args));
+    }
+    if eq_ascii(command, b"EXPIREAT") {
+        return Some(expireat(store, args));
+    }
+    if eq_ascii(command, b"PEXPIREAT") {
+        return Some(pexpireat(store, args));
+    }
+    if eq_ascii(command, b"PERSIST") {
+        return Some(persist(store, args));
+    }
+    if eq_ascii(command, b"TTL") {
+        return Some(ttl(store, args));
+    }
+    if eq_ascii(command, b"PTTL") {
+        return Some(pttl(store, args));
+    }
+    None
 }
 
 fn expire(store: &Store, args: &Args) -> RespFrame {

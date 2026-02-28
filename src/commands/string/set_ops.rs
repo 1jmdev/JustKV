@@ -1,20 +1,32 @@
 use std::time::Duration;
 
-use crate::commands::util::{upper, wrong_args, Args};
+use crate::commands::util::{eq_ascii, wrong_args, Args};
 use crate::engine::store::Store;
 use crate::protocol::types::RespFrame;
 
 pub(super) fn handle(store: &Store, command: &[u8], args: &Args) -> Option<RespFrame> {
-    match command {
-        b"GET" => Some(get(store, args)),
-        b"SET" => Some(set(store, args)),
-        b"SETNX" => Some(setnx(store, args)),
-        b"GETSET" => Some(getset(store, args)),
-        b"GETDEL" => Some(getdel(store, args)),
-        b"APPEND" => Some(append(store, args)),
-        b"STRLEN" => Some(strlen(store, args)),
-        _ => None,
+    if eq_ascii(command, b"GET") {
+        return Some(get(store, args));
     }
+    if eq_ascii(command, b"SET") {
+        return Some(set(store, args));
+    }
+    if eq_ascii(command, b"SETNX") {
+        return Some(setnx(store, args));
+    }
+    if eq_ascii(command, b"GETSET") {
+        return Some(getset(store, args));
+    }
+    if eq_ascii(command, b"GETDEL") {
+        return Some(getdel(store, args));
+    }
+    if eq_ascii(command, b"APPEND") {
+        return Some(append(store, args));
+    }
+    if eq_ascii(command, b"STRLEN") {
+        return Some(strlen(store, args));
+    }
+    None
 }
 
 fn get(store: &Store, args: &Args) -> RespFrame {
@@ -36,34 +48,35 @@ fn set(store: &Store, args: &Args) -> RespFrame {
     let mut index = 3;
 
     while index < args.len() {
-        let opt = upper(&args[index]);
-        match opt.as_slice() {
-            b"NX" => nx = true,
-            b"XX" => xx = true,
-            b"GET" => return_old = true,
-            b"EX" => {
-                index += 1;
-                if index >= args.len() {
-                    return wrong_args("SET");
-                }
-                let seconds = match parse_u64(&args[index]) {
-                    Ok(value) => value,
-                    Err(response) => return response,
-                };
-                ttl = Some(Duration::from_secs(seconds));
+        let opt = args[index].as_slice();
+        if eq_ascii(opt, b"NX") {
+            nx = true;
+        } else if eq_ascii(opt, b"XX") {
+            xx = true;
+        } else if eq_ascii(opt, b"GET") {
+            return_old = true;
+        } else if eq_ascii(opt, b"EX") {
+            index += 1;
+            if index >= args.len() {
+                return wrong_args("SET");
             }
-            b"PX" => {
-                index += 1;
-                if index >= args.len() {
-                    return wrong_args("SET");
-                }
-                let millis = match parse_u64(&args[index]) {
-                    Ok(value) => value,
-                    Err(response) => return response,
-                };
-                ttl = Some(Duration::from_millis(millis));
+            let seconds = match parse_u64(&args[index]) {
+                Ok(value) => value,
+                Err(response) => return response,
+            };
+            ttl = Some(Duration::from_secs(seconds));
+        } else if eq_ascii(opt, b"PX") {
+            index += 1;
+            if index >= args.len() {
+                return wrong_args("SET");
             }
-            _ => return RespFrame::Error("ERR syntax error".to_string()),
+            let millis = match parse_u64(&args[index]) {
+                Ok(value) => value,
+                Err(response) => return response,
+            };
+            ttl = Some(Duration::from_millis(millis));
+        } else {
+            return RespFrame::Error("ERR syntax error".to_string());
         }
         index += 1;
     }

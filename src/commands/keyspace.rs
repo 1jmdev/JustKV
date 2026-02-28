@@ -1,20 +1,36 @@
-use crate::commands::util::{wrong_args, Args};
+use crate::commands::util::{eq_ascii, wrong_args, Args};
 use crate::engine::store::Store;
 use crate::protocol::types::RespFrame;
 
 pub fn handle(store: &Store, command: &[u8], args: &Args) -> Option<RespFrame> {
-    match command {
-        b"DEL" => Some(del(store, args)),
-        b"EXISTS" => Some(exists(store, args)),
-        b"TOUCH" => Some(touch(store, args)),
-        b"TYPE" => Some(key_type(store, args)),
-        b"RENAME" => Some(rename(store, args)),
-        b"RENAMENX" => Some(renamenx(store, args)),
-        b"DBSIZE" => Some(dbsize(store, args)),
-        b"KEYS" => Some(keys(store, args)),
-        b"FLUSHDB" => Some(flushdb(store, args)),
-        _ => None,
+    if eq_ascii(command, b"DEL") {
+        return Some(del(store, args));
     }
+    if eq_ascii(command, b"EXISTS") {
+        return Some(exists(store, args));
+    }
+    if eq_ascii(command, b"TOUCH") {
+        return Some(touch(store, args));
+    }
+    if eq_ascii(command, b"TYPE") {
+        return Some(key_type(store, args));
+    }
+    if eq_ascii(command, b"RENAME") {
+        return Some(rename(store, args));
+    }
+    if eq_ascii(command, b"RENAMENX") {
+        return Some(renamenx(store, args));
+    }
+    if eq_ascii(command, b"DBSIZE") {
+        return Some(dbsize(store, args));
+    }
+    if eq_ascii(command, b"KEYS") {
+        return Some(keys(store, args));
+    }
+    if eq_ascii(command, b"FLUSHDB") {
+        return Some(flushdb(store, args));
+    }
+    None
 }
 
 fn del(store: &Store, args: &Args) -> RespFrame {

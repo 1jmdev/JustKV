@@ -1,15 +1,21 @@
-use crate::commands::util::{int_error, wrong_args, Args};
+use crate::commands::util::{eq_ascii, int_error, wrong_args, Args};
 use crate::engine::store::Store;
 use crate::protocol::types::RespFrame;
 
 pub(super) fn handle(store: &Store, command: &[u8], args: &Args) -> Option<RespFrame> {
-    match command {
-        b"INCR" => Some(incr(store, args)),
-        b"INCRBY" => Some(incrby(store, args)),
-        b"DECR" => Some(decr(store, args)),
-        b"DECRBY" => Some(decrby(store, args)),
-        _ => None,
+    if eq_ascii(command, b"INCR") {
+        return Some(incr(store, args));
     }
+    if eq_ascii(command, b"INCRBY") {
+        return Some(incrby(store, args));
+    }
+    if eq_ascii(command, b"DECR") {
+        return Some(decr(store, args));
+    }
+    if eq_ascii(command, b"DECRBY") {
+        return Some(decrby(store, args));
+    }
+    None
 }
 
 fn incr(store: &Store, args: &Args) -> RespFrame {
