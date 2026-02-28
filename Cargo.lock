@@ -273,8 +273,10 @@ dependencies = [
 name = "justkv-cli"
 version = "0.1.0"
 dependencies = [
+ "bytes",
  "clap",
  "justkv",
+ "shlex",
  "tokio",
 ]
 

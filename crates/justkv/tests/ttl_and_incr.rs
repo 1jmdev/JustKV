@@ -2,8 +2,8 @@ mod support;
 
 use std::time::Duration;
 
-use support::{connect, send_command, spawn_server};
 use justkv::protocol::types::RespFrame;
+use support::{connect, send_command, spawn_server};
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn incr_and_ttl_commands_work() {

@@ -2,8 +2,8 @@ mod support;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-use support::{connect, send_command, spawn_server};
 use justkv::protocol::types::{BulkData, RespFrame};
+use support::{connect, send_command, spawn_server};
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn set_get_del_flow_works() {
