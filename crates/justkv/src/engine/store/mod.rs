@@ -8,6 +8,8 @@ mod strings;
 mod ttl;
 mod zset;
 
+pub use keyspace::{RestoreError, SortError, SortOptions, SortOrder, SortResult};
+
 use std::sync::Arc;
 
 use ahash::RandomState;
