@@ -2,20 +2,21 @@ use std::borrow::Borrow;
 use std::hash::{Hash, Hasher};
 
 const INLINE_BYTES_CAPACITY: usize = 22;
+const INLINE_VALUE_CAPACITY: usize = 7;
 
 #[derive(Clone, Debug)]
-pub enum CompactBytes {
+pub enum CompactBytes<const INLINE_CAPACITY: usize> {
     Inline {
         len: u8,
-        data: [u8; INLINE_BYTES_CAPACITY],
+        data: [u8; INLINE_CAPACITY],
     },
     Heap(Box<[u8]>),
 }
 
-impl CompactBytes {
+impl<const INLINE_CAPACITY: usize> CompactBytes<INLINE_CAPACITY> {
     pub fn from_vec(value: Vec<u8>) -> Self {
-        if value.len() <= INLINE_BYTES_CAPACITY {
-            let mut data = [0; INLINE_BYTES_CAPACITY];
+        if value.len() <= INLINE_CAPACITY {
+            let mut data = [0; INLINE_CAPACITY];
             data[..value.len()].copy_from_slice(&value);
             Self::Inline {
                 len: value.len() as u8,
@@ -49,41 +50,38 @@ impl CompactBytes {
     }
 }
 
-impl PartialEq for CompactBytes {
+impl<const INLINE_CAPACITY: usize> PartialEq for CompactBytes<INLINE_CAPACITY> {
     fn eq(&self, other: &Self) -> bool {
         self.as_slice() == other.as_slice()
     }
 }
 
-impl Eq for CompactBytes {}
+impl<const INLINE_CAPACITY: usize> Eq for CompactBytes<INLINE_CAPACITY> {}
 
-impl Hash for CompactBytes {
+impl<const INLINE_CAPACITY: usize> Hash for CompactBytes<INLINE_CAPACITY> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.as_slice().hash(state);
     }
 }
 
-impl Borrow<[u8]> for CompactBytes {
+impl<const INLINE_CAPACITY: usize> Borrow<[u8]> for CompactBytes<INLINE_CAPACITY> {
     fn borrow(&self) -> &[u8] {
         self.as_slice()
     }
 }
 
+pub type CompactKey = CompactBytes<INLINE_BYTES_CAPACITY>;
+pub type CompactValue = CompactBytes<INLINE_VALUE_CAPACITY>;
+
 #[derive(Clone, Debug)]
 pub struct Entry {
-    pub value: CompactBytes,
-    pub expires_at_ms: u64,
+    pub value: CompactValue,
 }
 
 impl Entry {
-    pub fn new(value: Vec<u8>, expires_at_ms: u64) -> Self {
+    pub fn new(value: Vec<u8>) -> Self {
         Self {
-            value: CompactBytes::from_vec(value),
-            expires_at_ms,
+            value: CompactValue::from_vec(value),
         }
-    }
-
-    pub fn is_expired(&self, now_ms: u64) -> bool {
-        self.expires_at_ms != 0 && now_ms >= self.expires_at_ms
     }
 }

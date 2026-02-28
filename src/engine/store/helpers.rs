@@ -1,7 +1,7 @@
 use std::sync::OnceLock;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use super::StoreMap;
+use super::Shard;
 
 pub(super) fn monotonic_now_ms() -> u64 {
     static START: OnceLock<Instant> = OnceLock::new();
@@ -30,13 +30,15 @@ pub(super) fn remaining_ttl_ms(deadline_ms: u64) -> i64 {
     }
 }
 
-pub(super) fn purge_if_expired(shard: &mut StoreMap, key: &[u8], now_ms: u64) -> bool {
+pub(super) fn purge_if_expired(shard: &mut Shard, key: &[u8], now_ms: u64) -> bool {
     let expired = shard
+        .ttl
         .get(key)
-        .map(|entry| entry.is_expired(now_ms))
-        .unwrap_or(false);
+        .copied()
+        .is_some_and(|deadline| now_ms >= deadline);
     if expired {
-        shard.remove(key);
+        shard.ttl.remove(key);
+        shard.entries.remove(key);
     }
     expired
 }

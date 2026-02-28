@@ -10,13 +10,28 @@ use ahash::RandomState;
 use hashbrown::HashMap;
 use parking_lot::RwLock;
 
-use crate::engine::value::{CompactBytes, Entry};
+use crate::engine::value::{CompactKey, Entry};
 
-type StoreMap = HashMap<CompactBytes, Entry, RandomState>;
+type StoreMap = HashMap<CompactKey, Entry, RandomState>;
+type TtlMap = HashMap<CompactKey, u64, RandomState>;
+
+pub(super) struct Shard {
+    entries: StoreMap,
+    ttl: TtlMap,
+}
+
+impl Shard {
+    fn new() -> Self {
+        Self {
+            entries: HashMap::with_hasher(RandomState::new()),
+            ttl: HashMap::with_hasher(RandomState::new()),
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct Store {
-    shards: Arc<Vec<RwLock<StoreMap>>>,
+    shards: Arc<Vec<RwLock<Shard>>>,
     shard_mask: usize,
     hash_builder: RandomState,
 }
@@ -26,7 +41,7 @@ impl Store {
         let shard_count = shards.max(1).next_power_of_two();
         let mut shard_vec = Vec::with_capacity(shard_count);
         for _ in 0..shard_count {
-            shard_vec.push(RwLock::new(HashMap::with_hasher(RandomState::new())));
+            shard_vec.push(RwLock::new(Shard::new()));
         }
 
         Self {
@@ -41,9 +56,18 @@ impl Store {
         let mut removed = 0;
         for shard in self.shards.iter() {
             let mut guard = shard.write();
-            let before = guard.len();
-            guard.retain(|_, entry| !entry.is_expired(now_ms));
-            removed += before - guard.len();
+            let expired_keys: Vec<_> = guard
+                .ttl
+                .iter()
+                .filter_map(|(key, &deadline)| (deadline <= now_ms).then(|| key.to_vec()))
+                .collect();
+
+            for key in expired_keys {
+                guard.ttl.remove(key.as_slice());
+                if guard.entries.remove(key.as_slice()).is_some() {
+                    removed += 1;
+                }
+            }
         }
         removed
     }

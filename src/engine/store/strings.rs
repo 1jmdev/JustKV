@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::engine::value::{CompactBytes, Entry};
+use crate::engine::value::{CompactKey, Entry};
 
 use super::helpers::{deadline_from_ttl, monotonic_now_ms, purge_if_expired};
 use super::Store;
@@ -11,33 +11,48 @@ impl Store {
         let now_ms = monotonic_now_ms();
         let shard = self.shards[idx].read();
         shard
+            .entries
             .get(key)
-            .filter(|entry| !entry.is_expired(now_ms))
+            .filter(|_| {
+                shard
+                    .ttl
+                    .get(key)
+                    .copied()
+                    .is_none_or(|deadline| now_ms < deadline)
+            })
             .map(|entry| entry.value.to_vec())
     }
 
     pub fn set(&self, key: Vec<u8>, value: Vec<u8>, ttl: Option<Duration>) {
         let idx = self.shard_index(&key);
         let expires_at_ms = ttl.map(deadline_from_ttl).unwrap_or(0);
-        self.shards[idx].write().insert(
-            CompactBytes::from_vec(key),
-            Entry::new(value, expires_at_ms),
-        );
+        let mut shard = self.shards[idx].write();
+        let compact_key = CompactKey::from_vec(key);
+        shard.entries.insert(compact_key.clone(), Entry::new(value));
+        if expires_at_ms == 0 {
+            shard.ttl.remove(compact_key.as_slice());
+        } else {
+            shard.ttl.insert(compact_key, expires_at_ms);
+        }
     }
 
     pub fn setnx(&self, key: Vec<u8>, value: Vec<u8>, ttl: Option<Duration>) -> bool {
         let idx = self.shard_index(&key);
         let mut shard = self.shards[idx].write();
         let now_ms = monotonic_now_ms();
-        if !purge_if_expired(&mut shard, &key, now_ms) && shard.contains_key(key.as_slice()) {
+        if !purge_if_expired(&mut shard, &key, now_ms) && shard.entries.contains_key(key.as_slice())
+        {
             return false;
         }
 
         let expires_at_ms = ttl.map(deadline_from_ttl).unwrap_or(0);
-        shard.insert(
-            CompactBytes::from_vec(key),
-            Entry::new(value, expires_at_ms),
-        );
+        let compact_key = CompactKey::from_vec(key);
+        shard.entries.insert(compact_key.clone(), Entry::new(value));
+        if expires_at_ms == 0 {
+            shard.ttl.remove(compact_key.as_slice());
+        } else {
+            shard.ttl.insert(compact_key, expires_at_ms);
+        }
         true
     }
 
@@ -45,15 +60,19 @@ impl Store {
         let idx = self.shard_index(&key);
         let mut shard = self.shards[idx].write();
         let now_ms = monotonic_now_ms();
-        if purge_if_expired(&mut shard, &key, now_ms) || !shard.contains_key(key.as_slice()) {
+        if purge_if_expired(&mut shard, &key, now_ms) || !shard.entries.contains_key(key.as_slice())
+        {
             return false;
         }
 
         let expires_at_ms = ttl.map(deadline_from_ttl).unwrap_or(0);
-        shard.insert(
-            CompactBytes::from_vec(key),
-            Entry::new(value, expires_at_ms),
-        );
+        let compact_key = CompactKey::from_vec(key);
+        shard.entries.insert(compact_key.clone(), Entry::new(value));
+        if expires_at_ms == 0 {
+            shard.ttl.remove(compact_key.as_slice());
+        } else {
+            shard.ttl.insert(compact_key, expires_at_ms);
+        }
         true
     }
 
@@ -64,10 +83,15 @@ impl Store {
         let old_value = if purge_if_expired(&mut shard, &key, now_ms) {
             None
         } else {
-            shard.get(key.as_slice()).map(|entry| entry.value.to_vec())
+            shard
+                .entries
+                .get(key.as_slice())
+                .map(|entry| entry.value.to_vec())
         };
 
-        shard.insert(CompactBytes::from_vec(key), Entry::new(value, 0));
+        let compact_key = CompactKey::from_vec(key);
+        shard.entries.insert(compact_key.clone(), Entry::new(value));
+        shard.ttl.remove(compact_key.as_slice());
         old_value
     }
 
@@ -78,7 +102,11 @@ impl Store {
         if purge_if_expired(&mut shard, key, now_ms) {
             return None;
         }
-        shard.remove(key).map(|entry| entry.value.into_vec())
+        shard.ttl.remove(key);
+        shard
+            .entries
+            .remove(key)
+            .map(|entry| entry.value.into_vec())
     }
 
     pub fn append(&self, key: Vec<u8>, suffix: &[u8]) -> usize {
@@ -91,6 +119,7 @@ impl Store {
             Vec::new()
         } else {
             shard
+                .entries
                 .get(key_slice)
                 .map(|entry| entry.value.to_vec())
                 .unwrap_or_default()
@@ -98,7 +127,9 @@ impl Store {
 
         base.extend_from_slice(suffix);
         let size = base.len();
-        shard.insert(CompactBytes::from_vec(key), Entry::new(base, 0));
+        let compact_key = CompactKey::from_vec(key);
+        shard.entries.insert(compact_key.clone(), Entry::new(base));
+        shard.ttl.remove(compact_key.as_slice());
         size
     }
 
@@ -107,8 +138,15 @@ impl Store {
         let now_ms = monotonic_now_ms();
         let shard = self.shards[idx].read();
         shard
+            .entries
             .get(key)
-            .filter(|entry| !entry.is_expired(now_ms))
+            .filter(|_| {
+                shard
+                    .ttl
+                    .get(key)
+                    .copied()
+                    .is_none_or(|deadline| now_ms < deadline)
+            })
             .map_or(0, |entry| entry.value.len())
     }
 
@@ -124,7 +162,7 @@ impl Store {
         let current = if purge_if_expired(&mut shard, key, now_ms) {
             0
         } else {
-            match shard.get(key) {
+            match shard.entries.get(key) {
                 Some(entry) => {
                     let text = std::str::from_utf8(entry.value.as_slice()).map_err(|_| ())?;
                     text.parse::<i64>().map_err(|_| ())?
@@ -134,10 +172,12 @@ impl Store {
         };
 
         let next = current.checked_add(delta).ok_or(())?;
-        shard.insert(
-            CompactBytes::from_vec(key.to_vec()),
-            Entry::new(next.to_string().into_bytes(), 0),
+        let compact_key = CompactKey::from_vec(key.to_vec());
+        shard.entries.insert(
+            compact_key.clone(),
+            Entry::new(next.to_string().into_bytes()),
         );
+        shard.ttl.remove(compact_key.as_slice());
         Ok(next)
     }
 
@@ -151,7 +191,7 @@ impl Store {
 
         for (key, value) in pairs {
             let idx = self.shard_index(&key);
-            grouped[idx].push((CompactBytes::from_vec(key), Entry::new(value, 0)));
+            grouped[idx].push((CompactKey::from_vec(key), Entry::new(value)));
         }
 
         for (idx, entries) in grouped.into_iter().enumerate() {
@@ -161,7 +201,8 @@ impl Store {
 
             let mut shard = self.shards[idx].write();
             for (key, entry) in entries {
-                shard.insert(key, entry);
+                shard.ttl.remove(key.as_slice());
+                shard.entries.insert(key, entry);
             }
         }
     }
@@ -171,7 +212,9 @@ impl Store {
         for (key, _) in &pairs {
             let idx = self.shard_index(key);
             let mut shard = self.shards[idx].write();
-            if !purge_if_expired(&mut shard, key, now_ms) && shard.contains_key(key.as_slice()) {
+            if !purge_if_expired(&mut shard, key, now_ms)
+                && shard.entries.contains_key(key.as_slice())
+            {
                 return false;
             }
         }

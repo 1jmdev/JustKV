@@ -1,5 +1,7 @@
 use std::time::Duration;
 
+use crate::engine::value::CompactKey;
+
 use super::helpers::{
     deadline_from_ttl, monotonic_now_ms, purge_if_expired, remaining_ttl_ms, unix_time_ms,
 };
@@ -18,8 +20,11 @@ impl Store {
             return 0;
         }
 
-        if let Some(entry) = shard.get_mut(key) {
-            entry.expires_at_ms = deadline_from_ttl(Duration::from_millis(milliseconds));
+        if shard.entries.contains_key(key) {
+            shard.ttl.insert(
+                CompactKey::from_vec(key.to_vec()),
+                deadline_from_ttl(Duration::from_millis(milliseconds)),
+            );
             return 1;
         }
 
@@ -46,10 +51,9 @@ impl Store {
             return 0;
         }
 
-        match shard.get_mut(key) {
-            Some(entry) => {
-                if entry.expires_at_ms != 0 {
-                    entry.expires_at_ms = 0;
+        match shard.entries.get(key) {
+            Some(_) => {
+                if shard.ttl.remove(key).is_some() {
                     1
                 } else {
                     0
@@ -76,8 +80,11 @@ impl Store {
             return -2;
         }
 
-        match shard.get(key) {
-            Some(entry) => remaining_ttl_ms(entry.expires_at_ms),
+        match shard.entries.get(key) {
+            Some(_) => {
+                let deadline = shard.ttl.get(key).copied().unwrap_or(0);
+                remaining_ttl_ms(deadline)
+            }
             None => -2,
         }
     }
