@@ -1,4 +1,4 @@
-use crate::commands::util::{Args, eq_ascii, int_error, wrong_args};
+use crate::commands::util::{eq_ascii, int_error, wrong_args, wrong_type, Args};
 use crate::engine::store::Store;
 use crate::protocol::types::RespFrame;
 
@@ -22,6 +22,9 @@ fn incr(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 2 {
         return wrong_args("INCR");
     }
+    if matches!(store.value_kind(&args[1]), Some("hash")) {
+        return wrong_type();
+    }
     match store.incr(&args[1]) {
         Ok(value) => RespFrame::Integer(value),
         Err(_) => int_error(),
@@ -31,6 +34,9 @@ fn incr(store: &Store, args: &Args) -> RespFrame {
 fn incrby(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 3 {
         return wrong_args("INCRBY");
+    }
+    if matches!(store.value_kind(&args[1]), Some("hash")) {
+        return wrong_type();
     }
 
     let delta = match parse_i64(&args[2]) {
@@ -48,6 +54,9 @@ fn decr(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 2 {
         return wrong_args("DECR");
     }
+    if matches!(store.value_kind(&args[1]), Some("hash")) {
+        return wrong_type();
+    }
 
     match store.incr_by(&args[1], -1) {
         Ok(value) => RespFrame::Integer(value),
@@ -58,6 +67,9 @@ fn decr(store: &Store, args: &Args) -> RespFrame {
 fn decrby(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 3 {
         return wrong_args("DECRBY");
+    }
+    if matches!(store.value_kind(&args[1]), Some("hash")) {
+        return wrong_type();
     }
 
     let delta = match parse_i64(&args[2]) {

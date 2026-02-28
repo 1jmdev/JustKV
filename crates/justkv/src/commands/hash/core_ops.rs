@@ -54,7 +54,13 @@ fn hset(store: &Store, command: &[u8], args: &Args) -> RespFrame {
         .collect();
 
     match store.hset(&args[1], &pairs) {
-        Ok(created) => RespFrame::Integer(created),
+        Ok(created) => {
+            if eq_ascii(command, b"HMSET") {
+                RespFrame::ok()
+            } else {
+                RespFrame::Integer(created)
+            }
+        }
         Err(_) => wrong_type(),
     }
 }

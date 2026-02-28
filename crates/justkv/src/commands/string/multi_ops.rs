@@ -1,4 +1,4 @@
-use crate::commands::util::{Args, eq_ascii, wrong_args};
+use crate::commands::util::{eq_ascii, wrong_args, wrong_type, Args};
 use crate::engine::store::Store;
 use crate::protocol::types::{BulkData, RespFrame};
 
@@ -18,6 +18,12 @@ pub(super) fn handle(store: &Store, command: &[u8], args: &Args) -> Option<RespF
 fn mget(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 2 {
         return wrong_args("MGET");
+    }
+    if args[1..]
+        .iter()
+        .any(|key| matches!(store.value_kind(key), Some("hash")))
+    {
+        return wrong_type();
     }
     RespFrame::Array(Some(
         args[1..]

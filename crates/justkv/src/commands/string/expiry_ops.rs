@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::commands::util::{eq_ascii, int_error, wrong_args, Args};
+use crate::commands::util::{eq_ascii, int_error, wrong_args, wrong_type, Args};
 use crate::engine::store::{GetExMode, Store};
 use crate::engine::value::CompactArg;
 use crate::protocol::types::{BulkData, RespFrame};
@@ -49,6 +49,9 @@ fn psetex(store: &Store, args: &Args) -> RespFrame {
 fn getex(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 2 {
         return wrong_args("GETEX");
+    }
+    if matches!(store.value_kind(&args[1]), Some("hash")) {
+        return wrong_type();
     }
 
     let mode = match parse_getex_mode(args) {
