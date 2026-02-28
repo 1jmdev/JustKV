@@ -14,7 +14,9 @@ const COMMANDS: &[&str] = &[
     "DECR",
     "DECRBY",
     "DEL",
+    "DISCARD",
     "ECHO",
+    "EXEC",
     "EXISTS",
     "EXPIRE",
     "EXPIREAT",
@@ -30,6 +32,7 @@ const COMMANDS: &[&str] = &[
     "MGET",
     "MSET",
     "MSETNX",
+    "MULTI",
     "PEXPIRE",
     "PEXPIREAT",
     "PERSIST",
@@ -50,6 +53,8 @@ const COMMANDS: &[&str] = &[
     "TYPE",
     "DUMP",
     "UNLINK",
+    "UNWATCH",
+    "WATCH",
 ];
 
 const META_COMMANDS: &[&str] = &[":clear", ":help", ":history", ":raw", ":quit"];

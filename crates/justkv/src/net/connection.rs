@@ -2,8 +2,8 @@ use bytes::BytesMut;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
-use crate::commands::dispatcher::dispatch;
 use crate::engine::store::Store;
+use crate::net::transaction::TransactionState;
 use crate::protocol::encoder::encode;
 use crate::protocol::parser::{ParseError, parse_frame};
 use crate::protocol::types::RespFrame;
@@ -17,6 +17,7 @@ pub async fn handle_connection(
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let mut read_buf = BytesMut::with_capacity(READ_BUFFER_CAPACITY);
     let mut write_buf = BytesMut::with_capacity(WRITE_BUFFER_CAPACITY);
+    let mut tx_state = TransactionState::default();
 
     loop {
         let bytes_read = stream.read_buf(&mut read_buf).await?;
@@ -25,7 +26,8 @@ pub async fn handle_connection(
         }
 
         while let Some(frame) = parse_next_frame(&mut read_buf)? {
-            encode(&dispatch(&store, frame), &mut write_buf);
+            let response = tx_state.handle_frame(&store, frame);
+            encode(&response, &mut write_buf);
         }
 
         if !write_buf.is_empty() {
