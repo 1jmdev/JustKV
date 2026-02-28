@@ -4,9 +4,7 @@ use crate::net::connection::handle_connection;
 use tokio::net::TcpListener;
 use tokio::time::{Duration, sleep};
 
-pub async fn run_listener(
-    config: Config,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn run_listener(config: Config) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let listener = TcpListener::bind(config.addr()).await?;
     let store = Store::new(config.shards);
 
