@@ -1,5 +1,5 @@
-mod helpers;
 mod hash;
+mod helpers;
 mod keyspace;
 mod pattern;
 mod strings;
