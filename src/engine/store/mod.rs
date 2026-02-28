@@ -12,7 +12,7 @@ use parking_lot::RwLock;
 
 use crate::engine::value::Entry;
 
-type StoreMap = HashMap<Vec<u8>, Entry, RandomState>;
+type StoreMap = HashMap<Box<[u8]>, Entry, RandomState>;
 
 #[derive(Clone)]
 pub struct Store {
@@ -37,11 +37,12 @@ impl Store {
     }
 
     pub fn sweep_expired(&self) -> usize {
+        let now_ms = helpers::monotonic_now_ms();
         let mut removed = 0;
         for shard in self.shards.iter() {
             let mut guard = shard.write();
             let before = guard.len();
-            guard.retain(|_, entry| !entry.is_expired());
+            guard.retain(|_, entry| !entry.is_expired(now_ms));
             removed += before - guard.len();
         }
         removed

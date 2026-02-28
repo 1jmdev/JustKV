@@ -1,4 +1,4 @@
-use super::helpers::purge_if_expired;
+use super::helpers::{monotonic_now_ms, purge_if_expired};
 use super::pattern::wildcard_match;
 use super::Store;
 
@@ -7,7 +7,7 @@ impl Store {
         let mut removed = 0;
         for key in keys {
             let idx = self.shard_index(key);
-            if self.shards[idx].write().remove(key).is_some() {
+            if self.shards[idx].write().remove(key.as_slice()).is_some() {
                 removed += 1;
             }
         }
@@ -15,11 +15,15 @@ impl Store {
     }
 
     pub fn exists(&self, keys: &[Vec<u8>]) -> i64 {
+        let now_ms = monotonic_now_ms();
         let mut count = 0;
         for key in keys {
             let idx = self.shard_index(key);
-            let mut shard = self.shards[idx].write();
-            if !purge_if_expired(&mut shard, key) && shard.contains_key(key) {
+            let shard = self.shards[idx].read();
+            if shard
+                .get(key.as_slice())
+                .is_some_and(|entry| !entry.is_expired(now_ms))
+            {
                 count += 1;
             }
         }
@@ -33,7 +37,8 @@ impl Store {
     pub fn rename(&self, from: &[u8], to: Vec<u8>) -> bool {
         let from_idx = self.shard_index(from);
         let mut source = self.shards[from_idx].write();
-        if purge_if_expired(&mut source, from) {
+        let now_ms = monotonic_now_ms();
+        if purge_if_expired(&mut source, from, now_ms) {
             return false;
         }
 
@@ -43,14 +48,17 @@ impl Store {
         drop(source);
 
         let to_idx = self.shard_index(&to);
-        self.shards[to_idx].write().insert(to, entry);
+        self.shards[to_idx]
+            .write()
+            .insert(to.into_boxed_slice(), entry);
         true
     }
 
     pub fn renamenx(&self, from: &[u8], to: Vec<u8>) -> Result<i64, ()> {
         let from_idx = self.shard_index(from);
         let mut source = self.shards[from_idx].write();
-        if purge_if_expired(&mut source, from) {
+        let now_ms = monotonic_now_ms();
+        if purge_if_expired(&mut source, from, now_ms) {
             return Err(());
         }
 
@@ -61,10 +69,12 @@ impl Store {
 
         let to_idx = self.shard_index(&to);
         let mut destination = self.shards[to_idx].write();
-        if !purge_if_expired(&mut destination, &to) && destination.contains_key(&to) {
+        if !purge_if_expired(&mut destination, to.as_slice(), now_ms)
+            && destination.contains_key(to.as_slice())
+        {
             return Ok(0);
         }
-        destination.insert(to, entry);
+        destination.insert(to.into_boxed_slice(), entry);
         drop(destination);
 
         self.shards[from_idx].write().remove(from);
@@ -80,22 +90,26 @@ impl Store {
     }
 
     pub fn dbsize(&self) -> i64 {
-        self.sweep_expired();
+        let now_ms = monotonic_now_ms();
         let mut total = 0;
         for shard in self.shards.iter() {
-            total += shard.read().len() as i64;
+            total += shard
+                .read()
+                .values()
+                .filter(|entry| !entry.is_expired(now_ms))
+                .count() as i64;
         }
         total
     }
 
     pub fn keys(&self, pattern: &[u8]) -> Vec<Vec<u8>> {
+        let now_ms = monotonic_now_ms();
         let mut out = Vec::new();
         for shard in self.shards.iter() {
-            let mut guard = shard.write();
-            guard.retain(|_, entry| !entry.is_expired());
-            for key in guard.keys() {
-                if wildcard_match(pattern, key) {
-                    out.push(key.clone());
+            let guard = shard.read();
+            for (key, entry) in guard.iter() {
+                if !entry.is_expired(now_ms) && wildcard_match(pattern, key) {
+                    out.push(key.to_vec());
                 }
             }
         }

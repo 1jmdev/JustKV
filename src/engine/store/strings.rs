@@ -1,127 +1,108 @@
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use crate::engine::value::Entry;
 
-use super::helpers::purge_if_expired;
+use super::helpers::{deadline_from_ttl, monotonic_now_ms, purge_if_expired};
 use super::Store;
 
 impl Store {
     pub fn get(&self, key: &[u8]) -> Option<Vec<u8>> {
         let idx = self.shard_index(key);
-        let mut shard = self.shards[idx].write();
-        if purge_if_expired(&mut shard, key) {
-            return None;
-        }
-        shard.get(key).map(|entry| entry.value.clone())
+        let now_ms = monotonic_now_ms();
+        let shard = self.shards[idx].read();
+        shard
+            .get(key)
+            .filter(|entry| !entry.is_expired(now_ms))
+            .map(|entry| entry.value.to_vec())
     }
 
     pub fn set(&self, key: Vec<u8>, value: Vec<u8>, ttl: Option<Duration>) {
         let idx = self.shard_index(&key);
-        let entry = Entry {
-            value,
-            expires_at: ttl.map(|timeout| Instant::now() + timeout),
-        };
-        self.shards[idx].write().insert(key, entry);
+        let expires_at_ms = ttl.map(deadline_from_ttl).unwrap_or(0);
+        self.shards[idx]
+            .write()
+            .insert(key.into_boxed_slice(), Entry::new(value, expires_at_ms));
     }
 
     pub fn setnx(&self, key: Vec<u8>, value: Vec<u8>, ttl: Option<Duration>) -> bool {
         let idx = self.shard_index(&key);
         let mut shard = self.shards[idx].write();
-        if !purge_if_expired(&mut shard, &key) && shard.contains_key(&key) {
+        let now_ms = monotonic_now_ms();
+        if !purge_if_expired(&mut shard, &key, now_ms) && shard.contains_key(key.as_slice()) {
             return false;
         }
 
-        shard.insert(
-            key,
-            Entry {
-                value,
-                expires_at: ttl.map(|timeout| Instant::now() + timeout),
-            },
-        );
+        let expires_at_ms = ttl.map(deadline_from_ttl).unwrap_or(0);
+        shard.insert(key.into_boxed_slice(), Entry::new(value, expires_at_ms));
         true
     }
 
     pub fn setxx(&self, key: Vec<u8>, value: Vec<u8>, ttl: Option<Duration>) -> bool {
         let idx = self.shard_index(&key);
         let mut shard = self.shards[idx].write();
-        if purge_if_expired(&mut shard, &key) || !shard.contains_key(&key) {
+        let now_ms = monotonic_now_ms();
+        if purge_if_expired(&mut shard, &key, now_ms) || !shard.contains_key(key.as_slice()) {
             return false;
         }
 
-        shard.insert(
-            key,
-            Entry {
-                value,
-                expires_at: ttl.map(|timeout| Instant::now() + timeout),
-            },
-        );
+        let expires_at_ms = ttl.map(deadline_from_ttl).unwrap_or(0);
+        shard.insert(key.into_boxed_slice(), Entry::new(value, expires_at_ms));
         true
     }
 
     pub fn getset(&self, key: Vec<u8>, value: Vec<u8>) -> Option<Vec<u8>> {
         let idx = self.shard_index(&key);
         let mut shard = self.shards[idx].write();
-        let old_value = if purge_if_expired(&mut shard, &key) {
+        let now_ms = monotonic_now_ms();
+        let old_value = if purge_if_expired(&mut shard, &key, now_ms) {
             None
         } else {
-            shard.get(&key).map(|entry| entry.value.clone())
+            shard.get(key.as_slice()).map(|entry| entry.value.to_vec())
         };
 
-        shard.insert(
-            key,
-            Entry {
-                value,
-                expires_at: None,
-            },
-        );
-
+        shard.insert(key.into_boxed_slice(), Entry::new(value, 0));
         old_value
     }
 
     pub fn getdel(&self, key: &[u8]) -> Option<Vec<u8>> {
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
-        if purge_if_expired(&mut shard, key) {
+        let now_ms = monotonic_now_ms();
+        if purge_if_expired(&mut shard, key, now_ms) {
             return None;
         }
-
-        shard.remove(key).map(|entry| entry.value)
+        shard.remove(key).map(|entry| entry.value.into_vec())
     }
 
     pub fn append(&self, key: Vec<u8>, suffix: &[u8]) -> usize {
         let idx = self.shard_index(&key);
         let mut shard = self.shards[idx].write();
-        if purge_if_expired(&mut shard, &key) {
-            shard.insert(
-                key,
-                Entry {
-                    value: suffix.to_vec(),
-                    expires_at: None,
-                },
-            );
-            return suffix.len();
-        }
+        let now_ms = monotonic_now_ms();
+        let key_slice = key.as_slice();
 
-        match shard.get_mut(&key) {
-            Some(entry) => {
-                entry.value.extend_from_slice(suffix);
-                entry.value.len()
-            }
-            None => {
-                shard.insert(
-                    key,
-                    Entry {
-                        value: suffix.to_vec(),
-                        expires_at: None,
-                    },
-                );
-                suffix.len()
-            }
-        }
+        let mut base = if purge_if_expired(&mut shard, key_slice, now_ms) {
+            Vec::new()
+        } else {
+            shard
+                .get(key_slice)
+                .map(|entry| entry.value.to_vec())
+                .unwrap_or_default()
+        };
+
+        base.extend_from_slice(suffix);
+        let size = base.len();
+        shard.insert(key.into_boxed_slice(), Entry::new(base, 0));
+        size
     }
 
     pub fn strlen(&self, key: &[u8]) -> usize {
-        self.get(key).map_or(0, |value| value.len())
+        let idx = self.shard_index(key);
+        let now_ms = monotonic_now_ms();
+        let shard = self.shards[idx].read();
+        shard
+            .get(key)
+            .filter(|entry| !entry.is_expired(now_ms))
+            .map_or(0, |entry| entry.value.len())
     }
 
     pub fn incr(&self, key: &[u8]) -> Result<i64, ()> {
@@ -131,8 +112,9 @@ impl Store {
     pub fn incr_by(&self, key: &[u8], delta: i64) -> Result<i64, ()> {
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
+        let now_ms = monotonic_now_ms();
 
-        let current = if purge_if_expired(&mut shard, key) {
+        let current = if purge_if_expired(&mut shard, key, now_ms) {
             0
         } else {
             match shard.get(key) {
@@ -144,16 +126,12 @@ impl Store {
             }
         };
 
-        let next_value = current.checked_add(delta).ok_or(())?;
+        let next = current.checked_add(delta).ok_or(())?;
         shard.insert(
-            key.to_vec(),
-            Entry {
-                value: next_value.to_string().into_bytes(),
-                expires_at: None,
-            },
+            key.to_vec().into_boxed_slice(),
+            Entry::new(next.to_string().into_bytes(), 0),
         );
-
-        Ok(next_value)
+        Ok(next)
     }
 
     pub fn mget(&self, keys: &[Vec<u8>]) -> Vec<Option<Vec<u8>>> {
@@ -167,10 +145,11 @@ impl Store {
     }
 
     pub fn msetnx(&self, pairs: &[(Vec<u8>, Vec<u8>)]) -> bool {
+        let now_ms = monotonic_now_ms();
         for (key, _) in pairs {
             let idx = self.shard_index(key);
             let mut shard = self.shards[idx].write();
-            if !purge_if_expired(&mut shard, key) && shard.contains_key(key) {
+            if !purge_if_expired(&mut shard, key, now_ms) && shard.contains_key(key.as_slice()) {
                 return false;
             }
         }

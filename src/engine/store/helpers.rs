@@ -1,10 +1,40 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::sync::OnceLock;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use super::StoreMap;
-use crate::engine::value::Entry;
 
-pub(super) fn purge_if_expired(shard: &mut StoreMap, key: &[u8]) -> bool {
-    let expired = shard.get(key).map(Entry::is_expired).unwrap_or(false);
+pub(super) fn monotonic_now_ms() -> u64 {
+    static START: OnceLock<Instant> = OnceLock::new();
+    START
+        .get_or_init(Instant::now)
+        .elapsed()
+        .as_millis()
+        .try_into()
+        .unwrap_or(u64::MAX)
+}
+
+pub(super) fn deadline_from_ttl(ttl: Duration) -> u64 {
+    monotonic_now_ms().saturating_add(ttl.as_millis().try_into().unwrap_or(u64::MAX))
+}
+
+pub(super) fn remaining_ttl_ms(deadline_ms: u64) -> i64 {
+    if deadline_ms == 0 {
+        return -1;
+    }
+
+    let now_ms = monotonic_now_ms();
+    if deadline_ms <= now_ms {
+        0
+    } else {
+        (deadline_ms - now_ms).try_into().unwrap_or(i64::MAX)
+    }
+}
+
+pub(super) fn purge_if_expired(shard: &mut StoreMap, key: &[u8], now_ms: u64) -> bool {
+    let expired = shard
+        .get(key)
+        .map(|entry| entry.is_expired(now_ms))
+        .unwrap_or(false);
     if expired {
         shard.remove(key);
     }

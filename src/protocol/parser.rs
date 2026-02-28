@@ -1,4 +1,4 @@
-use bytes::BytesMut;
+use bytes::{Buf, BytesMut};
 use thiserror::Error;
 
 use crate::protocol::types::RespFrame;
@@ -42,10 +42,11 @@ fn parse_value(src: &[u8], offset: usize) -> Result<(RespFrame, usize), ParseErr
 }
 
 fn parse_inline(src: &[u8], offset: usize) -> Result<(RespFrame, usize), ParseError> {
-    let (line, consumed) = parse_line(src, offset)?;
+    let (line, consumed) = parse_line_bytes(src, offset)?;
     let parts: Vec<RespFrame> = line
-        .split_ascii_whitespace()
-        .map(|part| RespFrame::Bulk(Some(part.as_bytes().to_vec())))
+        .split(|byte| byte.is_ascii_whitespace())
+        .filter(|part| !part.is_empty())
+        .map(|part| RespFrame::Bulk(Some(part.to_vec())))
         .collect();
 
     if parts.is_empty() {
@@ -56,34 +57,37 @@ fn parse_inline(src: &[u8], offset: usize) -> Result<(RespFrame, usize), ParseEr
 }
 
 fn parse_simple(src: &[u8], offset: usize) -> Result<(RespFrame, usize), ParseError> {
-    let (value, consumed) = parse_line(src, offset + 1)?;
-    Ok((RespFrame::Simple(value), consumed))
+    let (line, consumed) = parse_line_bytes(src, offset + 1)?;
+    let text = std::str::from_utf8(line)
+        .map_err(|_| ParseError::Protocol("invalid utf8 line".to_string()))?
+        .to_owned();
+    Ok((RespFrame::Simple(text), consumed))
 }
 
 fn parse_error(src: &[u8], offset: usize) -> Result<(RespFrame, usize), ParseError> {
-    let (value, consumed) = parse_line(src, offset + 1)?;
-    Ok((RespFrame::Error(value), consumed))
+    let (line, consumed) = parse_line_bytes(src, offset + 1)?;
+    let text = std::str::from_utf8(line)
+        .map_err(|_| ParseError::Protocol("invalid utf8 line".to_string()))?
+        .to_owned();
+    Ok((RespFrame::Error(text), consumed))
 }
 
 fn parse_integer(src: &[u8], offset: usize) -> Result<(RespFrame, usize), ParseError> {
-    let (value, consumed) = parse_line(src, offset + 1)?;
-    let parsed = value
-        .parse::<i64>()
-        .map_err(|_| ParseError::Protocol("invalid integer".to_string()))?;
-    Ok((RespFrame::Integer(parsed), consumed))
+    let (line, consumed) = parse_line_bytes(src, offset + 1)?;
+    let value = parse_decimal(line).ok_or(ParseError::Protocol("invalid integer".to_string()))?;
+    Ok((RespFrame::Integer(value), consumed))
 }
 
 fn parse_bulk(src: &[u8], offset: usize) -> Result<(RespFrame, usize), ParseError> {
-    let (length, mut cursor) = parse_line(src, offset + 1)?;
-    let size = length
-        .parse::<isize>()
-        .map_err(|_| ParseError::Protocol("invalid bulk length".to_string()))?;
+    let (line, mut cursor) = parse_line_bytes(src, offset + 1)?;
+    let length =
+        parse_decimal(line).ok_or(ParseError::Protocol("invalid bulk length".to_string()))?;
 
-    if size < 0 {
+    if length < 0 {
         return Ok((RespFrame::Bulk(None), cursor));
     }
 
-    let size = size as usize;
+    let size = length as usize;
     if src.len() < cursor + size + 2 {
         return Err(ParseError::Incomplete);
     }
@@ -101,17 +105,16 @@ fn parse_bulk(src: &[u8], offset: usize) -> Result<(RespFrame, usize), ParseErro
 }
 
 fn parse_array(src: &[u8], offset: usize) -> Result<(RespFrame, usize), ParseError> {
-    let (length, mut cursor) = parse_line(src, offset + 1)?;
-    let count = length
-        .parse::<isize>()
-        .map_err(|_| ParseError::Protocol("invalid array length".to_string()))?;
+    let (line, mut cursor) = parse_line_bytes(src, offset + 1)?;
+    let length =
+        parse_decimal(line).ok_or(ParseError::Protocol("invalid array length".to_string()))?;
 
-    if count < 0 {
+    if length < 0 {
         return Ok((RespFrame::Array(None), cursor));
     }
 
-    let mut items = Vec::with_capacity(count as usize);
-    for _ in 0..count {
+    let mut items = Vec::with_capacity(length as usize);
+    for _ in 0..length {
         let (item, consumed) = parse_value(src, cursor)?;
         cursor = consumed;
         items.push(item);
@@ -120,24 +123,51 @@ fn parse_array(src: &[u8], offset: usize) -> Result<(RespFrame, usize), ParseErr
     Ok((RespFrame::Array(Some(items)), cursor))
 }
 
-fn parse_line(src: &[u8], from: usize) -> Result<(String, usize), ParseError> {
+fn parse_line_bytes(src: &[u8], from: usize) -> Result<(&[u8], usize), ParseError> {
     let end = find_crlf(src, from).ok_or(ParseError::Incomplete)?;
-    let raw = &src[from..end];
-    let value = std::str::from_utf8(raw)
-        .map_err(|_| ParseError::Protocol("invalid utf8 line".to_string()))?
-        .to_string();
-    Ok((value, end + 2))
+    Ok((&src[from..end], end + 2))
 }
 
 fn find_crlf(src: &[u8], from: usize) -> Option<usize> {
-    let mut i = from;
-    while i + 1 < src.len() {
-        if src[i] == b'\r' && src[i + 1] == b'\n' {
-            return Some(i);
+    let mut index = from;
+    while index + 1 < src.len() {
+        if src[index] == b'\r' && src[index + 1] == b'\n' {
+            return Some(index);
         }
-        i += 1;
+        index += 1;
     }
     None
 }
 
-use bytes::Buf;
+fn parse_decimal(raw: &[u8]) -> Option<i64> {
+    if raw.is_empty() {
+        return None;
+    }
+
+    let mut index = 0;
+    let mut negative = false;
+    if raw[0] == b'-' {
+        negative = true;
+        index = 1;
+    }
+    if index >= raw.len() {
+        return None;
+    }
+
+    let mut value: i64 = 0;
+    while index < raw.len() {
+        let digit = raw[index].wrapping_sub(b'0');
+        if digit > 9 {
+            return None;
+        }
+        value = value.checked_mul(10)?;
+        value = value.checked_add(i64::from(digit))?;
+        index += 1;
+    }
+
+    if negative {
+        value.checked_neg()
+    } else {
+        Some(value)
+    }
+}

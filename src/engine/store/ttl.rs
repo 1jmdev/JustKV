@@ -1,6 +1,8 @@
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
-use super::helpers::{purge_if_expired, unix_time_ms};
+use super::helpers::{
+    deadline_from_ttl, monotonic_now_ms, purge_if_expired, remaining_ttl_ms, unix_time_ms,
+};
 use super::Store;
 
 impl Store {
@@ -11,12 +13,13 @@ impl Store {
     pub fn pexpire(&self, key: &[u8], milliseconds: u64) -> i64 {
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
-        if purge_if_expired(&mut shard, key) {
+        let now_ms = monotonic_now_ms();
+        if purge_if_expired(&mut shard, key, now_ms) {
             return 0;
         }
 
         if let Some(entry) = shard.get_mut(key) {
-            entry.expires_at = Some(Instant::now() + Duration::from_millis(milliseconds));
+            entry.expires_at_ms = deadline_from_ttl(Duration::from_millis(milliseconds));
             return 1;
         }
 
@@ -38,13 +41,15 @@ impl Store {
     pub fn persist(&self, key: &[u8]) -> i64 {
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
-        if purge_if_expired(&mut shard, key) {
+        let now_ms = monotonic_now_ms();
+        if purge_if_expired(&mut shard, key, now_ms) {
             return 0;
         }
 
         match shard.get_mut(key) {
             Some(entry) => {
-                if entry.expires_at.take().is_some() {
+                if entry.expires_at_ms != 0 {
+                    entry.expires_at_ms = 0;
                     1
                 } else {
                     0
@@ -66,17 +71,13 @@ impl Store {
     pub fn pttl(&self, key: &[u8]) -> i64 {
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
-        if purge_if_expired(&mut shard, key) {
+        let now_ms = monotonic_now_ms();
+        if purge_if_expired(&mut shard, key, now_ms) {
             return -2;
         }
 
         match shard.get(key) {
-            Some(entry) => match entry.expires_at {
-                Some(deadline) => deadline
-                    .saturating_duration_since(Instant::now())
-                    .as_millis() as i64,
-                None => -1,
-            },
+            Some(entry) => remaining_ttl_ms(entry.expires_at_ms),
             None => -2,
         }
     }
