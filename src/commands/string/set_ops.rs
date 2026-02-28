@@ -1,10 +1,10 @@
 use std::time::Duration;
 
-use crate::commands::util::{int_error, upper, wrong_args, Args};
+use crate::commands::util::{upper, wrong_args, Args};
 use crate::engine::store::Store;
 use crate::protocol::types::RespFrame;
 
-pub fn handle(store: &Store, command: &[u8], args: &Args) -> Option<RespFrame> {
+pub(super) fn handle(store: &Store, command: &[u8], args: &Args) -> Option<RespFrame> {
     match command {
         b"GET" => Some(get(store, args)),
         b"SET" => Some(set(store, args)),
@@ -13,13 +13,6 @@ pub fn handle(store: &Store, command: &[u8], args: &Args) -> Option<RespFrame> {
         b"GETDEL" => Some(getdel(store, args)),
         b"APPEND" => Some(append(store, args)),
         b"STRLEN" => Some(strlen(store, args)),
-        b"INCR" => Some(incr(store, args)),
-        b"INCRBY" => Some(incrby(store, args)),
-        b"DECR" => Some(decr(store, args)),
-        b"DECRBY" => Some(decrby(store, args)),
-        b"MGET" => Some(mget(store, args)),
-        b"MSET" => Some(mset(store, args)),
-        b"MSETNX" => Some(msetnx(store, args)),
         _ => None,
     }
 }
@@ -138,101 +131,13 @@ fn strlen(store: &Store, args: &Args) -> RespFrame {
     RespFrame::Integer(store.strlen(&args[1]) as i64)
 }
 
-fn incr(store: &Store, args: &Args) -> RespFrame {
-    if args.len() != 2 {
-        return wrong_args("INCR");
-    }
-    match store.incr(&args[1]) {
-        Ok(value) => RespFrame::Integer(value),
-        Err(_) => int_error(),
-    }
-}
-
-fn incrby(store: &Store, args: &Args) -> RespFrame {
-    if args.len() != 3 {
-        return wrong_args("INCRBY");
-    }
-
-    let delta = match parse_i64(&args[2]) {
-        Ok(value) => value,
-        Err(response) => return response,
-    };
-
-    match store.incr_by(&args[1], delta) {
-        Ok(value) => RespFrame::Integer(value),
-        Err(_) => int_error(),
-    }
-}
-
-fn decr(store: &Store, args: &Args) -> RespFrame {
-    if args.len() != 2 {
-        return wrong_args("DECR");
-    }
-
-    match store.incr_by(&args[1], -1) {
-        Ok(value) => RespFrame::Integer(value),
-        Err(_) => int_error(),
-    }
-}
-
-fn decrby(store: &Store, args: &Args) -> RespFrame {
-    if args.len() != 3 {
-        return wrong_args("DECRBY");
-    }
-
-    let delta = match parse_i64(&args[2]) {
-        Ok(value) => value,
-        Err(response) => return response,
-    };
-
-    match store.incr_by(&args[1], -delta) {
-        Ok(value) => RespFrame::Integer(value),
-        Err(_) => int_error(),
-    }
-}
-
-fn mget(store: &Store, args: &Args) -> RespFrame {
-    if args.len() < 2 {
-        return wrong_args("MGET");
-    }
-    let keys = args[1..].to_vec();
-    let values = store.mget(&keys);
-    RespFrame::Array(Some(values.into_iter().map(RespFrame::Bulk).collect()))
-}
-
-fn mset(store: &Store, args: &Args) -> RespFrame {
-    if args.len() < 3 || (args.len() - 1) % 2 != 0 {
-        return wrong_args("MSET");
-    }
-    let mut pairs = Vec::with_capacity((args.len() - 1) / 2);
-    for chunk in args[1..].chunks(2) {
-        pairs.push((chunk[0].clone(), chunk[1].clone()));
-    }
-    store.mset(&pairs);
-    RespFrame::ok()
-}
-
-fn msetnx(store: &Store, args: &Args) -> RespFrame {
-    if args.len() < 3 || (args.len() - 1) % 2 != 0 {
-        return wrong_args("MSETNX");
-    }
-    let mut pairs = Vec::with_capacity((args.len() - 1) / 2);
-    for chunk in args[1..].chunks(2) {
-        pairs.push((chunk[0].clone(), chunk[1].clone()));
-    }
-    RespFrame::Integer(store.msetnx(&pairs) as i64)
-}
-
 fn parse_u64(raw: &[u8]) -> Result<u64, RespFrame> {
     match std::str::from_utf8(raw) {
-        Ok(value) => value.parse::<u64>().map_err(|_| int_error()),
-        Err(_) => Err(int_error()),
-    }
-}
-
-fn parse_i64(raw: &[u8]) -> Result<i64, RespFrame> {
-    match std::str::from_utf8(raw) {
-        Ok(value) => value.parse::<i64>().map_err(|_| int_error()),
-        Err(_) => Err(int_error()),
+        Ok(value) => value.parse::<u64>().map_err(|_| {
+            RespFrame::Error("ERR value is not an integer or out of range".to_string())
+        }),
+        Err(_) => Err(RespFrame::Error(
+            "ERR value is not an integer or out of range".to_string(),
+        )),
     }
 }
