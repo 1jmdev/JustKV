@@ -1,4 +1,4 @@
-use crate::commands::util::{Args, eq_ascii, int_error, wrong_args, wrong_type};
+use crate::commands::util::{eq_ascii, int_error, wrong_args, wrong_type, Args};
 use crate::engine::store::{RestoreError, SortError, SortOptions, SortOrder, SortResult, Store};
 use crate::protocol::types::{BulkData, RespFrame};
 
@@ -50,6 +50,9 @@ pub fn handle(store: &Store, command: &[u8], args: &Args) -> Option<RespFrame> {
     }
     if eq_ascii(command, b"FLUSHDB") {
         return Some(flushdb(store, args));
+    }
+    if eq_ascii(command, b"FLUSHALL") || eq_ascii(command, b"FLUSH") {
+        return Some(flushall(store, args));
     }
     None
 }
@@ -339,6 +342,14 @@ fn copy(store: &Store, args: &Args) -> RespFrame {
 fn flushdb(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 1 {
         return wrong_args("FLUSHDB");
+    }
+    let _ = store.flushdb();
+    RespFrame::ok()
+}
+
+fn flushall(store: &Store, args: &Args) -> RespFrame {
+    if args.len() != 1 {
+        return wrong_args("FLUSHALL");
     }
     let _ = store.flushdb();
     RespFrame::ok()
