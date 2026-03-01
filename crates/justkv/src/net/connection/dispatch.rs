@@ -1,8 +1,12 @@
+use std::sync::Arc;
+use std::time::Instant;
+
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::commands::dispatcher::{dispatch_args, parse_command};
 use crate::engine::store::Store;
 use crate::engine::value::CompactArg;
+use crate::net::profiling::LatencyProfiler;
 use crate::protocol::types::{BulkData, RespFrame};
 
 use super::super::pubsub::{ConnectionPubSub, PubSubHub};
@@ -14,8 +18,10 @@ pub(super) fn execute_regular_command(
     hub: &PubSubHub,
     push_tx: &UnboundedSender<RespFrame>,
     pubsub_state: &mut ConnectionPubSub,
+    profiler: Option<&Arc<LatencyProfiler>>,
     frame: RespFrame,
 ) -> RespFrame {
+    let started = Instant::now();
     let args = match parse_command(frame) {
         Ok(value) => value,
         Err(err) => return RespFrame::error_static(err),
@@ -31,6 +37,9 @@ pub(super) fn execute_regular_command(
     let command = args[0].as_slice();
     let response = dispatch_args(store, &args);
     emit_command_notifications(hub, command, &args, &response);
+    if let Some(profiler) = profiler {
+        profiler.record_command(command, started.elapsed());
+    }
     response
 }
 

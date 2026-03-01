@@ -1,9 +1,12 @@
 use bytes::BytesMut;
+use std::sync::Arc;
+use std::time::Instant;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc::unbounded_channel;
 
 use crate::engine::store::Store;
+use crate::net::profiling::LatencyProfiler;
 use crate::net::pubsub::{ConnectionPubSub, PubSubHub};
 use crate::net::transaction::TransactionState;
 use crate::protocol::encoder::encode;
@@ -21,6 +24,7 @@ pub async fn handle_connection(
     mut stream: TcpStream,
     store: Store,
     pubsub_hub: PubSubHub,
+    profiler: Option<Arc<LatencyProfiler>>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let mut read_buf = BytesMut::with_capacity(READ_BUFFER_INITIAL);
     let mut write_buf = BytesMut::with_capacity(WRITE_BUFFER_INITIAL);
@@ -37,8 +41,12 @@ pub async fn handle_connection(
                 };
                 encode(&frame, &mut write_buf);
                 if !write_buf.is_empty() {
+                    let write_started = Instant::now();
                     if let Err(err) = stream.write_all(&write_buf).await {
                         break Err(err.into());
+                    }
+                    if let Some(profiler) = profiler.as_ref() {
+                        profiler.record_write(write_started.elapsed());
                     }
                     write_buf.clear();
                 }
@@ -52,22 +60,38 @@ pub async fn handle_connection(
                     break Ok(());
                 }
 
-                while let Some(frame) = parse_next_frame(&mut read_buf)? {
-                    let response = tx_state.handle_frame_with(&store, frame, |store, frame| {
+                while let Some(parsed) = parse_next_frame(&mut read_buf)? {
+                    if let Some(profiler) = profiler.as_ref() {
+                        profiler.record_parse(parsed.parse_elapsed);
+                    }
+                    let execute_started = Instant::now();
+                    let response = tx_state.handle_frame_with(&store, parsed.frame, |store, frame| {
                         dispatch::execute_regular_command(
                             store,
                             &pubsub_hub,
                             &push_tx,
                             &mut pubsub_state,
+                            profiler.as_ref(),
                             frame,
                         )
                     });
+                    if let Some(profiler) = profiler.as_ref() {
+                        profiler.record_execute(execute_started.elapsed());
+                    }
+                    let encode_started = Instant::now();
                     encode(&response, &mut write_buf);
+                    if let Some(profiler) = profiler.as_ref() {
+                        profiler.record_encode(encode_started.elapsed());
+                    }
                 }
 
                 if !write_buf.is_empty() {
+                    let write_started = Instant::now();
                     if let Err(err) = stream.write_all(&write_buf).await {
                         break Err(err.into());
+                    }
+                    if let Some(profiler) = profiler.as_ref() {
+                        profiler.record_write(write_started.elapsed());
                     }
                     write_buf.clear();
                 }
@@ -81,9 +105,19 @@ pub async fn handle_connection(
     result
 }
 
-fn parse_next_frame(src: &mut BytesMut) -> Result<Option<RespFrame>, ParseError> {
+struct ParsedFrame {
+    frame: RespFrame,
+    parse_elapsed: std::time::Duration,
+}
+
+fn parse_next_frame(src: &mut BytesMut) -> Result<Option<ParsedFrame>, ParseError> {
+    let parse_started = Instant::now();
     match parse_frame(src) {
-        Ok(frame) => Ok(frame),
+        Ok(Some(frame)) => Ok(Some(ParsedFrame {
+            frame,
+            parse_elapsed: parse_started.elapsed(),
+        })),
+        Ok(None) => Ok(None),
         Err(ParseError::Incomplete) => Ok(None),
         Err(err) => Err(err),
     }

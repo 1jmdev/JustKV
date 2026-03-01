@@ -1,6 +1,7 @@
 use crate::config::Config;
 use crate::engine::store::Store;
 use crate::net::connection::handle_connection;
+use crate::net::profiling::{LatencyProfiler, ProfilingConfig};
 use crate::net::pubsub::PubSubHub;
 use tokio::net::TcpListener;
 use tokio::time::{Duration, sleep};
@@ -9,12 +10,21 @@ pub async fn run_listener(config: Config) -> Result<(), Box<dyn std::error::Erro
     let listener = TcpListener::bind(config.addr()).await?;
     let store = Store::new(config.shards);
     let pubsub = PubSubHub::new();
+    let profiler = ProfilingConfig::from_env().map(LatencyProfiler::new);
 
     spawn_expiry_sweeper(
         store.clone(),
         Duration::from_millis(config.sweep_interval_ms),
     );
     spawn_cached_clock_updater(store.clone());
+    if let Some(profiler) = profiler.as_ref() {
+        eprintln!(
+            "[latency-profiler] enabled interval={}s slow_threshold={}ms",
+            profiler.report_interval().as_secs(),
+            profiler.slow_threshold().as_millis()
+        );
+        spawn_latency_reporter(profiler.clone());
+    }
 
     loop {
         let (socket, _) = listener.accept().await?;
@@ -22,8 +32,9 @@ pub async fn run_listener(config: Config) -> Result<(), Box<dyn std::error::Erro
 
         let shared_store = store.clone();
         let shared_pubsub = pubsub.clone();
+        let shared_profiler = profiler.clone();
         tokio::spawn(async move {
-            let _ = handle_connection(socket, shared_store, shared_pubsub).await;
+            let _ = handle_connection(socket, shared_store, shared_pubsub, shared_profiler).await;
         });
     }
 }
@@ -42,6 +53,15 @@ fn spawn_cached_clock_updater(store: Store) {
         loop {
             store.refresh_cached_time();
             sleep(Duration::from_millis(1)).await;
+        }
+    });
+}
+
+fn spawn_latency_reporter(profiler: std::sync::Arc<LatencyProfiler>) {
+    tokio::spawn(async move {
+        loop {
+            sleep(profiler.report_interval()).await;
+            profiler.report_and_reset();
         }
     });
 }
