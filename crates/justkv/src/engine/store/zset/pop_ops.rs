@@ -80,7 +80,11 @@ impl Store {
             return Ok(None);
         }
 
-        let mut out: Vec<(CompactKey, f64)> = zset.iter_ordered(max).take(count).map(|(member, score)| (member.clone(), score)).collect();
+        let mut out: Vec<(CompactKey, f64)> = zset
+            .iter_ordered(max)
+            .take(count)
+            .map(|(member, score)| (member.clone(), score))
+            .collect();
         out.retain(|(member, _)| zset.remove(member.as_slice()).is_some());
 
         if zset.is_empty() {

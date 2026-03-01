@@ -1,4 +1,4 @@
-use crate::commands::util::{parse_command_id, CommandId};
+use crate::commands::util::{CommandId, parse_command_id};
 use crate::commands::{connection, hash, keyspace, list, set, string, ttl, zset};
 use crate::engine::store::Store;
 use crate::engine::value::CompactArg;

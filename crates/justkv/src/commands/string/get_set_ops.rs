@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::commands::util::{eq_ascii, wrong_args, wrong_type, Args};
+use crate::commands::util::{Args, eq_ascii, wrong_args, wrong_type};
 use crate::engine::store::Store;
 use crate::engine::value::CompactArg;
 use crate::protocol::types::{BulkData, RespFrame};

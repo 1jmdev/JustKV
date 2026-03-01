@@ -1,8 +1,8 @@
 use std::collections::VecDeque;
 
+use super::Store;
 use super::helpers::{is_expired, monotonic_now_ms, purge_if_expired};
 use super::pattern::wildcard_match;
-use super::Store;
 use crate::engine::value::{CompactKey, CompactValue, Entry};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
