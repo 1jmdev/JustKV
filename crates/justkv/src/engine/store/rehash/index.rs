@@ -6,17 +6,21 @@ use ahash::RandomState;
 use super::constants::NIL;
 use super::node::Node;
 
-pub(super) fn bucket_index<Q: Hash + ?Sized>(
-    hash_builder: &RandomState,
-    key: &Q,
-    bucket_count: usize,
-) -> usize {
-    (hash_builder.hash_one(key) as usize) & (bucket_count - 1)
+#[inline(always)]
+pub(super) fn hash_key<Q: Hash + ?Sized>(hash_builder: &RandomState, key: &Q) -> u64 {
+    hash_builder.hash_one(key)
 }
 
+#[inline(always)]
+pub(super) fn bucket_index_from_hash(hash: u64, mask: usize) -> usize {
+    (hash as usize) & mask
+}
+
+#[inline(always)]
 pub(super) fn find_in_chain<K, V, Q>(
     nodes: &[Option<Node<K, V>>],
     mut head: u32,
+    hash: u64,
     key: &Q,
 ) -> Option<u32>
 where
@@ -25,7 +29,7 @@ where
 {
     while head != NIL {
         let node = nodes[head as usize].as_ref().unwrap();
-        if node.key.borrow() == key {
+        if node.hash == hash && node.key.borrow() == key {
             return Some(head);
         }
         head = node.next;

@@ -1,7 +1,7 @@
 use std::hash::Hash;
 
 use super::constants::{MAX_LOAD_FACTOR, NIL};
-use super::index::bucket_index;
+use super::index::bucket_index_from_hash;
 use super::table::Table;
 use super::types::RehashingMap;
 
@@ -32,14 +32,13 @@ where
 
             let mut node_idx = self.table.heads[self.rehash_index];
             self.table.heads[self.rehash_index] = NIL;
+
             while node_idx != NIL {
-                let next = self.nodes[node_idx as usize].as_ref().unwrap().next;
-                let bucket = {
-                    let key = &self.nodes[node_idx as usize].as_ref().unwrap().key;
-                    bucket_index(&self.hash_builder, key, new_table.len())
-                };
+                let node = self.nodes[node_idx as usize].as_mut().unwrap();
+                let next = node.next;
+                let bucket = bucket_index_from_hash(node.hash, new_table.mask);
                 let head = new_table.heads[bucket];
-                self.nodes[node_idx as usize].as_mut().unwrap().next = head;
+                node.next = head;
                 new_table.heads[bucket] = node_idx;
                 node_idx = next;
             }

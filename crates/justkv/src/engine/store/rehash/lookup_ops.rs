@@ -2,7 +2,7 @@ use std::borrow::Borrow;
 use std::hash::Hash;
 
 use super::constants::REHASH_STEPS_PER_WRITE;
-use super::index::{bucket_index, find_in_chain};
+use super::index::{bucket_index_from_hash, find_in_chain, hash_key};
 use super::types::RehashingMap;
 
 impl<K, V> RehashingMap<K, V>
@@ -23,7 +23,7 @@ where
         Q: Hash + Eq + ?Sized,
     {
         let idx = self.find_index(key)?;
-        self.nodes[idx as usize].as_ref().map(|node| &node.value)
+        Some(&self.nodes[idx as usize].as_ref().unwrap().value)
     }
 
     pub(in crate::engine::store) fn get_mut<Q>(&mut self, key: &Q) -> Option<&mut V>
@@ -33,24 +33,37 @@ where
     {
         self.rehash_step(REHASH_STEPS_PER_WRITE);
         let idx = self.find_index(key)?;
-        self.nodes[idx as usize]
-            .as_mut()
-            .map(|node| &mut node.value)
+        Some(&mut self.nodes[idx as usize].as_mut().unwrap().value)
     }
 
+    #[inline(always)]
     pub(in crate::engine::store::rehash) fn find_index<Q>(&self, key: &Q) -> Option<u32>
     where
         K: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
+        let hash = hash_key(&self.hash_builder, key);
+        self.find_index_hashed(key, hash)
+    }
+
+    #[inline(always)]
+    pub(in crate::engine::store::rehash) fn find_index_hashed<Q>(
+        &self,
+        key: &Q,
+        hash: u64,
+    ) -> Option<u32>
+    where
+        K: Borrow<Q>,
+        Q: Eq + ?Sized,
+    {
         if let Some(table) = self.rehash_table.as_ref() {
-            let bucket = bucket_index(&self.hash_builder, key, table.len());
-            if let Some(idx) = find_in_chain(&self.nodes, table.heads[bucket], key) {
+            let bucket = bucket_index_from_hash(hash, table.mask);
+            if let Some(idx) = find_in_chain(&self.nodes, table.heads[bucket], hash, key) {
                 return Some(idx);
             }
         }
 
-        let bucket = bucket_index(&self.hash_builder, key, self.table.len());
-        find_in_chain(&self.nodes, self.table.heads[bucket], key)
+        let bucket = bucket_index_from_hash(hash, self.table.mask);
+        find_in_chain(&self.nodes, self.table.heads[bucket], hash, key)
     }
 }

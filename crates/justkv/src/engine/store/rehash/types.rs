@@ -2,7 +2,7 @@ use std::hash::Hash;
 
 use ahash::RandomState;
 
-use super::constants::INITIAL_BUCKETS;
+use super::constants::{INITIAL_BUCKETS, MAX_LOAD_FACTOR};
 use super::iter::Iter;
 use super::node::Node;
 use super::table::Table;
@@ -28,13 +28,15 @@ where
     K: Eq + Hash,
 {
     pub(in crate::engine::store) fn new() -> Self {
+        let table = Table::with_buckets(INITIAL_BUCKETS);
+        let node_cap = table.len() * MAX_LOAD_FACTOR;
         Self {
             hash_builder: RandomState::new(),
             len: 0,
-            table: Table::with_buckets(INITIAL_BUCKETS),
+            table,
             rehash_table: None,
             rehash_index: 0,
-            nodes: Vec::new(),
+            nodes: Vec::with_capacity(node_cap),
             free: Vec::new(),
         }
     }

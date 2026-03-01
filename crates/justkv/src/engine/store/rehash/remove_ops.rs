@@ -2,7 +2,7 @@ use std::borrow::Borrow;
 use std::hash::Hash;
 
 use super::constants::{NIL, REHASH_STEPS_PER_WRITE};
-use super::index::bucket_index;
+use super::index::{bucket_index_from_hash, hash_key};
 use super::types::{RehashingMap, TargetTable};
 
 impl<K, V> RehashingMap<K, V>
@@ -15,13 +15,14 @@ where
         Q: Hash + Eq + ?Sized,
     {
         self.rehash_step(REHASH_STEPS_PER_WRITE);
+        let hash = hash_key(&self.hash_builder, key);
 
-        if let Some(value) = self.remove_from_table(TargetTable::New, key) {
+        if let Some(value) = self.remove_from_table_hashed(TargetTable::New, key, hash) {
             self.len -= 1;
             return Some(value);
         }
 
-        if let Some(value) = self.remove_from_table(TargetTable::Old, key) {
+        if let Some(value) = self.remove_from_table_hashed(TargetTable::Old, key, hash) {
             self.len -= 1;
             return Some(value);
         }
@@ -29,36 +30,37 @@ where
         None
     }
 
-    pub(in crate::engine::store::rehash) fn remove_from_table<Q>(
+    #[inline(always)]
+    pub(in crate::engine::store::rehash) fn remove_from_table_hashed<Q>(
         &mut self,
         target: TargetTable,
         key: &Q,
+        hash: u64,
     ) -> Option<V>
     where
         K: Borrow<Q>,
-        Q: Hash + Eq + ?Sized,
+        Q: Eq + ?Sized,
     {
-        let (bucket_count, mut head) = match target {
-            TargetTable::Old => {
-                let bucket = bucket_index(&self.hash_builder, key, self.table.len());
-                (self.table.len(), self.table.heads[bucket])
-            }
+        let bucket = match target {
+            TargetTable::Old => bucket_index_from_hash(hash, self.table.mask),
             TargetTable::New => {
                 let table = self.rehash_table.as_ref()?;
-                let bucket = bucket_index(&self.hash_builder, key, table.len());
-                (table.len(), table.heads[bucket])
+                bucket_index_from_hash(hash, table.mask)
             }
         };
 
-        if bucket_count == 0 {
-            return None;
-        }
+        let mut head = match target {
+            TargetTable::Old => self.table.heads[bucket],
+            TargetTable::New => self.rehash_table.as_ref()?.heads[bucket],
+        };
 
-        let bucket = bucket_index(&self.hash_builder, key, bucket_count);
         let mut prev = NIL;
         while head != NIL {
-            let next = self.nodes[head as usize].as_ref().unwrap().next;
-            if self.nodes[head as usize].as_ref().unwrap().key.borrow() == key {
+            let node = self.nodes[head as usize].as_ref().unwrap();
+            let next = node.next;
+            let hit = node.hash == hash && node.key.borrow() == key;
+
+            if hit {
                 if prev == NIL {
                     match target {
                         TargetTable::Old => self.table.heads[bucket] = next,
@@ -76,9 +78,11 @@ where
                 self.free.push(head);
                 return Some(node.value);
             }
+
             prev = head;
             head = next;
         }
+
         None
     }
 }

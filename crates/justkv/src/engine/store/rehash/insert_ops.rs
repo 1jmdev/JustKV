@@ -1,7 +1,7 @@
 use std::hash::Hash;
 
 use super::constants::{NIL, REHASH_STEPS_PER_WRITE};
-use super::index::bucket_index;
+use super::index::{bucket_index_from_hash, hash_key};
 use super::node::Node;
 use super::types::{RehashingMap, TargetTable};
 
@@ -12,7 +12,8 @@ where
     pub(in crate::engine::store) fn insert(&mut self, key: K, value: V) -> Option<V> {
         self.rehash_step(REHASH_STEPS_PER_WRITE);
 
-        if let Some(idx) = self.find_index(&key) {
+        let hash = hash_key(&self.hash_builder, &key);
+        if let Some(idx) = self.find_index_hashed(&key, hash) {
             let node = self.nodes[idx as usize].as_mut().unwrap();
             return Some(std::mem::replace(&mut node.value, value));
         }
@@ -22,7 +23,7 @@ where
         } else {
             TargetTable::Old
         };
-        self.insert_new(target, key, value);
+        self.insert_new(target, hash, key, value);
         self.len += 1;
         self.maybe_start_rehash();
         None
@@ -34,7 +35,8 @@ where
     {
         self.rehash_step(REHASH_STEPS_PER_WRITE);
 
-        if let Some(idx) = self.find_index(&key) {
+        let hash = hash_key(&self.hash_builder, &key);
+        if let Some(idx) = self.find_index_hashed(&key, hash) {
             return &mut self.nodes[idx as usize].as_mut().unwrap().value;
         }
 
@@ -43,14 +45,16 @@ where
         } else {
             TargetTable::Old
         };
-        let idx = self.insert_new(target, key, default());
+        let idx = self.insert_new(target, hash, key, default());
         self.len += 1;
         self.maybe_start_rehash();
         &mut self.nodes[idx as usize].as_mut().unwrap().value
     }
 
-    pub(super) fn insert_new(&mut self, target: TargetTable, key: K, value: V) -> u32 {
+    #[inline(always)]
+    pub(super) fn insert_new(&mut self, target: TargetTable, hash: u64, key: K, value: V) -> u32 {
         let idx = self.alloc_node(Node {
+            hash,
             key,
             value,
             next: NIL,
@@ -58,32 +62,24 @@ where
 
         match target {
             TargetTable::Old => {
-                let bucket = bucket_index(
-                    &self.hash_builder,
-                    &self.nodes[idx as usize].as_ref().unwrap().key,
-                    self.table.len(),
-                );
+                let bucket = bucket_index_from_hash(hash, self.table.mask);
                 let head = self.table.heads[bucket];
                 self.nodes[idx as usize].as_mut().unwrap().next = head;
                 self.table.heads[bucket] = idx;
             }
             TargetTable::New => {
-                if let Some(table) = self.rehash_table.as_mut() {
-                    let bucket = bucket_index(
-                        &self.hash_builder,
-                        &self.nodes[idx as usize].as_ref().unwrap().key,
-                        table.len(),
-                    );
-                    let head = table.heads[bucket];
-                    self.nodes[idx as usize].as_mut().unwrap().next = head;
-                    table.heads[bucket] = idx;
-                }
+                let table = self.rehash_table.as_mut().expect("rehash table missing");
+                let bucket = bucket_index_from_hash(hash, table.mask);
+                let head = table.heads[bucket];
+                self.nodes[idx as usize].as_mut().unwrap().next = head;
+                table.heads[bucket] = idx;
             }
         }
 
         idx
     }
 
+    #[inline(always)]
     pub(super) fn alloc_node(&mut self, node: Node<K, V>) -> u32 {
         if let Some(idx) = self.free.pop() {
             self.nodes[idx as usize] = Some(node);
