@@ -14,6 +14,11 @@ fn render_raw(frame: &RespFrame) -> String {
         RespFrame::Integer(value) => value.to_string(),
         RespFrame::Bulk(Some(value)) => String::from_utf8_lossy(value.as_slice()).to_string(),
         RespFrame::Bulk(None) | RespFrame::Array(None) => String::new(),
+        RespFrame::BulkValues(values) => values
+            .iter()
+            .map(|v| String::from_utf8_lossy(v.as_slice()).to_string())
+            .collect::<Vec<String>>()
+            .join("\n"),
         RespFrame::Array(Some(items)) => items
             .iter()
             .map(render_raw)
@@ -37,6 +42,17 @@ fn render_human(frame: &RespFrame) -> String {
         RespFrame::Bulk(None) | RespFrame::Array(None) => "(nil)".to_string(),
         RespFrame::Bulk(Some(value)) => {
             format!("\"{}\"", String::from_utf8_lossy(value.as_slice()))
+        }
+        RespFrame::BulkValues(values) => {
+            if values.is_empty() {
+                return "(empty array)".to_string();
+            }
+            let mut out = String::new();
+            for (index, value) in values.iter().enumerate() {
+                let rendered = format!("\"{}\"", String::from_utf8_lossy(value.as_slice()));
+                out.push_str(&format!("{}) {}\n", index + 1, rendered));
+            }
+            out.trim_end().to_string()
         }
         RespFrame::Array(Some(items)) => {
             if items.is_empty() {
