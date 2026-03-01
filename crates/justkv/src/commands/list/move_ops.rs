@@ -2,7 +2,7 @@ use crate::commands::util::{eq_ascii, int_error, wrong_args, wrong_type, Args};
 use crate::engine::store::{ListSide, Store};
 use crate::protocol::types::{BulkData, RespFrame};
 
-pub(super) fn lmove(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn lmove(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 5 {
         return wrong_args("LMOVE");
     }
@@ -22,7 +22,7 @@ pub(super) fn lmove(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn brpoplpush(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn brpoplpush(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 4 {
         return wrong_args("BRPOPLPUSH");
     }
@@ -36,7 +36,7 @@ pub(super) fn brpoplpush(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn lmpop(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn lmpop(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 4 {
         return wrong_args("LMPOP");
     }

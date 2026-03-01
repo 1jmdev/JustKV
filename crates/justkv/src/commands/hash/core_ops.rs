@@ -2,7 +2,7 @@ use crate::commands::util::{wrong_args, wrong_type, Args};
 use crate::engine::store::Store;
 use crate::protocol::types::{BulkData, RespFrame};
 
-pub(super) fn hset(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn hset(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 4 || args.len() % 2 != 0 {
         return wrong_args("HSET");
     }
@@ -18,7 +18,7 @@ pub(super) fn hset(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn hmset(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn hmset(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 4 || args.len() % 2 != 0 {
         return wrong_args("HMSET");
     }
@@ -34,7 +34,7 @@ pub(super) fn hmset(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn hsetnx(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn hsetnx(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 4 {
         return wrong_args("HSETNX");
     }
@@ -44,7 +44,7 @@ pub(super) fn hsetnx(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn hget(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn hget(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 3 {
         return wrong_args("HGET");
     }
@@ -54,7 +54,7 @@ pub(super) fn hget(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn hmget(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn hmget(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 3 {
         return wrong_args("HMGET");
     }
@@ -69,7 +69,7 @@ pub(super) fn hmget(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn hgetall(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn hgetall(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 2 {
         return wrong_args("HGETALL");
     }
@@ -86,7 +86,7 @@ pub(super) fn hgetall(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn hdel(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn hdel(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 3 {
         return wrong_args("HDEL");
     }
@@ -96,7 +96,7 @@ pub(super) fn hdel(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn hexists(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn hexists(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 3 {
         return wrong_args("HEXISTS");
     }
@@ -106,7 +106,7 @@ pub(super) fn hexists(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn hkeys(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn hkeys(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 2 {
         return wrong_args("HKEYS");
     }
@@ -121,7 +121,7 @@ pub(super) fn hkeys(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn hvals(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn hvals(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 2 {
         return wrong_args("HVALS");
     }
@@ -136,7 +136,7 @@ pub(super) fn hvals(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn hlen(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn hlen(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 2 {
         return wrong_args("HLEN");
     }
@@ -146,7 +146,7 @@ pub(super) fn hlen(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn hstrlen(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn hstrlen(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 3 {
         return wrong_args("HSTRLEN");
     }

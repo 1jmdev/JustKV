@@ -2,7 +2,7 @@ use crate::commands::util::{eq_ascii, f64_to_bytes, int_error, wrong_args, wrong
 use crate::engine::store::Store;
 use crate::protocol::types::{BulkData, RespFrame};
 
-pub(super) fn zop(store: &Store, args: &Args, command: &str) -> RespFrame {
+pub(crate) fn zop(store: &Store, args: &Args, command: &str) -> RespFrame {
     if args.len() < 3 {
         return wrong_args(command);
     }

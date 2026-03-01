@@ -15,14 +15,14 @@ pub fn handle(cmd: CommandId, args: &Args) -> RespFrame {
     }
 }
 
-fn auth(args: &Args) -> RespFrame {
+pub(crate) fn auth(args: &Args) -> RespFrame {
     if args.is_empty() || args.len() > 3 {
         return wrong_args("AUTH");
     }
     RespFrame::ok()
 }
 
-fn hello(args: &Args) -> RespFrame {
+pub(crate) fn hello(args: &Args) -> RespFrame {
     if args.len() == 1 {
         return hello_response(2);
     }
@@ -94,7 +94,7 @@ fn hello_response(proto: u8) -> RespFrame {
     ]))
 }
 
-fn client(args: &Args) -> RespFrame {
+pub(crate) fn client(args: &Args) -> RespFrame {
     if args.len() < 2 {
         return wrong_args("CLIENT");
     }
@@ -111,7 +111,7 @@ fn client(args: &Args) -> RespFrame {
     }
 }
 
-fn select_db(args: &Args) -> RespFrame {
+pub(crate) fn select_db(args: &Args) -> RespFrame {
     if args.len() != 2 {
         return wrong_args("SELECT");
     }
@@ -128,14 +128,14 @@ fn select_db(args: &Args) -> RespFrame {
     }
 }
 
-fn quit(args: &Args) -> RespFrame {
+pub(crate) fn quit(args: &Args) -> RespFrame {
     if args.len() != 1 {
         return wrong_args("QUIT");
     }
     RespFrame::ok()
 }
 
-fn ping(args: &Args) -> RespFrame {
+pub(crate) fn ping(args: &Args) -> RespFrame {
     if args.len() == 1 {
         return RespFrame::simple_static("PONG");
     }
@@ -145,7 +145,7 @@ fn ping(args: &Args) -> RespFrame {
     wrong_args("PING")
 }
 
-fn echo(args: &Args) -> RespFrame {
+pub(crate) fn echo(args: &Args) -> RespFrame {
     if args.len() != 2 {
         return wrong_args("ECHO");
     }

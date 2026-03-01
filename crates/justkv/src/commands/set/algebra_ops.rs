@@ -2,14 +2,14 @@ use crate::commands::util::{eq_ascii, int_error, wrong_args, wrong_type, Args};
 use crate::engine::store::Store;
 use crate::protocol::types::{BulkData, RespFrame};
 
-pub(super) fn sinter(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn sinter(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 2 {
         return wrong_args("SINTER");
     }
     members_response(store.sinter(&args[1..]))
 }
 
-pub(super) fn sinterstore(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn sinterstore(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 3 {
         return wrong_args("SINTERSTORE");
     }
@@ -19,14 +19,14 @@ pub(super) fn sinterstore(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn sunion(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn sunion(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 2 {
         return wrong_args("SUNION");
     }
     members_response(store.sunion(&args[1..]))
 }
 
-pub(super) fn sunionstore(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn sunionstore(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 3 {
         return wrong_args("SUNIONSTORE");
     }
@@ -36,14 +36,14 @@ pub(super) fn sunionstore(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn sdiff(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn sdiff(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 2 {
         return wrong_args("SDIFF");
     }
     members_response(store.sdiff(&args[1..]))
 }
 
-pub(super) fn sdiffstore(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn sdiffstore(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 3 {
         return wrong_args("SDIFFSTORE");
     }
@@ -53,7 +53,7 @@ pub(super) fn sdiffstore(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn sintercard(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn sintercard(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 3 {
         return wrong_args("SINTERCARD");
     }

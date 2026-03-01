@@ -15,7 +15,7 @@ pub fn handle(store: &Store, cmd: CommandId, args: &Args) -> RespFrame {
     }
 }
 
-fn expire(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn expire(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 3 {
         return wrong_args("EXPIRE");
     }
@@ -28,14 +28,14 @@ fn expire(store: &Store, args: &Args) -> RespFrame {
     RespFrame::Integer(store.expire(&args[1], seconds))
 }
 
-fn ttl(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn ttl(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 2 {
         return wrong_args("TTL");
     }
     RespFrame::Integer(store.ttl(&args[1]))
 }
 
-fn pexpire(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn pexpire(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 3 {
         return wrong_args("PEXPIRE");
     }
@@ -46,7 +46,7 @@ fn pexpire(store: &Store, args: &Args) -> RespFrame {
     RespFrame::Integer(store.pexpire(&args[1], millis))
 }
 
-fn expireat(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn expireat(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 3 {
         return wrong_args("EXPIREAT");
     }
@@ -57,7 +57,7 @@ fn expireat(store: &Store, args: &Args) -> RespFrame {
     RespFrame::Integer(store.expire_at(&args[1], sec))
 }
 
-fn pexpireat(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn pexpireat(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 3 {
         return wrong_args("PEXPIREAT");
     }
@@ -68,14 +68,14 @@ fn pexpireat(store: &Store, args: &Args) -> RespFrame {
     RespFrame::Integer(store.pexpire_at(&args[1], millis))
 }
 
-fn persist(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn persist(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 2 {
         return wrong_args("PERSIST");
     }
     RespFrame::Integer(store.persist(&args[1]))
 }
 
-fn pttl(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn pttl(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 2 {
         return wrong_args("PTTL");
     }

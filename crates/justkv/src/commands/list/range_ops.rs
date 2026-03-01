@@ -2,7 +2,7 @@ use crate::commands::util::{eq_ascii, int_error, wrong_args, wrong_type, Args};
 use crate::engine::store::{ListInsertPosition, ListSetError, Store};
 use crate::protocol::types::{BulkData, RespFrame};
 
-pub(super) fn lindex(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn lindex(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 3 {
         return wrong_args("LINDEX");
     }
@@ -16,7 +16,7 @@ pub(super) fn lindex(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn lrange(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn lrange(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 4 {
         return wrong_args("LRANGE");
     }
@@ -39,7 +39,7 @@ pub(super) fn lrange(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn lset(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn lset(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 4 {
         return wrong_args("LSET");
     }
@@ -55,7 +55,7 @@ pub(super) fn lset(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn ltrim(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn ltrim(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 4 {
         return wrong_args("LTRIM");
     }
@@ -73,7 +73,7 @@ pub(super) fn ltrim(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn linsert(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn linsert(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 5 {
         return wrong_args("LINSERT");
     }
@@ -90,7 +90,7 @@ pub(super) fn linsert(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn lpos(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn lpos(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 3 {
         return wrong_args("LPOS");
     }

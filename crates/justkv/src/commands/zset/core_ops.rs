@@ -2,7 +2,7 @@ use crate::commands::util::{f64_to_bytes, wrong_args, wrong_type, Args};
 use crate::engine::store::Store;
 use crate::protocol::types::{BulkData, RespFrame};
 
-pub(super) fn zadd(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn zadd(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 4 || args.len() % 2 != 0 {
         return wrong_args("ZADD");
     }
@@ -22,7 +22,7 @@ pub(super) fn zadd(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn zrem(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn zrem(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 3 {
         return wrong_args("ZREM");
     }
@@ -32,7 +32,7 @@ pub(super) fn zrem(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn zcard(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn zcard(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 2 {
         return wrong_args("ZCARD");
     }
@@ -42,7 +42,7 @@ pub(super) fn zcard(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn zcount(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn zcount(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 4 {
         return wrong_args("ZCOUNT");
     }
@@ -60,7 +60,7 @@ pub(super) fn zcount(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn zscore(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn zscore(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 3 {
         return wrong_args("ZSCORE");
     }
@@ -71,7 +71,7 @@ pub(super) fn zscore(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn zrank(store: &Store, args: &Args, reverse: bool) -> RespFrame {
+pub(crate) fn zrank(store: &Store, args: &Args, reverse: bool) -> RespFrame {
     if args.len() != 3 {
         return wrong_args(if reverse { "ZREVRANK" } else { "ZRANK" });
     }
@@ -82,7 +82,7 @@ pub(super) fn zrank(store: &Store, args: &Args, reverse: bool) -> RespFrame {
     }
 }
 
-pub(super) fn zincrby(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn zincrby(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 4 {
         return wrong_args("ZINCRBY");
     }
@@ -96,7 +96,7 @@ pub(super) fn zincrby(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn zmscore(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn zmscore(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 3 {
         return wrong_args("ZMSCORE");
     }

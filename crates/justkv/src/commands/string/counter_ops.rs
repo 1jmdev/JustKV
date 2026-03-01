@@ -2,7 +2,7 @@ use crate::commands::util::{int_error, wrong_args, wrong_type, Args};
 use crate::engine::store::Store;
 use crate::protocol::types::RespFrame;
 
-pub(super) fn incr(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn incr(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 2 {
         return wrong_args("INCR");
     }
@@ -15,7 +15,7 @@ pub(super) fn incr(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn incrby(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn incrby(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 3 {
         return wrong_args("INCRBY");
     }
@@ -33,7 +33,7 @@ pub(super) fn incrby(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn decr(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn decr(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 2 {
         return wrong_args("DECR");
     }
@@ -46,7 +46,7 @@ pub(super) fn decr(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn decrby(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn decrby(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 3 {
         return wrong_args("DECRBY");
     }

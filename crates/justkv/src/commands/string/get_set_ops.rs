@@ -5,7 +5,7 @@ use crate::engine::store::Store;
 use crate::engine::value::CompactArg;
 use crate::protocol::types::{BulkData, RespFrame};
 
-pub(super) fn get(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn get(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 2 {
         return wrong_args("GET");
     }
@@ -15,7 +15,7 @@ pub(super) fn get(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn set(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn set(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 3 {
         return wrong_args("SET");
     }
@@ -95,14 +95,14 @@ pub(super) fn set(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn setnx(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn setnx(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 3 {
         return wrong_args("SETNX");
     }
     RespFrame::Integer(store.setnx(&args[1], &args[2], None) as i64)
 }
 
-pub(super) fn getset(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn getset(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 3 {
         return wrong_args("GETSET");
     }
@@ -112,7 +112,7 @@ pub(super) fn getset(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn getdel(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn getdel(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 2 {
         return wrong_args("GETDEL");
     }

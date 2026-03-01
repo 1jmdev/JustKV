@@ -2,7 +2,7 @@ use crate::commands::util::{int_error, wrong_args, wrong_type, Args};
 use crate::engine::store::Store;
 use crate::protocol::types::{BulkData, RespFrame};
 
-pub(super) fn append(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn append(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 3 {
         return wrong_args("APPEND");
     }
@@ -12,7 +12,7 @@ pub(super) fn append(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn strlen(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn strlen(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 2 {
         return wrong_args("STRLEN");
     }
@@ -22,7 +22,7 @@ pub(super) fn strlen(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn setrange(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn setrange(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 4 {
         return wrong_args("SETRANGE");
     }
@@ -37,7 +37,7 @@ pub(super) fn setrange(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn getrange(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn getrange(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 4 {
         return wrong_args("GETRANGE");
     }

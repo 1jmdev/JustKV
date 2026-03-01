@@ -2,7 +2,7 @@ use crate::commands::util::{eq_ascii, int_error, wrong_args, wrong_type, Args};
 use crate::engine::store::Store;
 use crate::protocol::types::{BulkData, RespFrame};
 
-pub(super) fn hrandfield(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn hrandfield(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 2 || args.len() > 4 {
         return wrong_args("HRANDFIELD");
     }

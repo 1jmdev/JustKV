@@ -2,7 +2,7 @@ use crate::commands::util::{f64_to_bytes, int_error, wrong_args, wrong_type, Arg
 use crate::engine::store::{HashFloatOpError, HashIntOpError, Store};
 use crate::protocol::types::{BulkData, RespFrame};
 
-pub(super) fn hincrby(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn hincrby(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 4 {
         return wrong_args("HINCRBY");
     }
@@ -24,7 +24,7 @@ pub(super) fn hincrby(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn hincrbyfloat(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn hincrbyfloat(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 4 {
         return wrong_args("HINCRBYFLOAT");
     }

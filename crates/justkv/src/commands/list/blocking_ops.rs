@@ -2,11 +2,11 @@ use crate::commands::util::{eq_ascii, int_error, wrong_args, wrong_type, Args};
 use crate::engine::store::{ListSide, Store};
 use crate::protocol::types::{BulkData, RespFrame};
 
-pub(super) fn blpop(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn blpop(store: &Store, args: &Args) -> RespFrame {
     block_pop(store, args, ListSide::Left)
 }
 
-pub(super) fn brpop(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn brpop(store: &Store, args: &Args) -> RespFrame {
     block_pop(store, args, ListSide::Right)
 }
 
@@ -32,7 +32,7 @@ fn block_pop(store: &Store, args: &Args, side: ListSide) -> RespFrame {
     }
 }
 
-pub(super) fn blmpop(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn blmpop(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 5 {
         return wrong_args("BLMPOP");
     }

@@ -2,7 +2,7 @@ use crate::commands::util::{wrong_args, wrong_type, Args};
 use crate::engine::store::Store;
 use crate::protocol::types::{BulkData, RespFrame};
 
-pub(super) fn mget(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn mget(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 2 {
         return wrong_args("MGET");
     }
@@ -17,7 +17,7 @@ pub(super) fn mget(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn mset(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn mset(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 3 || (args.len() - 1) % 2 != 0 {
         return wrong_args("MSET");
     }
@@ -29,7 +29,7 @@ pub(super) fn mset(store: &Store, args: &Args) -> RespFrame {
     RespFrame::ok()
 }
 
-pub(super) fn msetnx(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn msetnx(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 3 || (args.len() - 1) % 2 != 0 {
         return wrong_args("MSETNX");
     }

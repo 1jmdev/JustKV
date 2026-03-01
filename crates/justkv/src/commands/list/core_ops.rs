@@ -2,7 +2,7 @@ use crate::commands::util::{int_error, wrong_args, wrong_type, Args};
 use crate::engine::store::Store;
 use crate::protocol::types::{BulkData, RespFrame};
 
-pub(super) fn lpush(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn lpush(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 3 {
         return wrong_args("LPUSH");
     }
@@ -12,7 +12,7 @@ pub(super) fn lpush(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn rpush(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn rpush(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 3 {
         return wrong_args("RPUSH");
     }
@@ -22,11 +22,11 @@ pub(super) fn rpush(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn lpop(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn lpop(store: &Store, args: &Args) -> RespFrame {
     pop(store, args, true)
 }
 
-pub(super) fn rpop(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn rpop(store: &Store, args: &Args) -> RespFrame {
     pop(store, args, false)
 }
 
@@ -64,7 +64,7 @@ fn pop(store: &Store, args: &Args, left: bool) -> RespFrame {
     }
 }
 
-pub(super) fn llen(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn llen(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 2 {
         return wrong_args("LLEN");
     }

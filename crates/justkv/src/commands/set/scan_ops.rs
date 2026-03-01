@@ -2,7 +2,7 @@ use crate::commands::util::{eq_ascii, int_error, u64_to_bytes, wrong_args, wrong
 use crate::engine::store::Store;
 use crate::protocol::types::{BulkData, RespFrame};
 
-pub(super) fn sscan(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn sscan(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 3 {
         return wrong_args("SSCAN");
     }

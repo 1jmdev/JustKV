@@ -2,7 +2,7 @@ use crate::commands::util::{wrong_args, wrong_type, Args};
 use crate::engine::store::Store;
 use crate::protocol::types::{BulkData, RespFrame};
 
-pub(super) fn sadd(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn sadd(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 3 {
         return wrong_args("SADD");
     }
@@ -12,7 +12,7 @@ pub(super) fn sadd(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn srem(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn srem(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 3 {
         return wrong_args("SREM");
     }
@@ -22,7 +22,7 @@ pub(super) fn srem(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn smembers(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn smembers(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 2 {
         return wrong_args("SMEMBERS");
     }
@@ -37,7 +37,7 @@ pub(super) fn smembers(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn sismember(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn sismember(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 3 {
         return wrong_args("SISMEMBER");
     }
@@ -47,7 +47,7 @@ pub(super) fn sismember(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn scard(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn scard(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 2 {
         return wrong_args("SCARD");
     }
@@ -57,7 +57,7 @@ pub(super) fn scard(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(super) fn smove(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn smove(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 4 {
         return wrong_args("SMOVE");
     }

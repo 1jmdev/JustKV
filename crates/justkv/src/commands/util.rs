@@ -148,147 +148,629 @@ pub enum CommandId {
     Unknown,
 }
 
-/// Parse the (already uppercased) command bytes into a `CommandId`.
-/// This is called once per request and replaces the long chain of
-/// `eq_ascii` comparisons that used to happen on every routing step.
 pub fn parse_command_id(command: &[u8]) -> CommandId {
-    match command {
-        // Connection
-        b"AUTH" => CommandId::Auth,
-        b"HELLO" => CommandId::Hello,
-        b"CLIENT" => CommandId::Client,
-        b"COMMAND" => CommandId::Command,
-        b"SELECT" => CommandId::Select,
-        b"QUIT" => CommandId::Quit,
-        b"PING" => CommandId::Ping,
-        b"ECHO" => CommandId::Echo,
-        // Keyspace
-        b"DEL" => CommandId::Del,
-        b"EXISTS" => CommandId::Exists,
-        b"TOUCH" => CommandId::Touch,
-        b"UNLINK" => CommandId::Unlink,
-        b"TYPE" => CommandId::Type,
-        b"RENAME" => CommandId::Rename,
-        b"RENAMENX" => CommandId::Renamenx,
-        b"DBSIZE" => CommandId::Dbsize,
-        b"KEYS" => CommandId::Keys,
-        b"SCAN" => CommandId::Scan,
-        b"MOVE" => CommandId::Move,
-        b"DUMP" => CommandId::Dump,
-        b"RESTORE" => CommandId::Restore,
-        b"SORT" => CommandId::Sort,
-        b"COPY" => CommandId::Copy,
-        b"FLUSHDB" => CommandId::Flushdb,
-        b"FLUSHALL" | b"FLUSH" => CommandId::Flushall,
-        // TTL
-        b"EXPIRE" => CommandId::Expire,
-        b"PEXPIRE" => CommandId::Pexpire,
-        b"EXPIREAT" => CommandId::Expireat,
-        b"PEXPIREAT" => CommandId::Pexpireat,
-        b"PERSIST" => CommandId::Persist,
-        b"TTL" => CommandId::Ttl,
-        b"PTTL" => CommandId::Pttl,
-        // String – get/set
-        b"GET" => CommandId::Get,
-        b"SET" => CommandId::Set,
-        b"SETNX" => CommandId::Setnx,
-        b"GETSET" => CommandId::Getset,
-        b"GETDEL" => CommandId::Getdel,
-        // String – expiry
-        b"SETEX" => CommandId::Setex,
-        b"PSETEX" => CommandId::Psetex,
-        b"GETEX" => CommandId::Getex,
-        // String – length
-        b"APPEND" => CommandId::Append,
-        b"STRLEN" => CommandId::Strlen,
-        b"SETRANGE" => CommandId::Setrange,
-        b"GETRANGE" => CommandId::Getrange,
-        // String – multi
-        b"MGET" => CommandId::Mget,
-        b"MSET" => CommandId::Mset,
-        b"MSETNX" => CommandId::Msetnx,
-        // String – counter
-        b"INCR" => CommandId::Incr,
-        b"INCRBY" => CommandId::Incrby,
-        b"DECR" => CommandId::Decr,
-        b"DECRBY" => CommandId::Decrby,
-        // Hash
-        b"HSET" => CommandId::Hset,
-        b"HMSET" => CommandId::Hmset,
-        b"HSETNX" => CommandId::Hsetnx,
-        b"HGET" => CommandId::Hget,
-        b"HMGET" => CommandId::Hmget,
-        b"HGETALL" => CommandId::Hgetall,
-        b"HDEL" => CommandId::Hdel,
-        b"HEXISTS" => CommandId::Hexists,
-        b"HKEYS" => CommandId::Hkeys,
-        b"HVALS" => CommandId::Hvals,
-        b"HLEN" => CommandId::Hlen,
-        b"HSTRLEN" => CommandId::Hstrlen,
-        b"HINCRBY" => CommandId::Hincrby,
-        b"HINCRBYFLOAT" => CommandId::Hincrbyfloat,
-        b"HRANDFIELD" => CommandId::Hrandfield,
-        b"HSCAN" => CommandId::Hscan,
-        // List
-        b"LPUSH" => CommandId::Lpush,
-        b"RPUSH" => CommandId::Rpush,
-        b"LPOP" => CommandId::Lpop,
-        b"RPOP" => CommandId::Rpop,
-        b"LLEN" => CommandId::Llen,
-        b"LINDEX" => CommandId::Lindex,
-        b"LRANGE" => CommandId::Lrange,
-        b"LSET" => CommandId::Lset,
-        b"LTRIM" => CommandId::Ltrim,
-        b"LINSERT" => CommandId::Linsert,
-        b"LPOS" => CommandId::Lpos,
-        b"LMOVE" => CommandId::Lmove,
-        b"BRPOPLPUSH" => CommandId::Brpoplpush,
-        b"LMPOP" => CommandId::Lmpop,
-        b"BLPOP" => CommandId::Blpop,
-        b"BRPOP" => CommandId::Brpop,
-        b"BLMPOP" => CommandId::Blmpop,
-        // Set
-        b"SADD" => CommandId::Sadd,
-        b"SREM" => CommandId::Srem,
-        b"SMEMBERS" => CommandId::Smembers,
-        b"SISMEMBER" => CommandId::Sismember,
-        b"SCARD" => CommandId::Scard,
-        b"SMOVE" => CommandId::Smove,
-        b"SPOP" => CommandId::Spop,
-        b"SRANDMEMBER" => CommandId::Srandmember,
-        b"SINTER" => CommandId::Sinter,
-        b"SINTERSTORE" => CommandId::Sinterstore,
-        b"SUNION" => CommandId::Sunion,
-        b"SUNIONSTORE" => CommandId::Sunionstore,
-        b"SDIFF" => CommandId::Sdiff,
-        b"SDIFFSTORE" => CommandId::Sdiffstore,
-        b"SINTERCARD" => CommandId::Sintercard,
-        b"SSCAN" => CommandId::Sscan,
-        // Sorted set
-        b"ZADD" => CommandId::Zadd,
-        b"ZREM" => CommandId::Zrem,
-        b"ZCARD" => CommandId::Zcard,
-        b"ZCOUNT" => CommandId::Zcount,
-        b"ZSCORE" => CommandId::Zscore,
-        b"ZRANK" => CommandId::Zrank,
-        b"ZREVRANK" => CommandId::Zrevrank,
-        b"ZINCRBY" => CommandId::Zincrby,
-        b"ZMSCORE" => CommandId::Zmscore,
-        b"ZRANGE" => CommandId::Zrange,
-        b"ZREVRANGE" => CommandId::Zrevrange,
-        b"ZRANGEBYSCORE" => CommandId::Zrangebyscore,
-        b"ZREVRANGEBYSCORE" => CommandId::Zrevrangebyscore,
-        b"ZPOPMIN" => CommandId::Zpopmin,
-        b"ZPOPMAX" => CommandId::Zpopmax,
-        b"BZPOPMIN" => CommandId::Bzpopmin,
-        b"BZPOPMAX" => CommandId::Bzpopmax,
-        b"ZMPOP" => CommandId::Zmpop,
-        b"BZMPOP" => CommandId::Bzmpop,
-        b"ZRANDMEMBER" => CommandId::Zrandmember,
-        b"ZINTER" => CommandId::Zinter,
-        b"ZUNION" => CommandId::Zunion,
-        b"ZDIFF" => CommandId::Zdiff,
-        b"ZSCAN" => CommandId::Zscan,
+    if command.is_empty() {
+        return CommandId::Unknown;
+    }
+
+    match command.len() {
+        3 => match command[0].to_ascii_uppercase() {
+            b'D' => {
+                if command.eq_ignore_ascii_case(b"DEL") {
+                    CommandId::Del
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'G' => {
+                if command.eq_ignore_ascii_case(b"GET") {
+                    CommandId::Get
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'S' => {
+                if command.eq_ignore_ascii_case(b"SET") {
+                    CommandId::Set
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'T' => {
+                if command.eq_ignore_ascii_case(b"TTL") {
+                    CommandId::Ttl
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            _ => CommandId::Unknown,
+        },
+        4 => match command[0].to_ascii_uppercase() {
+            b'A' => {
+                if command.eq_ignore_ascii_case(b"AUTH") {
+                    CommandId::Auth
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'C' => {
+                if command.eq_ignore_ascii_case(b"COPY") {
+                    CommandId::Copy
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'D' => {
+                if command.eq_ignore_ascii_case(b"DECR") {
+                    CommandId::Decr
+                } else if command.eq_ignore_ascii_case(b"DUMP") {
+                    CommandId::Dump
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'E' => {
+                if command.eq_ignore_ascii_case(b"ECHO") {
+                    CommandId::Echo
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'H' => {
+                if command.eq_ignore_ascii_case(b"HDEL") {
+                    CommandId::Hdel
+                } else if command.eq_ignore_ascii_case(b"HGET") {
+                    CommandId::Hget
+                } else if command.eq_ignore_ascii_case(b"HLEN") {
+                    CommandId::Hlen
+                } else if command.eq_ignore_ascii_case(b"HSET") {
+                    CommandId::Hset
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'I' => {
+                if command.eq_ignore_ascii_case(b"INCR") {
+                    CommandId::Incr
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'K' => {
+                if command.eq_ignore_ascii_case(b"KEYS") {
+                    CommandId::Keys
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'L' => {
+                if command.eq_ignore_ascii_case(b"LLEN") {
+                    CommandId::Llen
+                } else if command.eq_ignore_ascii_case(b"LPOP") {
+                    CommandId::Lpop
+                } else if command.eq_ignore_ascii_case(b"LPOS") {
+                    CommandId::Lpos
+                } else if command.eq_ignore_ascii_case(b"LSET") {
+                    CommandId::Lset
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'M' => {
+                if command.eq_ignore_ascii_case(b"MGET") {
+                    CommandId::Mget
+                } else if command.eq_ignore_ascii_case(b"MOVE") {
+                    CommandId::Move
+                } else if command.eq_ignore_ascii_case(b"MSET") {
+                    CommandId::Mset
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'P' => {
+                if command.eq_ignore_ascii_case(b"PING") {
+                    CommandId::Ping
+                } else if command.eq_ignore_ascii_case(b"PTTL") {
+                    CommandId::Pttl
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'Q' => {
+                if command.eq_ignore_ascii_case(b"QUIT") {
+                    CommandId::Quit
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'R' => {
+                if command.eq_ignore_ascii_case(b"RPOP") {
+                    CommandId::Rpop
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'S' => {
+                if command.eq_ignore_ascii_case(b"SADD") {
+                    CommandId::Sadd
+                } else if command.eq_ignore_ascii_case(b"SCAN") {
+                    CommandId::Scan
+                } else if command.eq_ignore_ascii_case(b"SORT") {
+                    CommandId::Sort
+                } else if command.eq_ignore_ascii_case(b"SPOP") {
+                    CommandId::Spop
+                } else if command.eq_ignore_ascii_case(b"SREM") {
+                    CommandId::Srem
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'T' => {
+                if command.eq_ignore_ascii_case(b"TYPE") {
+                    CommandId::Type
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'Z' => {
+                if command.eq_ignore_ascii_case(b"ZADD") {
+                    CommandId::Zadd
+                } else if command.eq_ignore_ascii_case(b"ZREM") {
+                    CommandId::Zrem
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            _ => CommandId::Unknown,
+        },
+        5 => match command[0].to_ascii_uppercase() {
+            b'B' => {
+                if command.eq_ignore_ascii_case(b"BLPOP") {
+                    CommandId::Blpop
+                } else if command.eq_ignore_ascii_case(b"BRPOP") {
+                    CommandId::Brpop
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'F' => {
+                if command.eq_ignore_ascii_case(b"FLUSH") {
+                    CommandId::Flushall
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'G' => {
+                if command.eq_ignore_ascii_case(b"GETEX") {
+                    CommandId::Getex
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'H' => {
+                if command.eq_ignore_ascii_case(b"HELLO") {
+                    CommandId::Hello
+                } else if command.eq_ignore_ascii_case(b"HKEYS") {
+                    CommandId::Hkeys
+                } else if command.eq_ignore_ascii_case(b"HMGET") {
+                    CommandId::Hmget
+                } else if command.eq_ignore_ascii_case(b"HMSET") {
+                    CommandId::Hmset
+                } else if command.eq_ignore_ascii_case(b"HSCAN") {
+                    CommandId::Hscan
+                } else if command.eq_ignore_ascii_case(b"HVALS") {
+                    CommandId::Hvals
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'L' => {
+                if command.eq_ignore_ascii_case(b"LMOVE") {
+                    CommandId::Lmove
+                } else if command.eq_ignore_ascii_case(b"LMPOP") {
+                    CommandId::Lmpop
+                } else if command.eq_ignore_ascii_case(b"LPUSH") {
+                    CommandId::Lpush
+                } else if command.eq_ignore_ascii_case(b"LTRIM") {
+                    CommandId::Ltrim
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'R' => {
+                if command.eq_ignore_ascii_case(b"RPUSH") {
+                    CommandId::Rpush
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'S' => {
+                if command.eq_ignore_ascii_case(b"SCARD") {
+                    CommandId::Scard
+                } else if command.eq_ignore_ascii_case(b"SDIFF") {
+                    CommandId::Sdiff
+                } else if command.eq_ignore_ascii_case(b"SETEX") {
+                    CommandId::Setex
+                } else if command.eq_ignore_ascii_case(b"SETNX") {
+                    CommandId::Setnx
+                } else if command.eq_ignore_ascii_case(b"SMOVE") {
+                    CommandId::Smove
+                } else if command.eq_ignore_ascii_case(b"SSCAN") {
+                    CommandId::Sscan
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'T' => {
+                if command.eq_ignore_ascii_case(b"TOUCH") {
+                    CommandId::Touch
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'Z' => {
+                if command.eq_ignore_ascii_case(b"ZCARD") {
+                    CommandId::Zcard
+                } else if command.eq_ignore_ascii_case(b"ZDIFF") {
+                    CommandId::Zdiff
+                } else if command.eq_ignore_ascii_case(b"ZMPOP") {
+                    CommandId::Zmpop
+                } else if command.eq_ignore_ascii_case(b"ZRANK") {
+                    CommandId::Zrank
+                } else if command.eq_ignore_ascii_case(b"ZSCAN") {
+                    CommandId::Zscan
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            _ => CommandId::Unknown,
+        },
+        6 => match command[0].to_ascii_uppercase() {
+            b'A' => {
+                if command.eq_ignore_ascii_case(b"APPEND") {
+                    CommandId::Append
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'B' => {
+                if command.eq_ignore_ascii_case(b"BLMPOP") {
+                    CommandId::Blmpop
+                } else if command.eq_ignore_ascii_case(b"BZMPOP") {
+                    CommandId::Bzmpop
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'C' => {
+                if command.eq_ignore_ascii_case(b"CLIENT") {
+                    CommandId::Client
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'D' => {
+                if command.eq_ignore_ascii_case(b"DBSIZE") {
+                    CommandId::Dbsize
+                } else if command.eq_ignore_ascii_case(b"DECRBY") {
+                    CommandId::Decrby
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'E' => {
+                if command.eq_ignore_ascii_case(b"EXISTS") {
+                    CommandId::Exists
+                } else if command.eq_ignore_ascii_case(b"EXPIRE") {
+                    CommandId::Expire
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'G' => {
+                if command.eq_ignore_ascii_case(b"GETDEL") {
+                    CommandId::Getdel
+                } else if command.eq_ignore_ascii_case(b"GETSET") {
+                    CommandId::Getset
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'H' => {
+                if command.eq_ignore_ascii_case(b"HSETNX") {
+                    CommandId::Hsetnx
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'I' => {
+                if command.eq_ignore_ascii_case(b"INCRBY") {
+                    CommandId::Incrby
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'L' => {
+                if command.eq_ignore_ascii_case(b"LINDEX") {
+                    CommandId::Lindex
+                } else if command.eq_ignore_ascii_case(b"LRANGE") {
+                    CommandId::Lrange
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'M' => {
+                if command.eq_ignore_ascii_case(b"MSETNX") {
+                    CommandId::Msetnx
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'P' => {
+                if command.eq_ignore_ascii_case(b"PSETEX") {
+                    CommandId::Psetex
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'R' => {
+                if command.eq_ignore_ascii_case(b"RENAME") {
+                    CommandId::Rename
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'S' => {
+                if command.eq_ignore_ascii_case(b"SELECT") {
+                    CommandId::Select
+                } else if command.eq_ignore_ascii_case(b"SINTER") {
+                    CommandId::Sinter
+                } else if command.eq_ignore_ascii_case(b"STRLEN") {
+                    CommandId::Strlen
+                } else if command.eq_ignore_ascii_case(b"SUNION") {
+                    CommandId::Sunion
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'U' => {
+                if command.eq_ignore_ascii_case(b"UNLINK") {
+                    CommandId::Unlink
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'Z' => {
+                if command.eq_ignore_ascii_case(b"ZCOUNT") {
+                    CommandId::Zcount
+                } else if command.eq_ignore_ascii_case(b"ZINTER") {
+                    CommandId::Zinter
+                } else if command.eq_ignore_ascii_case(b"ZRANGE") {
+                    CommandId::Zrange
+                } else if command.eq_ignore_ascii_case(b"ZSCORE") {
+                    CommandId::Zscore
+                } else if command.eq_ignore_ascii_case(b"ZUNION") {
+                    CommandId::Zunion
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            _ => CommandId::Unknown,
+        },
+        7 => match command[0].to_ascii_uppercase() {
+            b'C' => {
+                if command.eq_ignore_ascii_case(b"COMMAND") {
+                    CommandId::Command
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'F' => {
+                if command.eq_ignore_ascii_case(b"FLUSHDB") {
+                    CommandId::Flushdb
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'H' => {
+                if command.eq_ignore_ascii_case(b"HEXISTS") {
+                    CommandId::Hexists
+                } else if command.eq_ignore_ascii_case(b"HGETALL") {
+                    CommandId::Hgetall
+                } else if command.eq_ignore_ascii_case(b"HINCRBY") {
+                    CommandId::Hincrby
+                } else if command.eq_ignore_ascii_case(b"HSTRLEN") {
+                    CommandId::Hstrlen
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'L' => {
+                if command.eq_ignore_ascii_case(b"LINSERT") {
+                    CommandId::Linsert
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'P' => {
+                if command.eq_ignore_ascii_case(b"PERSIST") {
+                    CommandId::Persist
+                } else if command.eq_ignore_ascii_case(b"PEXPIRE") {
+                    CommandId::Pexpire
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'R' => {
+                if command.eq_ignore_ascii_case(b"RESTORE") {
+                    CommandId::Restore
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'Z' => {
+                if command.eq_ignore_ascii_case(b"ZINCRBY") {
+                    CommandId::Zincrby
+                } else if command.eq_ignore_ascii_case(b"ZMSCORE") {
+                    CommandId::Zmscore
+                } else if command.eq_ignore_ascii_case(b"ZPOPMAX") {
+                    CommandId::Zpopmax
+                } else if command.eq_ignore_ascii_case(b"ZPOPMIN") {
+                    CommandId::Zpopmin
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            _ => CommandId::Unknown,
+        },
+        8 => match command[0].to_ascii_uppercase() {
+            b'B' => {
+                if command.eq_ignore_ascii_case(b"BZPOPMAX") {
+                    CommandId::Bzpopmax
+                } else if command.eq_ignore_ascii_case(b"BZPOPMIN") {
+                    CommandId::Bzpopmin
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'E' => {
+                if command.eq_ignore_ascii_case(b"EXPIREAT") {
+                    CommandId::Expireat
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'F' => {
+                if command.eq_ignore_ascii_case(b"FLUSHALL") {
+                    CommandId::Flushall
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'G' => {
+                if command.eq_ignore_ascii_case(b"GETRANGE") {
+                    CommandId::Getrange
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'R' => {
+                if command.eq_ignore_ascii_case(b"RENAMENX") {
+                    CommandId::Renamenx
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'S' => {
+                if command.eq_ignore_ascii_case(b"SETRANGE") {
+                    CommandId::Setrange
+                } else if command.eq_ignore_ascii_case(b"SMEMBERS") {
+                    CommandId::Smembers
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'Z' => {
+                if command.eq_ignore_ascii_case(b"ZREVRANK") {
+                    CommandId::Zrevrank
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            _ => CommandId::Unknown,
+        },
+        9 => match command[0].to_ascii_uppercase() {
+            b'P' => {
+                if command.eq_ignore_ascii_case(b"PEXPIREAT") {
+                    CommandId::Pexpireat
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'S' => {
+                if command.eq_ignore_ascii_case(b"SISMEMBER") {
+                    CommandId::Sismember
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'Z' => {
+                if command.eq_ignore_ascii_case(b"ZREVRANGE") {
+                    CommandId::Zrevrange
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            _ => CommandId::Unknown,
+        },
+        10 => match command[0].to_ascii_uppercase() {
+            b'B' => {
+                if command.eq_ignore_ascii_case(b"BRPOPLPUSH") {
+                    CommandId::Brpoplpush
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'H' => {
+                if command.eq_ignore_ascii_case(b"HRANDFIELD") {
+                    CommandId::Hrandfield
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'S' => {
+                if command.eq_ignore_ascii_case(b"SDIFFSTORE") {
+                    CommandId::Sdiffstore
+                } else if command.eq_ignore_ascii_case(b"SINTERCARD") {
+                    CommandId::Sintercard
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            _ => CommandId::Unknown,
+        },
+        11 => match command[0].to_ascii_uppercase() {
+            b'S' => {
+                if command.eq_ignore_ascii_case(b"SINTERSTORE") {
+                    CommandId::Sinterstore
+                } else if command.eq_ignore_ascii_case(b"SRANDMEMBER") {
+                    CommandId::Srandmember
+                } else if command.eq_ignore_ascii_case(b"SUNIONSTORE") {
+                    CommandId::Sunionstore
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            b'Z' => {
+                if command.eq_ignore_ascii_case(b"ZRANDMEMBER") {
+                    CommandId::Zrandmember
+                } else {
+                    CommandId::Unknown
+                }
+            }
+            _ => CommandId::Unknown,
+        },
+        12 => {
+            if command.eq_ignore_ascii_case(b"HINCRBYFLOAT") {
+                CommandId::Hincrbyfloat
+            } else {
+                CommandId::Unknown
+            }
+        }
+        13 => {
+            if command.eq_ignore_ascii_case(b"ZRANGEBYSCORE") {
+                CommandId::Zrangebyscore
+            } else {
+                CommandId::Unknown
+            }
+        }
+        16 => {
+            if command.eq_ignore_ascii_case(b"ZREVRANGEBYSCORE") {
+                CommandId::Zrevrangebyscore
+            } else {
+                CommandId::Unknown
+            }
+        }
         _ => CommandId::Unknown,
     }
 }

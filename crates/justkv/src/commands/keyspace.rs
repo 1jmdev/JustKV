@@ -27,42 +27,42 @@ pub fn handle(store: &Store, cmd: CommandId, args: &Args) -> RespFrame {
     }
 }
 
-fn del(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn del(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 2 {
         return wrong_args("DEL");
     }
     RespFrame::Integer(store.del(&args[1..]))
 }
 
-fn exists(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn exists(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 2 {
         return wrong_args("EXISTS");
     }
     RespFrame::Integer(store.exists(&args[1..]))
 }
 
-fn touch(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn touch(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 2 {
         return wrong_args("TOUCH");
     }
     RespFrame::Integer(store.touch(&args[1..]))
 }
 
-fn unlink(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn unlink(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 2 {
         return wrong_args("UNLINK");
     }
     RespFrame::Integer(store.unlink(&args[1..]))
 }
 
-fn key_type(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn key_type(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 2 {
         return wrong_args("TYPE");
     }
     RespFrame::Simple(store.key_type(&args[1]).to_string())
 }
 
-fn rename(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn rename(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 3 {
         return wrong_args("RENAME");
     }
@@ -73,7 +73,7 @@ fn rename(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-fn renamenx(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn renamenx(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 3 {
         return wrong_args("RENAMENX");
     }
@@ -83,14 +83,14 @@ fn renamenx(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-fn dbsize(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn dbsize(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 1 {
         return wrong_args("DBSIZE");
     }
     RespFrame::Integer(store.dbsize())
 }
 
-fn keys(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn keys(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 2 {
         return wrong_args("KEYS");
     }
@@ -104,7 +104,7 @@ fn keys(store: &Store, args: &Args) -> RespFrame {
     ))
 }
 
-fn scan(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn scan(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 2 {
         return wrong_args("SCAN");
     }
@@ -157,7 +157,7 @@ fn scan(store: &Store, args: &Args) -> RespFrame {
     ]))
 }
 
-fn move_key(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn move_key(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 3 {
         return wrong_args("MOVE");
     }
@@ -173,14 +173,14 @@ fn move_key(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-fn dump(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn dump(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 2 {
         return wrong_args("DUMP");
     }
     RespFrame::Bulk(store.dump(&args[1]).map(BulkData::from_vec))
 }
 
-fn restore(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn restore(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 4 {
         return wrong_args("RESTORE");
     }
@@ -212,7 +212,7 @@ fn restore(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-fn sort(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn sort(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 2 {
         return wrong_args("SORT");
     }
@@ -273,7 +273,7 @@ fn sort(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-fn copy(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn copy(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 3 {
         return wrong_args("COPY");
     }
@@ -309,7 +309,7 @@ fn copy(store: &Store, args: &Args) -> RespFrame {
     RespFrame::Integer(store.copy(&args[1], &args[2], replace))
 }
 
-fn flushdb(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn flushdb(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 1 {
         return wrong_args("FLUSHDB");
     }
@@ -317,7 +317,7 @@ fn flushdb(store: &Store, args: &Args) -> RespFrame {
     RespFrame::ok()
 }
 
-fn flushall(store: &Store, args: &Args) -> RespFrame {
+pub(crate) fn flushall(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 1 {
         return wrong_args("FLUSHALL");
     }
