@@ -2,10 +2,15 @@ import { createClient } from "redis";
 
 type WindowStats = {
   commands: number;
+  requests: number;
+  cmdRps: number;
+  reqRps: number;
   parseMs: number;
   executeMs: number;
   encodeMs: number;
   writeMs: number;
+  totalStageMs: number;
+  longRequests: number;
 };
 
 type CommandStats = {
@@ -17,6 +22,29 @@ type CommandStats = {
   slowCount: number;
 };
 
+type RequestCommandStats = {
+  command: string;
+  count: number;
+  totalMs: number;
+  avgUs: number;
+  maxUs: number;
+  slowCount: number;
+  parseMs: number;
+  executeMs: number;
+  encodeMs: number;
+  hotStage: "parse" | "execute" | "encode";
+  hotPct: number;
+};
+
+type SlowRequestSample = {
+  command: string;
+  totalUs: number;
+  parseUs: number;
+  executeUs: number;
+  encodeUs: number;
+  bottleneck: "parse" | "execute" | "encode";
+};
+
 type Scenario = {
   command: string;
   setup?: (client: ReturnType<typeof createClient>) => Promise<void>;
@@ -26,8 +54,12 @@ type Scenario = {
 type ScenarioResult = {
   command: string;
   operationCount: number;
+  busiestWindow: WindowStats;
+  measuredWindow: WindowStats;
   window: WindowStats;
   commandStats?: CommandStats;
+  requestStats?: RequestCommandStats;
+  slowSamples: SlowRequestSample[];
   stagePerOpUs: {
     parse: number;
     execute: number;
@@ -42,6 +74,10 @@ const PORT_START = 6400;
 const PROFILE_INTERVAL_SECS = 2;
 const SCENARIO_ITERATIONS = 20_000;
 const SCENARIO_CONCURRENCY = 200;
+const BURST_ITERATIONS = 80_000;
+const BURST_CONCURRENCY = 600;
+const LONG_REQUEST_THRESHOLD_MS = 1;
+const LONG_REQUEST_SAMPLES = 12;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -80,9 +116,16 @@ async function runBatched(
   }
 }
 
-function parseProfiler(stderr: string): { windows: WindowStats[]; commands: CommandStats[] } {
+function parseProfiler(stderr: string): {
+  windows: WindowStats[];
+  commands: CommandStats[];
+  requestCommands: RequestCommandStats[];
+  slowRequests: SlowRequestSample[];
+} {
   const windows: WindowStats[] = [];
   const commands: CommandStats[] = [];
+  const requestCommands: RequestCommandStats[] = [];
+  const slowRequests: SlowRequestSample[] = [];
 
   const lines = stderr
     .split("\n")
@@ -91,21 +134,36 @@ function parseProfiler(stderr: string): { windows: WindowStats[]; commands: Comm
 
   for (const line of lines) {
     const windowMatch = line.match(
-      /commands=(\d+) parse=([0-9.]+)ms execute=([0-9.]+)ms encode=([0-9.]+)ms write=([0-9.]+)ms/
+      /^\[latency-profiler\].*commands=(\d+)(?:\s+requests=(\d+))?(?:\s+cmd_rps=([0-9.]+))?(?:\s+req_rps=([0-9.]+))?\s+parse=([0-9.]+)ms\s+execute=([0-9.]+)ms\s+encode=([0-9.]+)ms\s+write=([0-9.]+)ms(?:\s+total_stage=([0-9.]+)ms)?(?:\s+long_requests=(\d+))?/
     );
     if (windowMatch) {
       windows.push({
         commands: Number(windowMatch[1]),
-        parseMs: Number(windowMatch[2]),
-        executeMs: Number(windowMatch[3]),
-        encodeMs: Number(windowMatch[4]),
-        writeMs: Number(windowMatch[5]),
+        requests: windowMatch[2] ? Number(windowMatch[2]) : Number(windowMatch[1]),
+        cmdRps: windowMatch[3]
+          ? Number(windowMatch[3])
+          : Number(windowMatch[1]) / PROFILE_INTERVAL_SECS,
+        reqRps: windowMatch[4]
+          ? Number(windowMatch[4])
+          : (windowMatch[2] ? Number(windowMatch[2]) : Number(windowMatch[1])) /
+            PROFILE_INTERVAL_SECS,
+        parseMs: Number(windowMatch[5]),
+        executeMs: Number(windowMatch[6]),
+        encodeMs: Number(windowMatch[7]),
+        writeMs: Number(windowMatch[8]),
+        totalStageMs: windowMatch[9]
+          ? Number(windowMatch[9])
+          : Number(windowMatch[5]) +
+            Number(windowMatch[6]) +
+            Number(windowMatch[7]) +
+            Number(windowMatch[8]),
+        longRequests: windowMatch[10] ? Number(windowMatch[10]) : 0,
       });
       continue;
     }
 
     const commandMatch = line.match(
-      /cmd=([^\s]+) count=(\d+) total=([0-9.]+)ms avg=([0-9.]+)us max=([0-9.]+)us slow=(\d+)/
+      /^\[latency-profiler\]\s+cmd=([^\s]+) count=(\d+) total=([0-9.]+)ms avg=([0-9.]+)us max=([0-9.]+)us slow=(\d+)/
     );
     if (commandMatch) {
       commands.push({
@@ -116,10 +174,45 @@ function parseProfiler(stderr: string): { windows: WindowStats[]; commands: Comm
         maxUs: Number(commandMatch[5]),
         slowCount: Number(commandMatch[6]),
       });
+      continue;
+    }
+
+    const requestCommandMatch = line.match(
+      /^\[latency-profiler\]\s+req_cmd=([^\s]+) count=(\d+) total=([0-9.]+)ms avg=([0-9.]+)us max=([0-9.]+)us slow=(\d+) parse=([0-9.]+)ms execute=([0-9.]+)ms encode=([0-9.]+)ms hot=(parse|execute|encode) hot_pct=([0-9.]+)/
+    );
+    if (requestCommandMatch) {
+      requestCommands.push({
+        command: requestCommandMatch[1],
+        count: Number(requestCommandMatch[2]),
+        totalMs: Number(requestCommandMatch[3]),
+        avgUs: Number(requestCommandMatch[4]),
+        maxUs: Number(requestCommandMatch[5]),
+        slowCount: Number(requestCommandMatch[6]),
+        parseMs: Number(requestCommandMatch[7]),
+        executeMs: Number(requestCommandMatch[8]),
+        encodeMs: Number(requestCommandMatch[9]),
+        hotStage: requestCommandMatch[10] as RequestCommandStats["hotStage"],
+        hotPct: Number(requestCommandMatch[11]),
+      });
+      continue;
+    }
+
+    const slowRequestMatch = line.match(
+      /^\[latency-profiler\]\s+slow_req cmd=([^\s]+) total=([0-9.]+)us parse=([0-9.]+)us execute=([0-9.]+)us encode=([0-9.]+)us bottleneck=(parse|execute|encode)/
+    );
+    if (slowRequestMatch) {
+      slowRequests.push({
+        command: slowRequestMatch[1],
+        totalUs: Number(slowRequestMatch[2]),
+        parseUs: Number(slowRequestMatch[3]),
+        executeUs: Number(slowRequestMatch[4]),
+        encodeUs: Number(slowRequestMatch[5]),
+        bottleneck: slowRequestMatch[6] as SlowRequestSample["bottleneck"],
+      });
     }
   }
 
-  return { windows, commands };
+  return { windows, commands, requestCommands, slowRequests };
 }
 
 function perOpUs(window: WindowStats, opCount: number) {
@@ -146,6 +239,8 @@ async function runScenario(
     JUSTKV_PROFILE: "1",
     JUSTKV_PROFILE_INTERVAL_SECS: String(PROFILE_INTERVAL_SECS),
     JUSTKV_PROFILE_SLOW_MS: "1",
+    JUSTKV_PROFILE_LONG_MS: String(LONG_REQUEST_THRESHOLD_MS),
+    JUSTKV_PROFILE_SLOW_SAMPLES: String(LONG_REQUEST_SAMPLES),
   };
 
   const server = Bun.spawn([SERVER_BIN, "--port", String(port)], {
@@ -180,18 +275,68 @@ async function runScenario(
     throw new Error(`No profiler windows captured for ${scenario.command}`);
   }
 
+  const busiestWindow = parsed.windows.reduce((best, current) => {
+    if (current.requests > best.requests) {
+      return current;
+    }
+    return best;
+  }, measuredWindow);
+
   const commandStats = [...parsed.commands]
     .reverse()
     .find((c) => c.command === scenario.command);
-  const operationCount = commandStats?.count ?? measuredWindow.commands;
+  const requestStats = [...parsed.requestCommands]
+    .reverse()
+    .find((c) => c.command === scenario.command);
+  const operationCount =
+    commandStats?.count ?? requestStats?.count ?? busiestWindow.requests;
 
   return {
     command: scenario.command,
     operationCount,
+    busiestWindow,
+    measuredWindow,
     window: measuredWindow,
     commandStats,
-    stagePerOpUs: perOpUs(measuredWindow, operationCount),
+    requestStats,
+    slowSamples: parsed.slowRequests,
+    stagePerOpUs: perOpUs(busiestWindow, operationCount),
   };
+}
+
+async function runMixedBurstScenario(client: ReturnType<typeof createClient>) {
+  await runBatched(BURST_ITERATIONS, BURST_CONCURRENCY, async (i) => {
+    const lane = i % 8;
+    if (lane === 0) {
+      await client.set(`prof:burst:set:${i}`, `value-${i}`);
+      return;
+    }
+    if (lane === 1) {
+      await client.get(`prof:burst:get:${i % SCENARIO_ITERATIONS}`);
+      return;
+    }
+    if (lane === 2) {
+      await client.incr(`prof:burst:incr:${i % 2048}`);
+      return;
+    }
+    if (lane === 3) {
+      await client.hSet(`prof:burst:hash:${i % 256}`, `field:${i}`, `value:${i}`);
+      return;
+    }
+    if (lane === 4) {
+      await client.sAdd(`prof:burst:setbag:${i % 128}`, `member:${i}`);
+      return;
+    }
+    if (lane === 5) {
+      await client.lPush(`prof:burst:queue:${i % 64}`, `item:${i}`);
+      return;
+    }
+    if (lane === 6) {
+      await client.lRange("prof:burst:hotlist", 0, 2000);
+      return;
+    }
+    await client.expire(`prof:burst:get:${i % SCENARIO_ITERATIONS}`, 60);
+  });
 }
 
 const scenarios: Scenario[] = [
@@ -275,6 +420,21 @@ const scenarios: Scenario[] = [
       });
     },
   },
+  {
+    command: "MIXED",
+    setup: async (client) => {
+      await runBatched(SCENARIO_ITERATIONS, SCENARIO_CONCURRENCY, async (i) => {
+        await client.set(`prof:burst:get:${i}`, `value-${i}`);
+      });
+      await client.del("prof:burst:hotlist");
+      await runBatched(25_000, 500, async (i) => {
+        await client.lPush("prof:burst:hotlist", `item:${i}`);
+      });
+    },
+    run: async (client) => {
+      await runMixedBurstScenario(client);
+    },
+  },
 ];
 
 async function main() {
@@ -300,6 +460,11 @@ async function main() {
   const summary = results.map((result) => ({
     command: result.command,
     operations: result.operationCount,
+    busiest_window_commands: result.busiestWindow.commands,
+    busiest_window_requests: result.busiestWindow.requests,
+    busiest_window_cmd_rps: Number(result.busiestWindow.cmdRps.toFixed(1)),
+    busiest_window_req_rps: Number(result.busiestWindow.reqRps.toFixed(1)),
+    busiest_window_long_requests: result.busiestWindow.longRequests,
     parse_us_per_op: Number(result.stagePerOpUs.parse.toFixed(3)),
     execute_us_per_op: Number(result.stagePerOpUs.execute.toFixed(3)),
     encode_us_per_op: Number(result.stagePerOpUs.encode.toFixed(3)),
@@ -311,19 +476,60 @@ async function main() {
     command_execute_max_us: result.commandStats
       ? Number(result.commandStats.maxUs.toFixed(3))
       : null,
+    command_long_execute_count: result.commandStats
+      ? result.commandStats.slowCount
+      : null,
+    request_profile: result.requestStats
+      ? {
+          avg_us: Number(result.requestStats.avgUs.toFixed(3)),
+          max_us: Number(result.requestStats.maxUs.toFixed(3)),
+          long_count: result.requestStats.slowCount,
+          parse_ms_total: Number(result.requestStats.parseMs.toFixed(3)),
+          execute_ms_total: Number(result.requestStats.executeMs.toFixed(3)),
+          encode_ms_total: Number(result.requestStats.encodeMs.toFixed(3)),
+          hot_stage: result.requestStats.hotStage,
+          hot_stage_pct: Number(result.requestStats.hotPct.toFixed(1)),
+        }
+      : null,
+    slow_request_samples: result.slowSamples.slice(0, 5).map((sample) => ({
+      cmd: sample.command,
+      total_us: Number(sample.totalUs.toFixed(3)),
+      parse_us: Number(sample.parseUs.toFixed(3)),
+      execute_us: Number(sample.executeUs.toFixed(3)),
+      encode_us: Number(sample.encodeUs.toFixed(3)),
+      bottleneck: sample.bottleneck,
+    })),
   }));
 
   await Bun.write("profile-results.json", JSON.stringify(summary, null, 2));
 
-  console.log("\nPer-command stage breakdown (microseconds per op):");
+  console.log("\nPer-command stage breakdown in busiest load window (microseconds per op):");
   for (const item of summary) {
     console.log(
       `${item.command.padEnd(8)} parse=${item.parse_us_per_op.toFixed(3)} ` +
         `exec=${item.execute_us_per_op.toFixed(3)} ` +
         `encode=${item.encode_us_per_op.toFixed(3)} ` +
         `write=${item.write_us_per_op.toFixed(3)} ` +
-        `total=${item.total_us_per_op.toFixed(3)}`
+        `total=${item.total_us_per_op.toFixed(3)} ` +
+        `req_rps=${item.busiest_window_req_rps.toFixed(1)} ` +
+        `long=${item.busiest_window_long_requests}`
     );
+
+    if (item.request_profile) {
+      console.log(
+        `         long_request_hot_stage=${item.request_profile.hot_stage} ` +
+          `(${item.request_profile.hot_stage_pct.toFixed(1)}%) ` +
+          `long_count=${item.request_profile.long_count}`
+      );
+    }
+    if (item.slow_request_samples.length > 0) {
+      const topSlow = item.slow_request_samples[0];
+      console.log(
+        `         worst_slow_request cmd=${topSlow.cmd} total=${topSlow.total_us.toFixed(3)}us ` +
+          `parse=${topSlow.parse_us.toFixed(3)}us exec=${topSlow.execute_us.toFixed(3)}us ` +
+          `encode=${topSlow.encode_us.toFixed(3)}us bottleneck=${topSlow.bottleneck}`
+      );
+    }
   }
   console.log("\nSaved JSON report to profile-results.json");
 }

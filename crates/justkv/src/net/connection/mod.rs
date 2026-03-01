@@ -10,8 +10,8 @@ use crate::net::profiling::LatencyProfiler;
 use crate::net::pubsub::{ConnectionPubSub, PubSubHub};
 use crate::net::transaction::TransactionState;
 use crate::protocol::encoder::encode;
-use crate::protocol::parser::{ParseError, parse_frame};
-use crate::protocol::types::RespFrame;
+use crate::protocol::parser::{parse_frame, ParseError};
+use crate::protocol::types::{BulkData, RespFrame};
 
 mod dispatch;
 mod notifications;
@@ -64,6 +64,7 @@ pub async fn handle_connection(
                     if let Some(profiler) = profiler.as_ref() {
                         profiler.record_parse(parsed.parse_elapsed);
                     }
+                    let command_name = command_name_from_frame(&parsed.frame);
                     let execute_started = Instant::now();
                     let response = tx_state.handle_frame_with(&store, parsed.frame, |store, frame| {
                         dispatch::execute_regular_command(
@@ -75,13 +76,23 @@ pub async fn handle_connection(
                             frame,
                         )
                     });
+                    let execute_elapsed = execute_started.elapsed();
                     if let Some(profiler) = profiler.as_ref() {
-                        profiler.record_execute(execute_started.elapsed());
+                        profiler.record_execute(execute_elapsed);
                     }
                     let encode_started = Instant::now();
                     encode(&response, &mut write_buf);
+                    let encode_elapsed = encode_started.elapsed();
                     if let Some(profiler) = profiler.as_ref() {
-                        profiler.record_encode(encode_started.elapsed());
+                        profiler.record_encode(encode_elapsed);
+                        if let Some(command_name) = command_name.as_deref() {
+                            profiler.record_request(
+                                command_name,
+                                parsed.parse_elapsed,
+                                execute_elapsed,
+                                encode_elapsed,
+                            );
+                        }
                     }
                 }
 
@@ -121,4 +132,21 @@ fn parse_next_frame(src: &mut BytesMut) -> Result<Option<ParsedFrame>, ParseErro
         Err(ParseError::Incomplete) => Ok(None),
         Err(err) => Err(err),
     }
+}
+
+fn command_name_from_frame(frame: &RespFrame) -> Option<Vec<u8>> {
+    let RespFrame::Array(Some(items)) = frame else {
+        return None;
+    };
+    let command = items.first()?;
+
+    let mut out = match command {
+        RespFrame::Bulk(Some(BulkData::Arg(arg))) => arg.as_slice().to_vec(),
+        RespFrame::Bulk(Some(BulkData::Value(value))) => value.as_slice().to_vec(),
+        RespFrame::Simple(value) => value.as_bytes().to_vec(),
+        RespFrame::SimpleStatic(value) => value.as_bytes().to_vec(),
+        _ => return None,
+    };
+    out.make_ascii_uppercase();
+    Some(out)
 }

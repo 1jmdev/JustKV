@@ -4,7 +4,7 @@ use crate::net::connection::handle_connection;
 use crate::net::profiling::{LatencyProfiler, ProfilingConfig};
 use crate::net::pubsub::PubSubHub;
 use tokio::net::TcpListener;
-use tokio::time::{Duration, sleep};
+use tokio::time::{sleep, Duration};
 
 pub async fn run_listener(config: Config) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let listener = TcpListener::bind(config.addr()).await?;
@@ -19,9 +19,11 @@ pub async fn run_listener(config: Config) -> Result<(), Box<dyn std::error::Erro
     spawn_cached_clock_updater(store.clone());
     if let Some(profiler) = profiler.as_ref() {
         eprintln!(
-            "[latency-profiler] enabled interval={}s slow_threshold={}ms",
+            "[latency-profiler] enabled interval={}s slow_threshold={}ms long_threshold={}ms slow_samples={}",
             profiler.report_interval().as_secs(),
-            profiler.slow_threshold().as_millis()
+            profiler.slow_threshold().as_millis(),
+            profiler.long_request_threshold().as_millis(),
+            profiler.slow_sample_limit(),
         );
         spawn_latency_reporter(profiler.clone());
     }

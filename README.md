@@ -65,6 +65,8 @@ Environment variables:
 - `JUSTKV_PROFILE`: enable profiler (`1`, `true`, `yes`, `on`).
 - `JUSTKV_PROFILE_INTERVAL_SECS`: report window length in seconds (default `5`).
 - `JUSTKV_PROFILE_SLOW_MS`: command slow threshold in milliseconds (default `5`).
+- `JUSTKV_PROFILE_LONG_MS`: end-to-end request slow threshold in milliseconds (defaults to `JUSTKV_PROFILE_SLOW_MS`).
+- `JUSTKV_PROFILE_SLOW_SAMPLES`: number of slow request samples kept per report window (default `8`, max `64`).
 
 Automated per-command profiling run:
 
@@ -72,4 +74,4 @@ Automated per-command profiling run:
 bun run profile.ts
 ```
 
-This script builds `justkv-server`, runs isolated workloads (`SET`, `GET`, `INCR`, `HSET`, `SADD`, `LPUSH`, `LRANGE`, `EXPIRE`), and writes per-command stage timings to `profile-results.json`.
+This script builds `justkv-server`, runs isolated workloads (`SET`, `GET`, `INCR`, `HSET`, `SADD`, `LPUSH`, `LRANGE`, `EXPIRE`) plus a mixed burst workload, then writes stage timings and long-request breakdowns to `profile-results.json`.
