@@ -3,6 +3,10 @@ name = "justkv"
 version.workspace = true
 edition.workspace = true
 
+[features]
+default = []
+store-hashmap = []
+
 [dependencies]
 ahash.workspace = true
 bytes.workspace = true
