@@ -6,19 +6,21 @@ use crate::engine::value::CompactKey;
 use super::super::helpers::{deadline_from_ttl, monotonic_now_ms, purge_if_expired, unix_time_ms};
 
 impl Store {
-    pub fn getex(&self, key: &[u8], mode: GetExMode) -> Option<Vec<u8>> {
+    pub fn getex(&self, key: &[u8], mode: GetExMode) -> Result<Option<Vec<u8>>, ()> {
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
         let now_ms = monotonic_now_ms();
         if purge_if_expired(&mut shard, key, now_ms) {
-            return None;
+            return Ok(None);
         }
 
-        let value = shard
-            .entries
-            .get(key)
-            .and_then(|entry| entry.as_string())
-            .map(|value| value.to_vec())?;
+        let value = match shard.entries.get::<[u8]>(key) {
+            Some(entry) => match entry.as_string() {
+                Some(value) => value.to_vec(),
+                None => return Err(()),
+            },
+            None => return Ok(None),
+        };
 
         match mode {
             GetExMode::KeepTtl => {}
@@ -45,7 +47,7 @@ impl Store {
             }
         }
 
-        Some(value)
+        Ok(Some(value))
     }
 }
 

@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::commands::util::{Args, eq_ascii, wrong_args, wrong_type};
+use crate::commands::util::{eq_ascii, wrong_args, wrong_type, Args};
 use crate::engine::store::Store;
 use crate::engine::value::CompactArg;
 use crate::protocol::types::{BulkData, RespFrame};
@@ -28,13 +28,10 @@ fn get(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 2 {
         return wrong_args("GET");
     }
-    if store
-        .value_kind(&args[1])
-        .is_some_and(|kind| kind != "string")
-    {
-        return wrong_type();
+    match store.get(&args[1]) {
+        Ok(value) => RespFrame::Bulk(value.map(BulkData::Value)),
+        Err(_) => wrong_type(),
     }
-    RespFrame::Bulk(store.get(&args[1]).map(BulkData::Value))
 }
 
 fn set(store: &Store, args: &Args) -> RespFrame {
@@ -90,7 +87,10 @@ fn set(store: &Store, args: &Args) -> RespFrame {
     let value = args[2].as_slice();
 
     let old_value = if return_old {
-        store.get(key).map(BulkData::Value)
+        match store.get(key) {
+            Ok(value) => value.map(BulkData::Value),
+            Err(_) => return wrong_type(),
+        }
     } else {
         None
     };
@@ -125,34 +125,20 @@ fn getset(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 3 {
         return wrong_args("GETSET");
     }
-    if store
-        .value_kind(&args[1])
-        .is_some_and(|kind| kind != "string")
-    {
-        return wrong_type();
+    match store.getset(&args[1], &args[2]) {
+        Ok(value) => RespFrame::Bulk(value.map(|value| BulkData::Arg(CompactArg::from_vec(value)))),
+        Err(_) => wrong_type(),
     }
-    RespFrame::Bulk(
-        store
-            .getset(&args[1], &args[2])
-            .map(|value| BulkData::Arg(CompactArg::from_vec(value))),
-    )
 }
 
 fn getdel(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 2 {
         return wrong_args("GETDEL");
     }
-    if store
-        .value_kind(&args[1])
-        .is_some_and(|kind| kind != "string")
-    {
-        return wrong_type();
+    match store.getdel(&args[1]) {
+        Ok(value) => RespFrame::Bulk(value.map(|value| BulkData::Arg(CompactArg::from_vec(value)))),
+        Err(_) => wrong_type(),
     }
-    RespFrame::Bulk(
-        store
-            .getdel(&args[1])
-            .map(|value| BulkData::Arg(CompactArg::from_vec(value))),
-    )
 }
 
 fn parse_u64(raw: &[u8]) -> Result<u64, RespFrame> {

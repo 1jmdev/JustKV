@@ -4,7 +4,7 @@ use crate::engine::value::{CompactArg, CompactKey, CompactValue, Entry};
 use super::super::helpers::{monotonic_now_ms, purge_if_expired};
 
 impl Store {
-    pub fn mget(&self, keys: &[Vec<u8>]) -> Vec<Option<CompactValue>> {
+    pub fn mget(&self, keys: &[Vec<u8>]) -> Result<Vec<Option<CompactValue>>, ()> {
         keys.iter().map(|key| self.get(key)).collect()
     }
 

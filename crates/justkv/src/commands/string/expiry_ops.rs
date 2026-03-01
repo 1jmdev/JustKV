@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::commands::util::{Args, eq_ascii, int_error, wrong_args, wrong_type};
+use crate::commands::util::{eq_ascii, int_error, wrong_args, wrong_type, Args};
 use crate::engine::store::{GetExMode, Store};
 use crate::engine::value::CompactArg;
 use crate::protocol::types::{BulkData, RespFrame};
@@ -50,23 +50,16 @@ fn getex(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 2 {
         return wrong_args("GETEX");
     }
-    if store
-        .value_kind(&args[1])
-        .is_some_and(|kind| kind != "string")
-    {
-        return wrong_type();
-    }
 
     let mode = match parse_getex_mode(args) {
         Ok(value) => value,
         Err(response) => return response,
     };
 
-    RespFrame::Bulk(
-        store
-            .getex(&args[1], mode)
-            .map(|value| BulkData::Arg(CompactArg::from_vec(value))),
-    )
+    match store.getex(&args[1], mode) {
+        Ok(value) => RespFrame::Bulk(value.map(|value| BulkData::Arg(CompactArg::from_vec(value)))),
+        Err(_) => wrong_type(),
+    }
 }
 
 fn parse_getex_mode(args: &Args) -> Result<GetExMode, RespFrame> {

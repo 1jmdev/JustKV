@@ -1,4 +1,4 @@
-use crate::commands::util::{Args, eq_ascii, wrong_args, wrong_type};
+use crate::commands::util::{eq_ascii, wrong_args, wrong_type, Args};
 use crate::engine::store::Store;
 use crate::protocol::types::{BulkData, RespFrame};
 
@@ -19,19 +19,15 @@ fn mget(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 2 {
         return wrong_args("MGET");
     }
-    if args[1..]
-        .iter()
-        .any(|key| store.value_kind(key).is_some_and(|kind| kind != "string"))
-    {
-        return wrong_type();
+    match store.mget(&args[1..].iter().map(|key| key.to_vec()).collect::<Vec<_>>()) {
+        Ok(values) => RespFrame::Array(Some(
+            values
+                .into_iter()
+                .map(|value| RespFrame::Bulk(value.map(BulkData::Value)))
+                .collect(),
+        )),
+        Err(_) => wrong_type(),
     }
-    RespFrame::Array(Some(
-        args[1..]
-            .iter()
-            .map(|key| store.get(key))
-            .map(|value| RespFrame::Bulk(value.map(BulkData::Value)))
-            .collect(),
-    ))
 }
 
 fn mset(store: &Store, args: &Args) -> RespFrame {

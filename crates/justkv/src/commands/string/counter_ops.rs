@@ -1,4 +1,4 @@
-use crate::commands::util::{Args, eq_ascii, int_error, wrong_args, wrong_type};
+use crate::commands::util::{eq_ascii, int_error, wrong_args, wrong_type, Args};
 use crate::engine::store::Store;
 use crate::protocol::types::RespFrame;
 
@@ -22,15 +22,12 @@ fn incr(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 2 {
         return wrong_args("INCR");
     }
-    if store
-        .value_kind(&args[1])
-        .is_some_and(|kind| kind != "string")
-    {
-        return wrong_type();
-    }
     match store.incr(&args[1]) {
         Ok(value) => RespFrame::Integer(value),
-        Err(_) => int_error(),
+        Err(_) => match store.value_kind(&args[1]) {
+            Some(kind) if kind != "string" => wrong_type(),
+            _ => int_error(),
+        },
     }
 }
 
@@ -38,13 +35,6 @@ fn incrby(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 3 {
         return wrong_args("INCRBY");
     }
-    if store
-        .value_kind(&args[1])
-        .is_some_and(|kind| kind != "string")
-    {
-        return wrong_type();
-    }
-
     let delta = match parse_i64(&args[2]) {
         Ok(value) => value,
         Err(response) => return response,
@@ -52,7 +42,10 @@ fn incrby(store: &Store, args: &Args) -> RespFrame {
 
     match store.incr_by(&args[1], delta) {
         Ok(value) => RespFrame::Integer(value),
-        Err(_) => int_error(),
+        Err(_) => match store.value_kind(&args[1]) {
+            Some(kind) if kind != "string" => wrong_type(),
+            _ => int_error(),
+        },
     }
 }
 
@@ -60,16 +53,12 @@ fn decr(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 2 {
         return wrong_args("DECR");
     }
-    if store
-        .value_kind(&args[1])
-        .is_some_and(|kind| kind != "string")
-    {
-        return wrong_type();
-    }
-
     match store.incr_by(&args[1], -1) {
         Ok(value) => RespFrame::Integer(value),
-        Err(_) => int_error(),
+        Err(_) => match store.value_kind(&args[1]) {
+            Some(kind) if kind != "string" => wrong_type(),
+            _ => int_error(),
+        },
     }
 }
 
@@ -77,13 +66,6 @@ fn decrby(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 3 {
         return wrong_args("DECRBY");
     }
-    if store
-        .value_kind(&args[1])
-        .is_some_and(|kind| kind != "string")
-    {
-        return wrong_type();
-    }
-
     let delta = match parse_i64(&args[2]) {
         Ok(value) => value,
         Err(response) => return response,
@@ -91,7 +73,10 @@ fn decrby(store: &Store, args: &Args) -> RespFrame {
 
     match store.incr_by(&args[1], -delta) {
         Ok(value) => RespFrame::Integer(value),
-        Err(_) => int_error(),
+        Err(_) => match store.value_kind(&args[1]) {
+            Some(kind) if kind != "string" => wrong_type(),
+            _ => int_error(),
+        },
     }
 }
 
