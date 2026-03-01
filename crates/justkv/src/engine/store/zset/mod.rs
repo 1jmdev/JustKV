@@ -47,28 +47,6 @@ fn compare_member_score(
     }
 }
 
-fn compare_member_score_ref(
-    left: &(&CompactKey, f64),
-    right: &(&CompactKey, f64),
-    reverse: bool,
-) -> std::cmp::Ordering {
-    let score_order = left.1.total_cmp(&right.1);
-    let score_order = if reverse {
-        score_order.reverse()
-    } else {
-        score_order
-    };
-    if score_order == std::cmp::Ordering::Equal {
-        if reverse {
-            right.0.as_slice().cmp(left.0.as_slice())
-        } else {
-            left.0.as_slice().cmp(right.0.as_slice())
-        }
-    } else {
-        score_order
-    }
-}
-
 fn normalize_range(start: i64, stop: i64, len: usize) -> Option<(usize, usize)> {
     if len == 0 {
         return None;

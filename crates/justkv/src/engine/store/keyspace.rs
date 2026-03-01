@@ -358,7 +358,10 @@ impl Store {
         let mut values = match entry {
             Entry::List(list) => list.iter().map(CompactValue::to_vec).collect::<Vec<_>>(),
             Entry::Set(set) => set.iter().map(CompactKey::to_vec).collect::<Vec<_>>(),
-            Entry::ZSet(zset) => zset.keys().map(CompactKey::to_vec).collect::<Vec<_>>(),
+            Entry::ZSet(zset) => zset
+                .iter_member_scores()
+                .map(|(member, _)| member.to_vec())
+                .collect::<Vec<_>>(),
             Entry::String(_) | Entry::Hash(_) => return Err(SortError::WrongType),
         };
 

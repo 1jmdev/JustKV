@@ -18,7 +18,7 @@ impl Store {
         let (first, rest) = snapshots.split_first().expect("checked non-empty");
         for (member, score) in first.iter_member_scores() {
             if rest.iter().all(|set| set.contains_key(member.as_slice())) {
-                let total = rest.iter().fold(*score, |acc, set| {
+                let total = rest.iter().fold(score, |acc, set| {
                     acc + set.get(member.as_slice()).unwrap_or(0.0)
                 });
                 out.insert(member.clone(), total);
