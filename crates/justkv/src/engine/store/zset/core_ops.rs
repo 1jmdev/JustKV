@@ -88,8 +88,8 @@ impl Store {
         };
         let zset = get_zset(entry).ok_or(())?;
         Ok(zset
-            .values()
-            .filter(|score| **score >= min && **score <= max)
+            .iter_member_scores()
+            .filter(|(_, score)| *score >= min && *score <= max)
             .count() as i64)
     }
 
@@ -105,7 +105,7 @@ impl Store {
             return Ok(None);
         };
         let zset = get_zset(entry).ok_or(())?;
-        Ok(zset.get(member).copied())
+        Ok(zset.get(member))
     }
 
     pub fn zincrby(&self, key: &[u8], increment: f64, member: &[u8]) -> Result<f64, ()> {
@@ -122,7 +122,7 @@ impl Store {
         let zset = get_zset_mut(entry).ok_or(())?;
 
         let member_key = CompactKey::from_slice(member);
-        let current = zset.get(member).copied().unwrap_or(0.0);
+        let current = zset.get(member).unwrap_or(0.0);
         let next = current + increment;
         zset.insert(member_key, next);
         Ok(next)
@@ -142,7 +142,7 @@ impl Store {
         let zset = get_zset(entry).ok_or(())?;
         Ok(members
             .iter()
-            .map(|member| zset.get(member.as_slice()).copied())
+            .map(|member| zset.get(member.as_slice()))
             .collect())
     }
 
@@ -167,5 +167,5 @@ impl Store {
 }
 
 fn new_zset() -> ZSetValueMap {
-    HashMap::with_hasher(RandomState::new())
+    ZSetValueMap::new()
 }

@@ -2,7 +2,7 @@ use crate::engine::store::Store;
 use crate::engine::value::{CompactArg, CompactKey};
 
 use super::super::helpers::{monotonic_now_ms, purge_if_expired};
-use super::{get_zset_mut, sorted_by_score};
+use super::get_zset_mut;
 
 impl Store {
     pub fn zpopmin(&self, key: &[u8], count: usize) -> Result<Option<Vec<(CompactKey, f64)>>, ()> {
@@ -80,14 +80,8 @@ impl Store {
             return Ok(None);
         }
 
-        let ordered = sorted_by_score(zset, max);
-        let take = count.min(ordered.len());
-        let mut out = Vec::with_capacity(take);
-        for (member, score) in ordered.into_iter().take(take) {
-            if zset.remove(member.as_slice()).is_some() {
-                out.push((member, score));
-            }
-        }
+        let mut out: Vec<(CompactKey, f64)> = zset.iter_ordered(max).take(count).map(|(member, score)| (member.clone(), score)).collect();
+        out.retain(|(member, _)| zset.remove(member.as_slice()).is_some());
 
         if zset.is_empty() {
             shard.entries.remove(key);

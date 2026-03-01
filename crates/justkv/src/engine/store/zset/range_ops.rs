@@ -52,17 +52,11 @@ impl Store {
         };
         let zset = get_zset(entry).ok_or(())?;
 
-        let mut filtered: Vec<_> = zset
-            .iter()
-            .filter_map(|(member, score)| {
-                if *score >= min && *score <= max {
-                    Some((member.clone(), *score))
-                } else {
-                    None
-                }
-            })
+        let filtered: Vec<_> = zset
+            .iter_ordered(reverse)
+            .filter(|(_, score)| *score >= min && *score <= max)
+            .map(|(member, score)| (member.clone(), score))
             .collect();
-        filtered.sort_by(|left, right| super::compare_member_score(left, right, reverse));
 
         if offset >= filtered.len() {
             return Ok(Vec::new());

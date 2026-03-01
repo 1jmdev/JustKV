@@ -207,7 +207,7 @@ impl Store {
             total += guard
                 .entries
                 .iter()
-                .filter(|(key, _)| {
+                .filter(|(key, _entry): &(&CompactKey, &Entry)| {
                     guard
                         .ttl
                         .get(key.as_slice())
@@ -227,7 +227,7 @@ impl Store {
             for (key, _) in guard.entries.iter() {
                 if guard
                     .ttl
-                    .get(key.as_slice())
+                    .get::<[u8]>(key.as_slice())
                     .copied()
                     .is_none_or(|deadline| now_ms < deadline)
                     && wildcard_match(pattern, key.as_slice())
@@ -246,14 +246,18 @@ impl Store {
         count: usize,
         value_type: Option<&[u8]>,
     ) -> (u64, Vec<CompactKey>) {
+        let cursor = usize::try_from(cursor).unwrap_or(usize::MAX);
         let now_ms = monotonic_now_ms();
-        let mut all: Vec<CompactKey> = Vec::new();
+        let target = count.max(1);
+        let mut seen = 0usize;
+        let mut out = Vec::with_capacity(target);
+
         for shard in self.shards.iter() {
             let guard = shard.read();
             for (key, entry) in guard.entries.iter() {
                 if !guard
                     .ttl
-                    .get(key.as_slice())
+                    .get::<[u8]>(key.as_slice())
                     .copied()
                     .is_none_or(|deadline| now_ms < deadline)
                 {
@@ -267,22 +271,23 @@ impl Store {
                 {
                     continue;
                 }
-                all.push(key.clone());
+
+                if seen < cursor {
+                    seen += 1;
+                    continue;
+                }
+
+                if out.len() < target {
+                    out.push(key.clone());
+                    seen += 1;
+                    continue;
+                }
+
+                return (seen as u64, out);
             }
         }
 
-        all.sort_unstable_by(|left, right| left.as_slice().cmp(right.as_slice()));
-        if all.is_empty() {
-            return (0, Vec::new());
-        }
-
-        let target = count.max(1);
-        let total_len = all.len();
-        let index = usize::try_from(cursor).unwrap_or(usize::MAX).min(total_len);
-        let out: Vec<CompactKey> = all.into_iter().skip(index).take(target).collect();
-        let index = index.saturating_add(out.len());
-        let next = if index >= total_len { 0 } else { index as u64 };
-        (next, out)
+        (0, out)
     }
 
     pub fn dump(&self, key: &[u8]) -> Option<Vec<u8>> {
@@ -453,7 +458,7 @@ fn serialize_entry(entry: &Entry) -> Vec<u8> {
         Entry::ZSet(map) => {
             out.push(4);
             write_u32(&mut out, map.len() as u32);
-            for (member, score) in map.iter() {
+            for (member, score) in map.iter_member_scores() {
                 write_bytes(&mut out, member.as_slice());
                 out.extend_from_slice(&score.to_le_bytes());
             }
@@ -515,8 +520,7 @@ fn deserialize_entry(payload: &[u8]) -> Option<Entry> {
         }
         4 => {
             let count = read_u32(&mut input)? as usize;
-            let mut zset: hashbrown::HashMap<CompactKey, f64, ahash::RandomState> =
-                hashbrown::HashMap::with_capacity_and_hasher(count, ahash::RandomState::new());
+            let mut zset = crate::engine::value::ZSetValueMap::new();
             for _ in 0..count {
                 let member = CompactKey::from_vec(read_bytes(&mut input)?);
                 if input.len() < 8 {

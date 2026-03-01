@@ -16,18 +16,13 @@ fn get_zset_mut(entry: &mut Entry) -> Option<&mut ZSetValueMap> {
 }
 
 fn sorted_by_score(map: &ZSetValueMap, reverse: bool) -> Vec<(CompactKey, f64)> {
-    let mut items: Vec<_> = map
-        .iter()
-        .map(|(member, score)| (member.clone(), *score))
-        .collect();
-    items.sort_by(|left, right| compare_member_score(left, right, reverse));
-    items
+    map.iter_ordered(reverse)
+        .map(|(member, score)| (member.clone(), score))
+        .collect()
 }
 
 fn sorted_by_score_refs(map: &ZSetValueMap, reverse: bool) -> Vec<(&CompactKey, f64)> {
-    let mut items: Vec<_> = map.iter().map(|(member, score)| (member, *score)).collect();
-    items.sort_by(|left, right| compare_member_score_ref(left, right, reverse));
-    items
+    map.iter_ordered(reverse).collect()
 }
 
 fn compare_member_score(

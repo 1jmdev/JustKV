@@ -1,4 +1,6 @@
 use std::borrow::Borrow;
+use std::cmp::Ordering;
+use std::collections::BTreeSet;
 use std::collections::VecDeque;
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
@@ -109,7 +111,132 @@ pub type CompactArg = CompactBytes<INLINE_BYTES_CAPACITY>;
 pub type HashValueMap = HashMap<CompactKey, CompactValue, RandomState>;
 pub type ListValue = VecDeque<CompactValue>;
 pub type SetValue = HashSet<CompactKey, RandomState>;
-pub type ZSetValueMap = HashMap<CompactKey, f64, RandomState>;
+
+#[derive(Clone, Debug)]
+pub struct ZSetOrderEntry {
+    score: f64,
+    member: CompactKey,
+}
+
+impl ZSetOrderEntry {
+    fn new(score: f64, member: CompactKey) -> Self {
+        Self { score, member }
+    }
+}
+
+impl PartialEq for ZSetOrderEntry {
+    fn eq(&self, other: &Self) -> bool {
+        self.score.total_cmp(&other.score) == Ordering::Equal && self.member == other.member
+    }
+}
+
+impl Eq for ZSetOrderEntry {}
+
+impl Ord for ZSetOrderEntry {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.score
+            .total_cmp(&other.score)
+            .then_with(|| self.member.as_slice().cmp(other.member.as_slice()))
+    }
+}
+
+impl PartialOrd for ZSetOrderEntry {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ZSetValue {
+    member_scores: HashMap<CompactKey, f64, RandomState>,
+    ordered: BTreeSet<ZSetOrderEntry>,
+}
+
+impl ZSetValue {
+    pub fn new() -> Self {
+        Self {
+            member_scores: HashMap::with_hasher(RandomState::new()),
+            ordered: BTreeSet::new(),
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.member_scores.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.member_scores.is_empty()
+    }
+
+    pub fn get(&self, member: &[u8]) -> Option<f64> {
+        self.member_scores.get(member).copied()
+    }
+
+    pub fn contains_key(&self, member: &[u8]) -> bool {
+        self.member_scores.contains_key(member)
+    }
+
+    pub fn insert(&mut self, member: CompactKey, score: f64) -> Option<f64> {
+        if let Some(old_score) = self.member_scores.insert(member.clone(), score) {
+            let _ = self
+                .ordered
+                .remove(&ZSetOrderEntry::new(old_score, member.clone()));
+            let _ = self.ordered.insert(ZSetOrderEntry::new(score, member));
+            Some(old_score)
+        } else {
+            let _ = self.ordered.insert(ZSetOrderEntry::new(score, member));
+            None
+        }
+    }
+
+    pub fn remove(&mut self, member: &[u8]) -> Option<f64> {
+        let old_score = self.member_scores.remove(member)?;
+        let _ = self.ordered.remove(&ZSetOrderEntry::new(
+            old_score,
+            CompactKey::from_slice(member),
+        ));
+        Some(old_score)
+    }
+
+    pub fn iter_member_scores(&self) -> impl Iterator<Item = (&CompactKey, f64)> {
+        self.member_scores
+            .iter()
+            .map(|(member, score)| (member, *score))
+    }
+
+    pub fn iter_ordered(&self, reverse: bool) -> impl Iterator<Item = (&CompactKey, f64)> {
+        if reverse {
+            EitherIter::Rev(self.ordered.iter().rev())
+        } else {
+            EitherIter::Fwd(self.ordered.iter())
+        }
+        .map(|entry| (&entry.member, entry.score))
+    }
+}
+
+impl Default for ZSetValue {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+enum EitherIter<'a> {
+    Fwd(std::collections::btree_set::Iter<'a, ZSetOrderEntry>),
+    Rev(std::iter::Rev<std::collections::btree_set::Iter<'a, ZSetOrderEntry>>),
+}
+
+impl<'a> Iterator for EitherIter<'a> {
+    type Item = &'a ZSetOrderEntry;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Fwd(iter) => iter.next(),
+            Self::Rev(iter) => iter.next(),
+        }
+    }
+}
+
+pub type ZSetValueMap = ZSetValue;
 
 #[derive(Clone, Debug)]
 pub enum Entry {
