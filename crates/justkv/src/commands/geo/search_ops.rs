@@ -1,7 +1,7 @@
 use crate::commands::geo::parse::{
-    parse_distance_unit, parse_f64, parse_search_options, SearchOptions, SortOrder,
+    SearchOptions, SortOrder, parse_distance_unit, parse_f64, parse_search_options,
 };
-use crate::commands::util::{f64_to_bytes, wrong_args, wrong_type, Args};
+use crate::commands::util::{Args, f64_to_bytes, wrong_args, wrong_type};
 use crate::engine::store::{GeoSearchMatch, Store};
 use crate::protocol::types::{BulkData, RespFrame};
 

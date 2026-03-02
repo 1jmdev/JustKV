@@ -5,7 +5,7 @@ use crate::engine::store::Store;
 use crate::engine::value::{CompactArg, CompactKey, StreamId};
 
 use super::super::helpers::{is_expired, monotonic_now_ms, purge_if_expired};
-use super::types::{ensure_pending_entry, StreamRangeItem, XPendingSummary};
+use super::types::{StreamRangeItem, XPendingSummary, ensure_pending_entry};
 use super::{get_stream, get_stream_mut};
 
 impl Store {

@@ -1,5 +1,5 @@
 use crate::commands::stream::parse::{parse_stream_id, stream_id_to_bulk};
-use crate::commands::util::{wrong_args, wrong_type, Args};
+use crate::commands::util::{Args, wrong_args, wrong_type};
 use crate::engine::store::Store;
 use crate::protocol::types::{BulkData, RespFrame};
 

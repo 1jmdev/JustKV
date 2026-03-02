@@ -1,5 +1,5 @@
 use crate::commands::geo::parse::{parse_distance_unit, parse_f64};
-use crate::commands::util::{f64_to_bytes, wrong_args, wrong_type, Args};
+use crate::commands::util::{Args, f64_to_bytes, wrong_args, wrong_type};
 use crate::engine::store::Store;
 use crate::protocol::types::{BulkData, RespFrame};
 

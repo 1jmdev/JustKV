@@ -1,4 +1,4 @@
-use crate::commands::util::{int_error, Args};
+use crate::commands::util::{Args, int_error};
 use crate::engine::store::{XAddId, XTrimMode};
 use crate::engine::value::StreamId;
 use crate::protocol::types::RespFrame;

@@ -3,7 +3,7 @@ use crate::engine::value::{CompactKey, Entry};
 
 use super::super::helpers::{is_expired, monotonic_now_ms};
 use super::geo_math::{haversine_meters, meters_per_lat, meters_per_lon};
-use super::{get_geo, new_geo, GeoSearchMatch};
+use super::{GeoSearchMatch, get_geo, new_geo};
 
 impl Store {
     pub fn geosearch(

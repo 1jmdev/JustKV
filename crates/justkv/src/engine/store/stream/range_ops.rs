@@ -3,7 +3,7 @@ use crate::engine::value::{CompactArg, StreamId};
 
 use super::super::helpers::{is_expired, monotonic_now_ms};
 use super::get_stream;
-use super::types::{push_items, StreamRangeItem};
+use super::types::{StreamRangeItem, push_items};
 
 impl Store {
     pub fn xrange(
