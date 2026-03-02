@@ -1,19 +1,6 @@
-use crate::util::{Args, CommandId, int_error, wrong_args};
+use crate::util::{Args, int_error, wrong_args};
 use engine::store::Store;
 use protocol::types::RespFrame;
-
-pub fn handle(store: &Store, cmd: CommandId, args: &Args) -> RespFrame {
-    match cmd {
-        CommandId::Expire => expire(store, args),
-        CommandId::Pexpire => pexpire(store, args),
-        CommandId::Expireat => expireat(store, args),
-        CommandId::Pexpireat => pexpireat(store, args),
-        CommandId::Persist => persist(store, args),
-        CommandId::Ttl => ttl(store, args),
-        CommandId::Pttl => pttl(store, args),
-        _ => unreachable!("ttl::handle called with non-ttl command"),
-    }
-}
 
 pub(crate) fn expire(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 3 {

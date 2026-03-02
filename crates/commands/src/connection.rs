@@ -1,19 +1,5 @@
-use crate::util::{Args, CommandId, eq_ascii, wrong_args};
+use crate::util::{Args, eq_ascii, wrong_args};
 use protocol::types::{BulkData, RespFrame};
-
-pub fn handle(cmd: CommandId, args: &Args) -> RespFrame {
-    match cmd {
-        CommandId::Auth => auth(args),
-        CommandId::Hello => hello(args),
-        CommandId::Client => client(args),
-        CommandId::Command => RespFrame::Array(Some(vec![])),
-        CommandId::Select => select_db(args),
-        CommandId::Quit => quit(args),
-        CommandId::Ping => ping(args),
-        CommandId::Echo => echo(args),
-        _ => unreachable!("connection::handle called with non-connection command"),
-    }
-}
 
 pub(crate) fn auth(args: &Args) -> RespFrame {
     if args.is_empty() || args.len() > 3 {

@@ -3,952 +3,245 @@ use protocol::types::RespFrame;
 
 pub type Args = [CompactArg];
 
-/// All known commands parsed from the uppercased command name.
-/// The dispatcher matches on this enum to avoid repeated string comparisons
-/// on the hot path.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CommandId {
-    // Connection
-    Auth,
-    Hello,
-    Client,
-    Command,
-    Select,
-    Quit,
-    Ping,
-    Echo,
-    // Keyspace
-    Del,
-    Exists,
-    Touch,
-    Unlink,
-    Type,
-    Rename,
-    Renamenx,
-    Dbsize,
-    Keys,
-    Scan,
-    Move,
-    Dump,
-    Restore,
-    Sort,
-    Copy,
-    Flushdb,
-    Flushall,
-    // TTL
-    Expire,
-    Pexpire,
-    Expireat,
-    Pexpireat,
-    Persist,
-    Ttl,
-    Pttl,
-    // String – get/set
-    Get,
-    Set,
-    Setnx,
-    Getset,
-    Getdel,
-    // String – expiry
-    Setex,
-    Psetex,
-    Getex,
-    // String – length
-    Append,
-    Strlen,
-    Setrange,
-    Getrange,
-    // String – multi
-    Mget,
-    Mset,
-    Msetnx,
-    // String – counter
-    Incr,
-    Incrby,
-    Decr,
-    Decrby,
-    // String – bitmap
-    Setbit,
-    Getbit,
-    Bitcount,
-    Bitpos,
-    Bitop,
-    Bitfield,
-    BitfieldRo,
-    // String – hyperloglog
-    Pfadd,
-    Pfcount,
-    Pfmerge,
-    // Hash
-    Hset,
-    Hmset,
-    Hsetnx,
-    Hget,
-    Hmget,
-    Hgetall,
-    Hdel,
-    Hexists,
-    Hkeys,
-    Hvals,
-    Hlen,
-    Hstrlen,
-    Hincrby,
-    Hincrbyfloat,
-    Hrandfield,
-    Hscan,
-    // List
-    Lpush,
-    Rpush,
-    Lpop,
-    Rpop,
-    Llen,
-    Lindex,
-    Lrange,
-    Lset,
-    Ltrim,
-    Linsert,
-    Lpos,
-    Lmove,
-    Brpoplpush,
-    Lmpop,
-    Blpop,
-    Brpop,
-    Blmpop,
-    // Set
-    Sadd,
-    Srem,
-    Smembers,
-    Sismember,
-    Scard,
-    Smove,
-    Spop,
-    Srandmember,
-    Sinter,
-    Sinterstore,
-    Sunion,
-    Sunionstore,
-    Sdiff,
-    Sdiffstore,
-    Sintercard,
-    Sscan,
-    // Sorted set
-    Zadd,
-    Zrem,
-    Zcard,
-    Zcount,
-    Zscore,
-    Zrank,
-    Zrevrank,
-    Zincrby,
-    Zmscore,
-    Zrange,
-    Zrevrange,
-    Zrangebyscore,
-    Zrevrangebyscore,
-    Zpopmin,
-    Zpopmax,
-    Bzpopmin,
-    Bzpopmax,
-    Zmpop,
-    Bzmpop,
-    Zrandmember,
-    Zinter,
-    Zunion,
-    Zdiff,
-    Zscan,
-    Zremrangebyrank,
-    // Geo
-    Geoadd,
-    Geopos,
-    Geodist,
-    Geohash,
-    Georadius,
-    GeoradiusRo,
-    Georadiusbymember,
-    GeoradiusbymemberRo,
-    Geosearch,
-    Geosearchstore,
-    // Stream
-    Xadd,
-    Xlen,
-    Xdel,
-    Xrange,
-    Xrevrange,
-    Xtrim,
-    Xread,
-    Xgroup,
-    Xreadgroup,
-    Xack,
-    Xpending,
-    Xclaim,
-    Xautoclaim,
-    // Unknown
-    Unknown,
+/// Pack up to 8 bytes into a u64, uppercased. This is a const fn so all
+/// known commands become compile-time integer constants.
+/// The length is encoded in the top byte so "GET" != "GETX" (no prefix collisions).
+#[inline(always)]
+pub const fn pack8(bytes: &[u8]) -> u64 {
+    let mut result: u64 = 0;
+    let mut i = 0;
+    while i < bytes.len() && i < 8 {
+        let b = bytes[i];
+        let upper = if b >= b'a' && b <= b'z' { b - 32 } else { b };
+        result |= (upper as u64) << (i * 8);
+        i += 1;
+    }
+    // Encode length in the top byte so "GET" != "GETX" — no prefix collisions.
+    result |= (bytes.len() as u64) << 56;
+    result
 }
 
-pub fn parse_command_id(command: &[u8]) -> CommandId {
-    if command.is_empty() {
-        return CommandId::Unknown;
+/// Pack incoming command bytes into a u64 for matching.
+/// Uses branchless SWAR uppercasing — all 8 bytes at once.
+/// Returns 0 for empty or >8-byte commands (handled separately).
+#[inline(always)]
+pub fn pack_runtime(cmd: &[u8]) -> u64 {
+    if cmd.len() > 8 || cmd.is_empty() {
+        return 0;
     }
 
-    match command.len() {
-        3 => match command[0].to_ascii_uppercase() {
-            b'D' => {
-                if command.eq_ignore_ascii_case(b"DEL") {
-                    CommandId::Del
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'G' => {
-                if command.eq_ignore_ascii_case(b"GET") {
-                    CommandId::Get
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'S' => {
-                if command.eq_ignore_ascii_case(b"SET") {
-                    CommandId::Set
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'T' => {
-                if command.eq_ignore_ascii_case(b"TTL") {
-                    CommandId::Ttl
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            _ => CommandId::Unknown,
-        },
-        4 => match command[0].to_ascii_uppercase() {
-            b'A' => {
-                if command.eq_ignore_ascii_case(b"AUTH") {
-                    CommandId::Auth
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'C' => {
-                if command.eq_ignore_ascii_case(b"COPY") {
-                    CommandId::Copy
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'D' => {
-                if command.eq_ignore_ascii_case(b"DECR") {
-                    CommandId::Decr
-                } else if command.eq_ignore_ascii_case(b"DUMP") {
-                    CommandId::Dump
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'E' => {
-                if command.eq_ignore_ascii_case(b"ECHO") {
-                    CommandId::Echo
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'H' => {
-                if command.eq_ignore_ascii_case(b"HDEL") {
-                    CommandId::Hdel
-                } else if command.eq_ignore_ascii_case(b"HGET") {
-                    CommandId::Hget
-                } else if command.eq_ignore_ascii_case(b"HLEN") {
-                    CommandId::Hlen
-                } else if command.eq_ignore_ascii_case(b"HSET") {
-                    CommandId::Hset
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'I' => {
-                if command.eq_ignore_ascii_case(b"INCR") {
-                    CommandId::Incr
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'K' => {
-                if command.eq_ignore_ascii_case(b"KEYS") {
-                    CommandId::Keys
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'L' => {
-                if command.eq_ignore_ascii_case(b"LLEN") {
-                    CommandId::Llen
-                } else if command.eq_ignore_ascii_case(b"LPOP") {
-                    CommandId::Lpop
-                } else if command.eq_ignore_ascii_case(b"LPOS") {
-                    CommandId::Lpos
-                } else if command.eq_ignore_ascii_case(b"LSET") {
-                    CommandId::Lset
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'M' => {
-                if command.eq_ignore_ascii_case(b"MGET") {
-                    CommandId::Mget
-                } else if command.eq_ignore_ascii_case(b"MOVE") {
-                    CommandId::Move
-                } else if command.eq_ignore_ascii_case(b"MSET") {
-                    CommandId::Mset
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'P' => {
-                if command.eq_ignore_ascii_case(b"PING") {
-                    CommandId::Ping
-                } else if command.eq_ignore_ascii_case(b"PTTL") {
-                    CommandId::Pttl
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'Q' => {
-                if command.eq_ignore_ascii_case(b"QUIT") {
-                    CommandId::Quit
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'R' => {
-                if command.eq_ignore_ascii_case(b"RPOP") {
-                    CommandId::Rpop
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'S' => {
-                if command.eq_ignore_ascii_case(b"SADD") {
-                    CommandId::Sadd
-                } else if command.eq_ignore_ascii_case(b"SCAN") {
-                    CommandId::Scan
-                } else if command.eq_ignore_ascii_case(b"SORT") {
-                    CommandId::Sort
-                } else if command.eq_ignore_ascii_case(b"SPOP") {
-                    CommandId::Spop
-                } else if command.eq_ignore_ascii_case(b"SREM") {
-                    CommandId::Srem
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'T' => {
-                if command.eq_ignore_ascii_case(b"TYPE") {
-                    CommandId::Type
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'Z' => {
-                if command.eq_ignore_ascii_case(b"ZADD") {
-                    CommandId::Zadd
-                } else if command.eq_ignore_ascii_case(b"ZREM") {
-                    CommandId::Zrem
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'X' => {
-                if command.eq_ignore_ascii_case(b"XACK") {
-                    CommandId::Xack
-                } else if command.eq_ignore_ascii_case(b"XADD") {
-                    CommandId::Xadd
-                } else if command.eq_ignore_ascii_case(b"XDEL") {
-                    CommandId::Xdel
-                } else if command.eq_ignore_ascii_case(b"XLEN") {
-                    CommandId::Xlen
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            _ => CommandId::Unknown,
-        },
-        5 => match command[0].to_ascii_uppercase() {
-            b'B' => {
-                if command.eq_ignore_ascii_case(b"BLPOP") {
-                    CommandId::Blpop
-                } else if command.eq_ignore_ascii_case(b"BITOP") {
-                    CommandId::Bitop
-                } else if command.eq_ignore_ascii_case(b"BRPOP") {
-                    CommandId::Brpop
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'F' => {
-                if command.eq_ignore_ascii_case(b"FLUSH") {
-                    CommandId::Flushall
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'P' => {
-                if command.eq_ignore_ascii_case(b"PFADD") {
-                    CommandId::Pfadd
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'G' => {
-                if command.eq_ignore_ascii_case(b"GETEX") {
-                    CommandId::Getex
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'H' => {
-                if command.eq_ignore_ascii_case(b"HELLO") {
-                    CommandId::Hello
-                } else if command.eq_ignore_ascii_case(b"HKEYS") {
-                    CommandId::Hkeys
-                } else if command.eq_ignore_ascii_case(b"HMGET") {
-                    CommandId::Hmget
-                } else if command.eq_ignore_ascii_case(b"HMSET") {
-                    CommandId::Hmset
-                } else if command.eq_ignore_ascii_case(b"HSCAN") {
-                    CommandId::Hscan
-                } else if command.eq_ignore_ascii_case(b"HVALS") {
-                    CommandId::Hvals
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'L' => {
-                if command.eq_ignore_ascii_case(b"LMOVE") {
-                    CommandId::Lmove
-                } else if command.eq_ignore_ascii_case(b"LMPOP") {
-                    CommandId::Lmpop
-                } else if command.eq_ignore_ascii_case(b"LPUSH") {
-                    CommandId::Lpush
-                } else if command.eq_ignore_ascii_case(b"LTRIM") {
-                    CommandId::Ltrim
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'R' => {
-                if command.eq_ignore_ascii_case(b"RPUSH") {
-                    CommandId::Rpush
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'S' => {
-                if command.eq_ignore_ascii_case(b"SCARD") {
-                    CommandId::Scard
-                } else if command.eq_ignore_ascii_case(b"SDIFF") {
-                    CommandId::Sdiff
-                } else if command.eq_ignore_ascii_case(b"SETEX") {
-                    CommandId::Setex
-                } else if command.eq_ignore_ascii_case(b"SETNX") {
-                    CommandId::Setnx
-                } else if command.eq_ignore_ascii_case(b"SMOVE") {
-                    CommandId::Smove
-                } else if command.eq_ignore_ascii_case(b"SSCAN") {
-                    CommandId::Sscan
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'T' => {
-                if command.eq_ignore_ascii_case(b"TOUCH") {
-                    CommandId::Touch
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'Z' => {
-                if command.eq_ignore_ascii_case(b"ZCARD") {
-                    CommandId::Zcard
-                } else if command.eq_ignore_ascii_case(b"ZDIFF") {
-                    CommandId::Zdiff
-                } else if command.eq_ignore_ascii_case(b"ZMPOP") {
-                    CommandId::Zmpop
-                } else if command.eq_ignore_ascii_case(b"ZRANK") {
-                    CommandId::Zrank
-                } else if command.eq_ignore_ascii_case(b"ZSCAN") {
-                    CommandId::Zscan
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'X' => {
-                if command.eq_ignore_ascii_case(b"XREAD") {
-                    CommandId::Xread
-                } else if command.eq_ignore_ascii_case(b"XTRIM") {
-                    CommandId::Xtrim
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            _ => CommandId::Unknown,
-        },
-        6 => match command[0].to_ascii_uppercase() {
-            b'A' => {
-                if command.eq_ignore_ascii_case(b"APPEND") {
-                    CommandId::Append
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'B' => {
-                if command.eq_ignore_ascii_case(b"BLMPOP") {
-                    CommandId::Blmpop
-                } else if command.eq_ignore_ascii_case(b"BITPOS") {
-                    CommandId::Bitpos
-                } else if command.eq_ignore_ascii_case(b"BZMPOP") {
-                    CommandId::Bzmpop
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'C' => {
-                if command.eq_ignore_ascii_case(b"CLIENT") {
-                    CommandId::Client
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'D' => {
-                if command.eq_ignore_ascii_case(b"DBSIZE") {
-                    CommandId::Dbsize
-                } else if command.eq_ignore_ascii_case(b"DECRBY") {
-                    CommandId::Decrby
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'E' => {
-                if command.eq_ignore_ascii_case(b"EXISTS") {
-                    CommandId::Exists
-                } else if command.eq_ignore_ascii_case(b"EXPIRE") {
-                    CommandId::Expire
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'G' => {
-                if command.eq_ignore_ascii_case(b"GEOADD") {
-                    CommandId::Geoadd
-                } else if command.eq_ignore_ascii_case(b"GEOPOS") {
-                    CommandId::Geopos
-                } else if command.eq_ignore_ascii_case(b"GETDEL") {
-                    CommandId::Getdel
-                } else if command.eq_ignore_ascii_case(b"GETBIT") {
-                    CommandId::Getbit
-                } else if command.eq_ignore_ascii_case(b"GETSET") {
-                    CommandId::Getset
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'H' => {
-                if command.eq_ignore_ascii_case(b"HSETNX") {
-                    CommandId::Hsetnx
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'I' => {
-                if command.eq_ignore_ascii_case(b"INCRBY") {
-                    CommandId::Incrby
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'L' => {
-                if command.eq_ignore_ascii_case(b"LINDEX") {
-                    CommandId::Lindex
-                } else if command.eq_ignore_ascii_case(b"LRANGE") {
-                    CommandId::Lrange
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'M' => {
-                if command.eq_ignore_ascii_case(b"MSETNX") {
-                    CommandId::Msetnx
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'P' => {
-                if command.eq_ignore_ascii_case(b"PSETEX") {
-                    CommandId::Psetex
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'R' => {
-                if command.eq_ignore_ascii_case(b"RENAME") {
-                    CommandId::Rename
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'S' => {
-                if command.eq_ignore_ascii_case(b"SELECT") {
-                    CommandId::Select
-                } else if command.eq_ignore_ascii_case(b"SETBIT") {
-                    CommandId::Setbit
-                } else if command.eq_ignore_ascii_case(b"SINTER") {
-                    CommandId::Sinter
-                } else if command.eq_ignore_ascii_case(b"STRLEN") {
-                    CommandId::Strlen
-                } else if command.eq_ignore_ascii_case(b"SUNION") {
-                    CommandId::Sunion
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'U' => {
-                if command.eq_ignore_ascii_case(b"UNLINK") {
-                    CommandId::Unlink
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'Z' => {
-                if command.eq_ignore_ascii_case(b"ZCOUNT") {
-                    CommandId::Zcount
-                } else if command.eq_ignore_ascii_case(b"ZINTER") {
-                    CommandId::Zinter
-                } else if command.eq_ignore_ascii_case(b"ZRANGE") {
-                    CommandId::Zrange
-                } else if command.eq_ignore_ascii_case(b"ZSCORE") {
-                    CommandId::Zscore
-                } else if command.eq_ignore_ascii_case(b"ZUNION") {
-                    CommandId::Zunion
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'X' => {
-                if command.eq_ignore_ascii_case(b"XCLAIM") {
-                    CommandId::Xclaim
-                } else if command.eq_ignore_ascii_case(b"XGROUP") {
-                    CommandId::Xgroup
-                } else if command.eq_ignore_ascii_case(b"XRANGE") {
-                    CommandId::Xrange
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            _ => CommandId::Unknown,
-        },
-        7 => match command[0].to_ascii_uppercase() {
-            b'C' => {
-                if command.eq_ignore_ascii_case(b"COMMAND") {
-                    CommandId::Command
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'F' => {
-                if command.eq_ignore_ascii_case(b"FLUSHDB") {
-                    CommandId::Flushdb
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'H' => {
-                if command.eq_ignore_ascii_case(b"HEXISTS") {
-                    CommandId::Hexists
-                } else if command.eq_ignore_ascii_case(b"HGETALL") {
-                    CommandId::Hgetall
-                } else if command.eq_ignore_ascii_case(b"HINCRBY") {
-                    CommandId::Hincrby
-                } else if command.eq_ignore_ascii_case(b"HSTRLEN") {
-                    CommandId::Hstrlen
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'G' => {
-                if command.eq_ignore_ascii_case(b"GEODIST") {
-                    CommandId::Geodist
-                } else if command.eq_ignore_ascii_case(b"GEOHASH") {
-                    CommandId::Geohash
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'L' => {
-                if command.eq_ignore_ascii_case(b"LINSERT") {
-                    CommandId::Linsert
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'P' => {
-                if command.eq_ignore_ascii_case(b"PERSIST") {
-                    CommandId::Persist
-                } else if command.eq_ignore_ascii_case(b"PFCOUNT") {
-                    CommandId::Pfcount
-                } else if command.eq_ignore_ascii_case(b"PFMERGE") {
-                    CommandId::Pfmerge
-                } else if command.eq_ignore_ascii_case(b"PEXPIRE") {
-                    CommandId::Pexpire
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'R' => {
-                if command.eq_ignore_ascii_case(b"RESTORE") {
-                    CommandId::Restore
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'Z' => {
-                if command.eq_ignore_ascii_case(b"ZINCRBY") {
-                    CommandId::Zincrby
-                } else if command.eq_ignore_ascii_case(b"ZMSCORE") {
-                    CommandId::Zmscore
-                } else if command.eq_ignore_ascii_case(b"ZPOPMAX") {
-                    CommandId::Zpopmax
-                } else if command.eq_ignore_ascii_case(b"ZPOPMIN") {
-                    CommandId::Zpopmin
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            _ => CommandId::Unknown,
-        },
-        8 => match command[0].to_ascii_uppercase() {
-            b'B' => {
-                if command.eq_ignore_ascii_case(b"BITCOUNT") {
-                    CommandId::Bitcount
-                } else if command.eq_ignore_ascii_case(b"BITFIELD") {
-                    CommandId::Bitfield
-                } else if command.eq_ignore_ascii_case(b"BZPOPMAX") {
-                    CommandId::Bzpopmax
-                } else if command.eq_ignore_ascii_case(b"BZPOPMIN") {
-                    CommandId::Bzpopmin
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'E' => {
-                if command.eq_ignore_ascii_case(b"EXPIREAT") {
-                    CommandId::Expireat
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'F' => {
-                if command.eq_ignore_ascii_case(b"FLUSHALL") {
-                    CommandId::Flushall
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'G' => {
-                if command.eq_ignore_ascii_case(b"GETRANGE") {
-                    CommandId::Getrange
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'R' => {
-                if command.eq_ignore_ascii_case(b"RENAMENX") {
-                    CommandId::Renamenx
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'S' => {
-                if command.eq_ignore_ascii_case(b"SETRANGE") {
-                    CommandId::Setrange
-                } else if command.eq_ignore_ascii_case(b"SMEMBERS") {
-                    CommandId::Smembers
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'Z' => {
-                if command.eq_ignore_ascii_case(b"ZREVRANK") {
-                    CommandId::Zrevrank
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'X' => {
-                if command.eq_ignore_ascii_case(b"XPENDING") {
-                    CommandId::Xpending
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            _ => CommandId::Unknown,
-        },
-        9 => match command[0].to_ascii_uppercase() {
-            b'P' => {
-                if command.eq_ignore_ascii_case(b"PEXPIREAT") {
-                    CommandId::Pexpireat
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'G' => {
-                if command.eq_ignore_ascii_case(b"GEORADIUS") {
-                    CommandId::Georadius
-                } else if command.eq_ignore_ascii_case(b"GEOSEARCH") {
-                    CommandId::Geosearch
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'S' => {
-                if command.eq_ignore_ascii_case(b"SISMEMBER") {
-                    CommandId::Sismember
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'X' => {
-                if command.eq_ignore_ascii_case(b"XREVRANGE") {
-                    CommandId::Xrevrange
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'Z' => {
-                if command.eq_ignore_ascii_case(b"ZREVRANGE") {
-                    CommandId::Zrevrange
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            _ => CommandId::Unknown,
-        },
-        10 => match command[0].to_ascii_uppercase() {
-            b'B' => {
-                if command.eq_ignore_ascii_case(b"BRPOPLPUSH") {
-                    CommandId::Brpoplpush
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'H' => {
-                if command.eq_ignore_ascii_case(b"HRANDFIELD") {
-                    CommandId::Hrandfield
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'S' => {
-                if command.eq_ignore_ascii_case(b"SDIFFSTORE") {
-                    CommandId::Sdiffstore
-                } else if command.eq_ignore_ascii_case(b"SINTERCARD") {
-                    CommandId::Sintercard
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'X' => {
-                if command.eq_ignore_ascii_case(b"XAUTOCLAIM") {
-                    CommandId::Xautoclaim
-                } else if command.eq_ignore_ascii_case(b"XREADGROUP") {
-                    CommandId::Xreadgroup
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            _ => CommandId::Unknown,
-        },
-        11 => match command[0].to_ascii_uppercase() {
-            b'B' => {
-                if command.eq_ignore_ascii_case(b"BITFIELD_RO") {
-                    CommandId::BitfieldRo
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'G' => {
-                if command.eq_ignore_ascii_case(b"GEORADIUS_RO") {
-                    CommandId::GeoradiusRo
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'S' => {
-                if command.eq_ignore_ascii_case(b"SINTERSTORE") {
-                    CommandId::Sinterstore
-                } else if command.eq_ignore_ascii_case(b"SRANDMEMBER") {
-                    CommandId::Srandmember
-                } else if command.eq_ignore_ascii_case(b"SUNIONSTORE") {
-                    CommandId::Sunionstore
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            b'Z' => {
-                if command.eq_ignore_ascii_case(b"ZRANDMEMBER") {
-                    CommandId::Zrandmember
-                } else {
-                    CommandId::Unknown
-                }
-            }
-            _ => CommandId::Unknown,
-        },
-        12 => {
-            if command.eq_ignore_ascii_case(b"HINCRBYFLOAT") {
-                CommandId::Hincrbyfloat
-            } else {
-                CommandId::Unknown
-            }
-        }
-        13 => {
-            if command.eq_ignore_ascii_case(b"ZRANGEBYSCORE") {
-                CommandId::Zrangebyscore
-            } else {
-                CommandId::Unknown
-            }
-        }
-        14 => {
-            if command.eq_ignore_ascii_case(b"GEOSEARCHSTORE") {
-                CommandId::Geosearchstore
-            } else {
-                CommandId::Unknown
-            }
-        }
-        15 => {
-            if command.eq_ignore_ascii_case(b"GEORADIUSBYMEMBER") {
-                CommandId::Georadiusbymember
-            } else if command.eq_ignore_ascii_case(b"ZREMRANGEBYRANK") {
-                CommandId::Zremrangebyrank
-            } else {
-                CommandId::Unknown
-            }
-        }
-        16 => {
-            if command.eq_ignore_ascii_case(b"ZREVRANGEBYSCORE") {
-                CommandId::Zrevrangebyscore
-            } else {
-                CommandId::Unknown
-            }
-        }
-        18 => {
-            if command.eq_ignore_ascii_case(b"GEORADIUSBYMEMBER_RO") {
-                CommandId::GeoradiusbymemberRo
-            } else {
-                CommandId::Unknown
-            }
-        }
-        _ => CommandId::Unknown,
+    let mut buf = [0u8; 8];
+    // SAFETY: we checked len <= 8
+    unsafe {
+        std::ptr::copy_nonoverlapping(cmd.as_ptr(), buf.as_mut_ptr(), cmd.len());
     }
+
+    let mut val = u64::from_le_bytes(buf);
+
+    // Branchless ASCII uppercase via SWAR (SIMD Within A Register):
+    // For each byte, if it is in a-z, subtract 32.
+    const A: u64 = 0x6161_6161_6161_6161; // b'a' repeated
+    const ONES: u64 = 0x0101_0101_0101_0101;
+    const Z_BOUND: u64 = ONES.wrapping_mul(256 - 26); // (256-26) repeated
+    const CASE_BIT: u64 = 0x2020_2020_2020_2020; // bit 5 of each byte
+
+    let lower_dist = val.wrapping_sub(A);
+    // A byte is lowercase iff (lower_dist + (256-26)) does NOT overflow into the
+    // high bit of that byte, AND the high bit of lower_dist itself is also 0.
+    let is_lower = !lower_dist.wrapping_add(Z_BOUND) & !lower_dist & (ONES << 7);
+    // Shift the per-byte high bit down to bit 5 to get the case-flip mask.
+    let mask = (is_lower >> 2) & CASE_BIT;
+    val ^= mask;
+
+    // Zero out bytes beyond cmd.len(), then encode length in the top byte.
+    val &= u64::MAX >> ((8 - cmd.len()) * 8);
+    val | ((cmd.len() as u64) << 56)
+}
+
+/// All ≤8-byte command constants computed at compile time.
+pub mod cmd {
+    use super::pack8;
+
+    // ── Connection ────────────────────────────────────────────────────────────
+    pub const AUTH: u64 = pack8(b"AUTH");
+    pub const HELLO: u64 = pack8(b"HELLO");
+    pub const CLIENT: u64 = pack8(b"CLIENT");
+    pub const COMMAND: u64 = pack8(b"COMMAND");
+    pub const SELECT: u64 = pack8(b"SELECT");
+    pub const QUIT: u64 = pack8(b"QUIT");
+    pub const PING: u64 = pack8(b"PING");
+    pub const ECHO: u64 = pack8(b"ECHO");
+
+    // ── Keyspace ──────────────────────────────────────────────────────────────
+    pub const DEL: u64 = pack8(b"DEL");
+    pub const EXISTS: u64 = pack8(b"EXISTS");
+    pub const TOUCH: u64 = pack8(b"TOUCH");
+    pub const UNLINK: u64 = pack8(b"UNLINK");
+    pub const TYPE: u64 = pack8(b"TYPE");
+    pub const RENAME: u64 = pack8(b"RENAME");
+    pub const RENAMENX: u64 = pack8(b"RENAMENX");
+    pub const DBSIZE: u64 = pack8(b"DBSIZE");
+    pub const KEYS: u64 = pack8(b"KEYS");
+    pub const SCAN: u64 = pack8(b"SCAN");
+    pub const MOVE: u64 = pack8(b"MOVE");
+    pub const DUMP: u64 = pack8(b"DUMP");
+    pub const RESTORE: u64 = pack8(b"RESTORE");
+    pub const SORT: u64 = pack8(b"SORT");
+    pub const COPY: u64 = pack8(b"COPY");
+    pub const FLUSHDB: u64 = pack8(b"FLUSHDB");
+    pub const FLUSHALL: u64 = pack8(b"FLUSHALL");
+
+    // ── TTL ───────────────────────────────────────────────────────────────────
+    pub const EXPIRE: u64 = pack8(b"EXPIRE");
+    pub const PEXPIRE: u64 = pack8(b"PEXPIRE");
+    pub const EXPIREAT: u64 = pack8(b"EXPIREAT");
+    pub const PERSIST: u64 = pack8(b"PERSIST");
+    pub const TTL: u64 = pack8(b"TTL");
+    pub const PTTL: u64 = pack8(b"PTTL");
+    // PEXPIREAT is 9 bytes — handled in dispatch_long
+
+    // ── String ────────────────────────────────────────────────────────────────
+    pub const GET: u64 = pack8(b"GET");
+    pub const SET: u64 = pack8(b"SET");
+    pub const SETNX: u64 = pack8(b"SETNX");
+    pub const GETSET: u64 = pack8(b"GETSET");
+    pub const GETDEL: u64 = pack8(b"GETDEL");
+    pub const SETEX: u64 = pack8(b"SETEX");
+    pub const PSETEX: u64 = pack8(b"PSETEX");
+    pub const GETEX: u64 = pack8(b"GETEX");
+    pub const APPEND: u64 = pack8(b"APPEND");
+    pub const STRLEN: u64 = pack8(b"STRLEN");
+    pub const SETRANGE: u64 = pack8(b"SETRANGE");
+    pub const GETRANGE: u64 = pack8(b"GETRANGE");
+    pub const MGET: u64 = pack8(b"MGET");
+    pub const MSET: u64 = pack8(b"MSET");
+    pub const MSETNX: u64 = pack8(b"MSETNX");
+    pub const INCR: u64 = pack8(b"INCR");
+    pub const INCRBY: u64 = pack8(b"INCRBY");
+    pub const DECR: u64 = pack8(b"DECR");
+    pub const DECRBY: u64 = pack8(b"DECRBY");
+    pub const SETBIT: u64 = pack8(b"SETBIT");
+    pub const GETBIT: u64 = pack8(b"GETBIT");
+    pub const BITCOUNT: u64 = pack8(b"BITCOUNT");
+    pub const BITPOS: u64 = pack8(b"BITPOS");
+    pub const BITOP: u64 = pack8(b"BITOP");
+    pub const BITFIELD: u64 = pack8(b"BITFIELD");
+    pub const PFADD: u64 = pack8(b"PFADD");
+    pub const PFCOUNT: u64 = pack8(b"PFCOUNT");
+    pub const PFMERGE: u64 = pack8(b"PFMERGE");
+
+    // ── Hash ──────────────────────────────────────────────────────────────────
+    pub const HSET: u64 = pack8(b"HSET");
+    pub const HMSET: u64 = pack8(b"HMSET");
+    pub const HSETNX: u64 = pack8(b"HSETNX");
+    pub const HGET: u64 = pack8(b"HGET");
+    pub const HMGET: u64 = pack8(b"HMGET");
+    pub const HGETALL: u64 = pack8(b"HGETALL");
+    pub const HDEL: u64 = pack8(b"HDEL");
+    pub const HEXISTS: u64 = pack8(b"HEXISTS");
+    pub const HKEYS: u64 = pack8(b"HKEYS");
+    pub const HVALS: u64 = pack8(b"HVALS");
+    pub const HLEN: u64 = pack8(b"HLEN");
+    pub const HSTRLEN: u64 = pack8(b"HSTRLEN");
+    pub const HINCRBY: u64 = pack8(b"HINCRBY");
+    pub const HSCAN: u64 = pack8(b"HSCAN");
+    // HINCRBYFLOAT is 12 bytes — handled in dispatch_long
+    // HRANDFIELD is 10 bytes — handled in dispatch_long
+
+    // ── List ──────────────────────────────────────────────────────────────────
+    pub const LPUSH: u64 = pack8(b"LPUSH");
+    pub const RPUSH: u64 = pack8(b"RPUSH");
+    pub const LPOP: u64 = pack8(b"LPOP");
+    pub const RPOP: u64 = pack8(b"RPOP");
+    pub const LLEN: u64 = pack8(b"LLEN");
+    pub const LINDEX: u64 = pack8(b"LINDEX");
+    pub const LRANGE: u64 = pack8(b"LRANGE");
+    pub const LSET: u64 = pack8(b"LSET");
+    pub const LTRIM: u64 = pack8(b"LTRIM");
+    pub const LINSERT: u64 = pack8(b"LINSERT");
+    pub const LPOS: u64 = pack8(b"LPOS");
+    pub const LMOVE: u64 = pack8(b"LMOVE");
+    pub const LMPOP: u64 = pack8(b"LMPOP");
+    pub const BLPOP: u64 = pack8(b"BLPOP");
+    pub const BRPOP: u64 = pack8(b"BRPOP");
+    // BRPOPLPUSH is 10 bytes — handled in dispatch_long
+    // BLMPOP is 6 bytes
+    pub const BLMPOP: u64 = pack8(b"BLMPOP");
+
+    // ── Set ───────────────────────────────────────────────────────────────────
+    pub const SADD: u64 = pack8(b"SADD");
+    pub const SREM: u64 = pack8(b"SREM");
+    pub const SCARD: u64 = pack8(b"SCARD");
+    pub const SMOVE: u64 = pack8(b"SMOVE");
+    pub const SPOP: u64 = pack8(b"SPOP");
+    pub const SINTER: u64 = pack8(b"SINTER");
+    pub const SDIFF: u64 = pack8(b"SDIFF");
+    pub const SUNION: u64 = pack8(b"SUNION");
+    pub const SSCAN: u64 = pack8(b"SSCAN");
+    // SMEMBERS is 8 bytes
+    pub const SMEMBERS: u64 = pack8(b"SMEMBERS");
+    // SISMEMBER is 9 bytes — handled in dispatch_long
+    // SINTERSTORE is 11 bytes — handled in dispatch_long
+    // SUNIONSTORE is 11 bytes — handled in dispatch_long
+    // SDIFFSTORE is 10 bytes — handled in dispatch_long
+    // SINTERCARD is 10 bytes — handled in dispatch_long
+    // SRANDMEMBER is 11 bytes — handled in dispatch_long
+
+    // ── Sorted set ────────────────────────────────────────────────────────────
+    pub const ZADD: u64 = pack8(b"ZADD");
+    pub const ZREM: u64 = pack8(b"ZREM");
+    pub const ZCARD: u64 = pack8(b"ZCARD");
+    pub const ZCOUNT: u64 = pack8(b"ZCOUNT");
+    pub const ZSCORE: u64 = pack8(b"ZSCORE");
+    pub const ZRANK: u64 = pack8(b"ZRANK");
+    pub const ZINCRBY: u64 = pack8(b"ZINCRBY");
+    pub const ZMSCORE: u64 = pack8(b"ZMSCORE");
+    pub const ZRANGE: u64 = pack8(b"ZRANGE");
+    pub const ZPOPMIN: u64 = pack8(b"ZPOPMIN");
+    pub const ZPOPMAX: u64 = pack8(b"ZPOPMAX");
+    pub const ZMPOP: u64 = pack8(b"ZMPOP");
+    pub const ZINTER: u64 = pack8(b"ZINTER");
+    pub const ZUNION: u64 = pack8(b"ZUNION");
+    pub const ZDIFF: u64 = pack8(b"ZDIFF");
+    pub const ZSCAN: u64 = pack8(b"ZSCAN");
+    pub const BZMPOP: u64 = pack8(b"BZMPOP");
+    pub const BZPOPMIN: u64 = pack8(b"BZPOPMIN");
+    pub const BZPOPMAX: u64 = pack8(b"BZPOPMAX");
+    // ZREVRANK is 8 bytes
+    pub const ZREVRANK: u64 = pack8(b"ZREVRANK");
+    // ZREVRANGE is 9 bytes — handled in dispatch_long
+    // ZRANGEBYSCORE is 13 bytes — handled in dispatch_long
+    // ZREVRANGEBYSCORE is 16 bytes — handled in dispatch_long
+    // ZRANDMEMBER is 11 bytes — handled in dispatch_long
+    // ZREMRANGEBYRANK is 15 bytes — handled in dispatch_long
+
+    // ── GEO ───────────────────────────────────────────────────────────────────
+    pub const GEOADD: u64 = pack8(b"GEOADD");
+    pub const GEOPOS: u64 = pack8(b"GEOPOS");
+    pub const GEODIST: u64 = pack8(b"GEODIST");
+    pub const GEOHASH: u64 = pack8(b"GEOHASH");
+    // GEORADIUS is 9 bytes — handled in dispatch_long
+    // GEORADIUS_RO is 12 bytes — handled in dispatch_long
+    // GEORADIUSBYMEMBER is 17 bytes — handled in dispatch_long
+    // GEORADIUSBYMEMBER_RO is 20 bytes — handled in dispatch_long
+    // GEOSEARCH is 9 bytes — handled in dispatch_long
+    // GEOSEARCHSTORE is 14 bytes — handled in dispatch_long
+
+    // ── Stream ────────────────────────────────────────────────────────────────
+    pub const XADD: u64 = pack8(b"XADD");
+    pub const XLEN: u64 = pack8(b"XLEN");
+    pub const XDEL: u64 = pack8(b"XDEL");
+    pub const XRANGE: u64 = pack8(b"XRANGE");
+    pub const XTRIM: u64 = pack8(b"XTRIM");
+    pub const XREAD: u64 = pack8(b"XREAD");
+    pub const XGROUP: u64 = pack8(b"XGROUP");
+    pub const XACK: u64 = pack8(b"XACK");
+    pub const XCLAIM: u64 = pack8(b"XCLAIM");
+    // XREVRANGE is 9 bytes — handled in dispatch_long
+    // XREADGROUP is 10 bytes — handled in dispatch_long
+    // XPENDING is 8 bytes
+    pub const XPENDING: u64 = pack8(b"XPENDING");
+    // XAUTOCLAIM is 10 bytes — handled in dispatch_long
 }
 
 pub fn eq_ascii(command: &[u8], expected: &[u8]) -> bool {

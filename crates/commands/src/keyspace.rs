@@ -1,29 +1,6 @@
-use crate::util::{Args, CommandId, eq_ascii, int_error, u64_to_bytes, wrong_args, wrong_type};
+use crate::util::{Args, eq_ascii, int_error, u64_to_bytes, wrong_args, wrong_type};
 use engine::store::{RestoreError, SortError, SortOptions, SortOrder, SortResult, Store};
 use protocol::types::{BulkData, RespFrame};
-
-pub fn handle(store: &Store, cmd: CommandId, args: &Args) -> RespFrame {
-    match cmd {
-        CommandId::Del => del(store, args),
-        CommandId::Exists => exists(store, args),
-        CommandId::Touch => touch(store, args),
-        CommandId::Unlink => unlink(store, args),
-        CommandId::Type => key_type(store, args),
-        CommandId::Rename => rename(store, args),
-        CommandId::Renamenx => renamenx(store, args),
-        CommandId::Dbsize => dbsize(store, args),
-        CommandId::Keys => keys(store, args),
-        CommandId::Scan => scan(store, args),
-        CommandId::Move => move_key(store, args),
-        CommandId::Dump => dump(store, args),
-        CommandId::Restore => restore(store, args),
-        CommandId::Sort => sort(store, args),
-        CommandId::Copy => copy(store, args),
-        CommandId::Flushdb => flushdb(store, args),
-        CommandId::Flushall => flushall(store, args),
-        _ => unreachable!("keyspace::handle called with non-keyspace command"),
-    }
-}
 
 pub(crate) fn del(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 2 {
