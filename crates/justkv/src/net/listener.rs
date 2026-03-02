@@ -7,9 +7,9 @@ use socket2::{Domain, Protocol, Socket, Type};
 use std::io;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
-use tokio::task::block_in_place;
 use tokio::task::JoinSet;
-use tokio::time::{sleep, Duration};
+use tokio::task::block_in_place;
+use tokio::time::{Duration, sleep};
 
 pub async fn run_listener(config: Config) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let listeners = bind_reuse_port_listeners(config.addr(), config.io_threads).await?;

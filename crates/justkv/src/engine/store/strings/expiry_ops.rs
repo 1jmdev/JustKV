@@ -1,9 +1,8 @@
 use std::time::Duration;
 
+use super::super::helpers::{deadline_from_ttl, monotonic_now_ms, purge_if_expired, unix_time_ms};
 use crate::engine::store::{GetExMode, Store};
 use crate::engine::value::CompactKey;
-
-use super::super::helpers::{deadline_from_ttl, monotonic_now_ms, purge_if_expired, unix_time_ms};
 
 impl Store {
     pub fn getex(&self, key: &[u8], mode: GetExMode) -> Result<Option<Vec<u8>>, ()> {
@@ -25,16 +24,16 @@ impl Store {
         match mode {
             GetExMode::KeepTtl => {}
             GetExMode::Persist => {
-                shard.ttl.remove(key);
+                let _ = shard.clear_ttl(key);
             }
             GetExMode::Ex(seconds) => {
-                shard.ttl.insert(
+                shard.set_ttl(
                     CompactKey::from_slice(key),
                     deadline_from_ttl(Duration::from_secs(seconds)),
                 );
             }
             GetExMode::Px(milliseconds) => {
-                shard.ttl.insert(
+                shard.set_ttl(
                     CompactKey::from_slice(key),
                     deadline_from_ttl(Duration::from_millis(milliseconds)),
                 );
@@ -54,13 +53,12 @@ impl Store {
 fn apply_getex_absolute_deadline(shard: &mut super::super::Shard, key: &[u8], timestamp_ms: u64) {
     let now_unix_ms = unix_time_ms();
     if timestamp_ms <= now_unix_ms {
-        shard.ttl.remove(key);
-        shard.entries.remove(key);
+        let _ = shard.remove_key(key);
         return;
     }
 
     let ttl_ms = timestamp_ms - now_unix_ms;
-    shard.ttl.insert(
+    shard.set_ttl(
         CompactKey::from_slice(key),
         deadline_from_ttl(Duration::from_millis(ttl_ms)),
     );

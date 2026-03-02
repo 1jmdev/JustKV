@@ -101,7 +101,7 @@ impl Store {
             return Ok(None);
         }
 
-        shard.ttl.remove(key);
+        let _ = shard.clear_ttl(key);
         match shard.entries.remove::<[u8]>(key) {
             Some(entry) => match entry.into_string() {
                 Some(value) => Ok(Some(value.into_vec())),

@@ -22,7 +22,7 @@ impl Store {
         }
 
         if shard.entries.contains_key(key) {
-            shard.ttl.insert(
+            shard.set_ttl(
                 CompactKey::from_vec(key.to_vec()),
                 deadline_from_ttl(Duration::from_millis(milliseconds)),
             );
@@ -54,7 +54,7 @@ impl Store {
 
         match shard.entries.get(key) {
             Some(_) => {
-                if shard.ttl.remove(key).is_some() {
+                if shard.clear_ttl(key).is_some() {
                     1
                 } else {
                     0

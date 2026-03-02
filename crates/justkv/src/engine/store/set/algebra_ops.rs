@@ -92,8 +92,7 @@ impl Store {
         let _ = purge_if_expired(&mut shard, destination, now_ms);
 
         if values.is_empty() {
-            shard.entries.remove(destination);
-            shard.ttl.remove(destination);
+            let _ = shard.remove_key(destination);
             return Ok(0);
         }
 
@@ -111,7 +110,7 @@ impl Store {
             CompactKey::from_slice(destination),
             Entry::Set(Box::new(out)),
         );
-        shard.ttl.remove(destination);
+        let _ = shard.clear_ttl(destination);
         Ok(shard
             .entries
             .get::<[u8]>(destination)

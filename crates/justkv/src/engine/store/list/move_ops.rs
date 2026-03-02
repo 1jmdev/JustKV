@@ -75,8 +75,7 @@ fn move_inside_shard(
 
     let source_empty = list.is_empty();
     if source_empty {
-        shard.entries.remove(source);
-        shard.ttl.remove(source);
+        let _ = shard.remove_key(source);
     }
 
     let destination_entry = shard
@@ -109,8 +108,7 @@ fn move_across_shards(
     }
 
     if source_list.is_empty() {
-        source_shard.entries.remove(source);
-        source_shard.ttl.remove(source);
+        let _ = source_shard.remove_key(source);
     }
 
     let destination_entry = destination_shard

@@ -11,8 +11,8 @@ fn write_entry(shard: &mut super::Shard, key: &[u8], entry: Entry, ttl_deadline:
     shard.entries.insert(compact_key.clone(), entry);
 
     if let Some(deadline) = ttl_deadline {
-        shard.ttl.insert(compact_key, deadline);
+        shard.set_ttl(compact_key, deadline);
     } else {
-        shard.ttl.remove(compact_key.as_slice());
+        let _ = shard.clear_ttl(compact_key.as_slice());
     }
 }

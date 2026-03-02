@@ -11,6 +11,7 @@ mod zset;
 
 pub use keyspace::{RestoreError, SortError, SortOptions, SortOrder, SortResult};
 
+use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use ahash::RandomState;
@@ -68,6 +69,7 @@ pub enum ListSetError {
 pub(super) struct Shard {
     entries: StoreMap,
     ttl: TtlMap,
+    ttl_deadlines: BTreeSet<(u64, CompactKey)>,
 }
 
 impl Shard {
@@ -75,7 +77,28 @@ impl Shard {
         Self {
             entries: RehashingMap::new(),
             ttl: HashMap::with_hasher(RandomState::new()),
+            ttl_deadlines: BTreeSet::new(),
         }
+    }
+
+    pub(super) fn set_ttl(&mut self, key: CompactKey, deadline: u64) {
+        if let Some(previous_deadline) = self.ttl.insert(key.clone(), deadline) {
+            let _ = self.ttl_deadlines.remove(&(previous_deadline, key.clone()));
+        }
+        let _ = self.ttl_deadlines.insert((deadline, key));
+    }
+
+    pub(super) fn clear_ttl(&mut self, key: &[u8]) -> Option<u64> {
+        let deadline = self.ttl.remove(key)?;
+        let _ = self
+            .ttl_deadlines
+            .remove(&(deadline, CompactKey::from_slice(key)));
+        Some(deadline)
+    }
+
+    pub(super) fn remove_key(&mut self, key: &[u8]) -> Option<Entry> {
+        let _ = self.clear_ttl(key);
+        self.entries.remove(key)
     }
 }
 
@@ -107,13 +130,17 @@ impl Store {
         let mut removed = 0;
         for shard in self.shards.iter() {
             let mut guard = shard.write();
-            let expired_keys: Vec<_> = guard
-                .ttl
-                .iter()
-                .filter_map(|(key, &deadline)| (deadline <= now_ms).then_some(key.clone()))
-                .collect();
+            while let Some((deadline, key)) = guard.ttl_deadlines.first().cloned() {
+                if deadline > now_ms {
+                    break;
+                }
 
-            for key in expired_keys {
+                let _ = guard.ttl_deadlines.pop_first();
+                let current = guard.ttl.get(key.as_slice()).copied();
+                if current != Some(deadline) {
+                    continue;
+                }
+
                 guard.ttl.remove(key.as_slice());
                 if guard.entries.remove(key.as_slice()).is_some() {
                     removed += 1;

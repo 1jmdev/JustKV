@@ -88,8 +88,7 @@ impl Store {
         out.retain(|(member, _)| zset.remove(member.as_slice()).is_some());
 
         if zset.is_empty() {
-            shard.entries.remove(key);
-            shard.ttl.remove(key);
+            let _ = shard.remove_key(key);
         }
         Ok(Some(out))
     }

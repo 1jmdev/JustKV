@@ -29,8 +29,7 @@ impl Store {
 
             if let Some(value) = popped {
                 if list.is_empty() {
-                    shard.entries.remove(key.as_slice());
-                    shard.ttl.remove(key.as_slice());
+                    let _ = shard.remove_key(key.as_slice());
                 }
                 return Ok(Some((CompactKey::from_slice(key.as_slice()), value)));
             }
@@ -59,8 +58,7 @@ impl Store {
             };
             let list = get_list_mut(entry).ok_or(())?;
             if list.is_empty() {
-                shard.entries.remove(key.as_slice());
-                shard.ttl.remove(key.as_slice());
+                let _ = shard.remove_key(key.as_slice());
                 continue;
             }
 
@@ -81,8 +79,7 @@ impl Store {
                 continue;
             }
             if list.is_empty() {
-                shard.entries.remove(key.as_slice());
-                shard.ttl.remove(key.as_slice());
+                let _ = shard.remove_key(key.as_slice());
             }
 
             return Ok(Some((CompactKey::from_slice(key.as_slice()), values)));

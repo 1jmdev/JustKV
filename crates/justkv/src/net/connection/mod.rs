@@ -11,7 +11,7 @@ use crate::net::profiling::LatencyProfiler;
 use crate::net::pubsub::{ConnectionPubSub, PubSubHub};
 use crate::net::transaction::TransactionState;
 use crate::protocol::encoder::encode;
-use crate::protocol::parser::{parse_frame, ParseError};
+use crate::protocol::parser::{ParseError, parse_frame};
 use crate::protocol::types::{BulkData, RespFrame};
 
 mod dispatch;
@@ -135,7 +135,10 @@ struct ParsedFrame {
     parse_elapsed: std::time::Duration,
 }
 
-fn parse_next_frame(src: &mut BytesMut, measure_latency: bool) -> Result<Option<ParsedFrame>, ParseError> {
+fn parse_next_frame(
+    src: &mut BytesMut,
+    measure_latency: bool,
+) -> Result<Option<ParsedFrame>, ParseError> {
     let parse_started = measure_latency.then(Instant::now);
     match parse_frame(src) {
         Ok(Some(frame)) => Ok(Some(ParsedFrame {
@@ -181,7 +184,10 @@ impl CommandName {
         let mut data = [0u8; CMD_NAME_MAX];
         data[..len].copy_from_slice(&src[..len]);
         data[..len].make_ascii_uppercase();
-        Self { len: len as u8, data }
+        Self {
+            len: len as u8,
+            data,
+        }
     }
 
     fn as_bytes(&self) -> &[u8] {

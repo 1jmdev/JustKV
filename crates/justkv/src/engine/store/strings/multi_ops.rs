@@ -24,7 +24,7 @@ impl Store {
 
             let mut shard = self.shards[idx].write();
             for (key, entry) in entries {
-                shard.ttl.remove(key.as_slice());
+                let _ = shard.clear_ttl(key.as_slice());
                 shard.entries.insert(key, entry);
             }
         }

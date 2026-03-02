@@ -48,8 +48,7 @@ impl Store {
         }
 
         if set.is_empty() {
-            shard.entries.remove(key);
-            shard.ttl.remove(key);
+            let _ = shard.remove_key(key);
         }
         Ok(removed)
     }
@@ -149,8 +148,7 @@ fn smove_inside_shard(
     }
 
     if source_set.is_empty() {
-        shard.entries.remove(source);
-        shard.ttl.remove(source);
+        let _ = shard.remove_key(source);
     }
 
     let destination_entry = shard
@@ -179,8 +177,7 @@ fn smove_across_shards(
     }
 
     if source_set.is_empty() {
-        source_shard.entries.remove(source);
-        source_shard.ttl.remove(source);
+        let _ = source_shard.remove_key(source);
     }
 
     let destination_entry = destination_shard

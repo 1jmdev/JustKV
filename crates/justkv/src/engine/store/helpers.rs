@@ -53,8 +53,7 @@ pub(super) fn remaining_ttl_ms(deadline_ms: u64) -> i64 {
 pub(super) fn purge_if_expired(shard: &mut Shard, key: &[u8], now_ms: u64) -> bool {
     let expired = is_expired(shard, key, now_ms);
     if expired {
-        shard.ttl.remove(key);
-        shard.entries.remove(key);
+        let _ = shard.remove_key(key);
     }
     expired
 }

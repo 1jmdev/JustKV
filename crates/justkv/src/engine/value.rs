@@ -89,6 +89,18 @@ impl<const INLINE_CAPACITY: usize> PartialEq for CompactBytes<INLINE_CAPACITY> {
 
 impl<const INLINE_CAPACITY: usize> Eq for CompactBytes<INLINE_CAPACITY> {}
 
+impl<const INLINE_CAPACITY: usize> Ord for CompactBytes<INLINE_CAPACITY> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.as_slice().cmp(other.as_slice())
+    }
+}
+
+impl<const INLINE_CAPACITY: usize> PartialOrd for CompactBytes<INLINE_CAPACITY> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 impl<const INLINE_CAPACITY: usize> Hash for CompactBytes<INLINE_CAPACITY> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.as_slice().hash(state);

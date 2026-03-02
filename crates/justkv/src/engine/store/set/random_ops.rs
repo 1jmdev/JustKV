@@ -39,8 +39,7 @@ impl Store {
         }
 
         if set.is_empty() {
-            shard.entries.remove::<[u8]>(key);
-            shard.ttl.remove(key);
+            let _ = shard.remove_key(key);
         }
         Ok(Some(out))
     }

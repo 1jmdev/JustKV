@@ -197,8 +197,7 @@ impl Store {
         }
 
         if list.is_empty() {
-            shard.entries.remove(key);
-            shard.ttl.remove(key);
+            let _ = shard.remove_key(key);
         }
         Ok(())
     }
@@ -363,8 +362,7 @@ impl Store {
         }
 
         if list.is_empty() {
-            shard.entries.remove(key);
-            shard.ttl.remove(key);
+            let _ = shard.remove_key(key);
         }
 
         Ok(Some(out))

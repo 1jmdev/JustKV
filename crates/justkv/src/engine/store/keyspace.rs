@@ -44,8 +44,7 @@ impl Store {
             let key = key.as_ref();
             let idx = self.shard_index(key);
             let mut shard = self.shards[idx].write();
-            shard.ttl.remove(key);
-            if shard.entries.remove(key).is_some() {
+            if shard.remove_key(key).is_some() {
                 removed += 1;
             }
         }
@@ -91,7 +90,7 @@ impl Store {
         let Some(entry) = source.entries.remove(from) else {
             return false;
         };
-        let deadline = source.ttl.remove(from);
+        let deadline = source.clear_ttl(from);
         drop(source);
 
         let to_idx = self.shard_index(to);
@@ -99,9 +98,9 @@ impl Store {
         let key = CompactKey::from_slice(to);
         destination.entries.insert(key.clone(), entry);
         if let Some(deadline) = deadline {
-            destination.ttl.insert(key, deadline);
+            destination.set_ttl(key, deadline);
         } else {
-            destination.ttl.remove(key.as_slice());
+            let _ = destination.clear_ttl(key.as_slice());
         }
         true
     }
@@ -128,15 +127,14 @@ impl Store {
         let key = CompactKey::from_slice(to);
         destination.entries.insert(key.clone(), entry);
         if let Some(deadline) = deadline {
-            destination.ttl.insert(key, deadline);
+            destination.set_ttl(key, deadline);
         } else {
-            destination.ttl.remove(key.as_slice());
+            let _ = destination.clear_ttl(key.as_slice());
         }
         drop(destination);
 
         let mut source = self.shards[from_idx].write();
-        source.entries.remove(from);
-        source.ttl.remove(from);
+        let _ = source.remove_key(from);
         Ok(1)
     }
 
@@ -165,9 +163,9 @@ impl Store {
         let key = CompactKey::from_slice(to);
         destination.entries.insert(key.clone(), entry);
         if let Some(deadline) = deadline {
-            destination.ttl.insert(key, deadline);
+            destination.set_ttl(key, deadline);
         } else {
-            destination.ttl.remove(key.as_slice());
+            let _ = destination.clear_ttl(key.as_slice());
         }
         1
     }
@@ -326,9 +324,9 @@ impl Store {
         let compact_key = CompactKey::from_slice(key);
         shard.entries.insert(compact_key.clone(), entry);
         if let Some(value) = deadline {
-            shard.ttl.insert(compact_key, value);
+            shard.set_ttl(compact_key, value);
         } else {
-            shard.ttl.remove(compact_key.as_slice());
+            let _ = shard.clear_ttl(compact_key.as_slice());
         }
         Ok(())
     }
@@ -408,7 +406,7 @@ impl Store {
         shard
             .entries
             .insert(key.clone(), Entry::List(Box::new(list)));
-        shard.ttl.remove(key.as_slice());
+        let _ = shard.clear_ttl(key.as_slice());
         len
     }
 
@@ -419,6 +417,7 @@ impl Store {
             removed += guard.entries.len() as i64;
             guard.entries.clear();
             guard.ttl.clear();
+            guard.ttl_deadlines.clear();
         }
         removed
     }
