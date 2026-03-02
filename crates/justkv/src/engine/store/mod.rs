@@ -1,3 +1,4 @@
+mod geo;
 mod hash;
 mod helpers;
 mod keyspace;
@@ -5,6 +6,7 @@ mod list;
 mod pattern;
 mod rehash;
 mod set;
+mod stream;
 mod strings;
 mod ttl;
 mod zset;
@@ -104,6 +106,19 @@ pub enum BitFieldOp {
         increment: i64,
         overflow: BitFieldOverflow,
     },
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum XAddId {
+    Auto,
+    Explicit { ms: u64, seq: u64 },
+    AutoSeqAtMs { ms: u64 },
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum XTrimMode {
+    MaxLen,
+    MinId,
 }
 
 pub(super) struct Shard {
