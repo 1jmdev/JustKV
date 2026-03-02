@@ -6,18 +6,20 @@ pub(crate) struct ActiveTrace {
     pub(crate) nodes: Vec<Node>,
     pub(crate) stack: Vec<Frame>,
     pub(crate) emit: bool,
+    pub(crate) pretty: bool,
     pub(crate) command: Vec<u8>,
     pub(crate) key: Option<Vec<u8>>,
 }
 
 impl ActiveTrace {
-    pub(crate) fn new(command: Vec<u8>) -> Self {
+    pub(crate) fn new(command: Vec<u8>, pretty: bool) -> Self {
         let mut nodes = Vec::with_capacity(32);
         nodes.push(Node::new("request"));
         Self {
             nodes,
             stack: vec![Frame::new(0)],
             emit: true,
+            pretty,
             command,
             key: None,
         }

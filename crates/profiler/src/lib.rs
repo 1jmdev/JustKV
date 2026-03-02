@@ -23,7 +23,7 @@ pub fn begin_request(command_hint: &[u8]) -> Option<RequestGuard> {
 
     let command = uppercased(command_hint);
     ACTIVE_TRACE.with(|slot| {
-        *slot.borrow_mut() = Some(ActiveTrace::new(command));
+        *slot.borrow_mut() = Some(ActiveTrace::new(command, config.pretty));
     });
     Some(RequestGuard { active: true })
 }

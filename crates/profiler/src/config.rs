@@ -1,11 +1,12 @@
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 static TRACE_CONFIG: OnceLock<Option<TraceConfig>> = OnceLock::new();
 
 pub(crate) struct TraceConfig {
     pub(crate) command_filter: Option<Vec<u8>>,
     pub(crate) key_filter: Option<Vec<u8>>,
+    pub(crate) pretty: bool,
     remaining: AtomicU64,
 }
 
@@ -29,9 +30,12 @@ impl TraceConfig {
             .ok()
             .map(|v| v.into_bytes());
 
+        let pretty = env_flag_default_true("JUSTKV_PRETTY");
+
         Some(Self {
             command_filter,
             key_filter,
+            pretty,
             remaining: AtomicU64::new(max_traces),
         })
     }
@@ -39,11 +43,7 @@ impl TraceConfig {
     pub(crate) fn try_acquire_slot(&self) -> bool {
         self.remaining
             .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |cur| {
-                if cur == 0 {
-                    None
-                } else {
-                    Some(cur - 1)
-                }
+                if cur == 0 { None } else { Some(cur - 1) }
             })
             .is_ok()
     }
@@ -75,4 +75,15 @@ fn env_flag_enabled(name: &str) -> bool {
             )
         })
         .unwrap_or(false)
+}
+
+fn env_flag_default_true(name: &str) -> bool {
+    std::env::var(name)
+        .map(|v| {
+            !matches!(
+                v.trim().to_ascii_lowercase().as_str(),
+                "0" | "false" | "no" | "off"
+            )
+        })
+        .unwrap_or(true)
 }

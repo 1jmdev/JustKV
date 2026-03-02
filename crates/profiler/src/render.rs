@@ -46,10 +46,7 @@ impl Layout {
     }
 
     fn top_border(&self) -> String {
-        format!(
-            "{BOLD}{CYAN}╔{}╗{RESET}",
-            "═".repeat(self.inner_width),
-        )
+        format!("{BOLD}{CYAN}╔{}╗{RESET}", "═".repeat(self.inner_width),)
     }
 
     fn header_separator(&self) -> String {
@@ -96,6 +93,11 @@ impl Layout {
 }
 
 pub(crate) fn render_trace(trace: &ActiveTrace) {
+    if !trace.pretty {
+        render_trace_plain(trace);
+        return;
+    }
+
     let root = &trace.nodes[0];
     let command = String::from_utf8_lossy(&trace.command);
     let key = trace
@@ -125,9 +127,8 @@ pub(crate) fn render_trace(trace: &ActiveTrace) {
     // Totals
     let t = pad_left(&total_str, COL_TOTAL);
     let s = pad_left(&self_str, COL_SELF);
-    let totals_content = format!(
-        "  {DIM}total{RESET} {BOLD}{WHITE}{t}{RESET}   {DIM}self{RESET} {DIM}{s}{RESET}"
-    );
+    let totals_content =
+        format!("  {DIM}total{RESET} {BOLD}{WHITE}{t}{RESET}   {DIM}self{RESET} {DIM}{s}{RESET}");
     let totals_visible = format!("  total {t}   self {s}").chars().count();
     eprintln!("{}", layout.full_row(&totals_content, totals_visible));
 
@@ -135,9 +136,13 @@ pub(crate) fn render_trace(trace: &ActiveTrace) {
     eprintln!("{}", layout.header_separator());
 
     // Column headers
-	eprintln!(
+    eprintln!(
         "{CYAN}║{RESET} {DIM}{:<name_col$}{RESET}  {CYAN}│{RESET} {DIM}{:>COL_TOTAL$}{RESET} {CYAN}│{RESET} {DIM}{:>COL_SELF$}{RESET} {CYAN}│{RESET} {DIM}{:<COL_BAR$}{RESET} {CYAN}│{RESET} {DIM}{:>COL_PCT$}{RESET} {CYAN}║{RESET}",
-        "function", "total", "self", "", "%",
+        "function",
+        "total",
+        "self",
+        "",
+        "%",
         name_col = layout.name_col,
     );
 
@@ -150,6 +155,30 @@ pub(crate) fn render_trace(trace: &ActiveTrace) {
     }
 
     eprintln!("{}", layout.bottom_border());
+    eprintln!();
+}
+
+fn render_trace_plain(trace: &ActiveTrace) {
+    let root = &trace.nodes[0];
+    let command = String::from_utf8_lossy(&trace.command);
+    let key = trace
+        .key
+        .as_ref()
+        .map(|k| String::from_utf8_lossy(k).into_owned())
+        .unwrap_or_else(|| "-".into());
+
+    eprintln!(
+        "TRACE command={} key={} total={} self={}",
+        command,
+        key,
+        fmt_time(ns_to_us(root.total_ns)),
+        fmt_time(ns_to_us(root.self_ns)),
+    );
+    eprintln!("scope\tdepth\ttotal\tself\tpct\tname");
+
+    for child in &root.children {
+        render_plain_node(trace, *child, 0, root.total_ns);
+    }
     eprintln!();
 }
 
@@ -231,7 +260,39 @@ fn render_node(
 
     for (idx, child) in node.children.iter().enumerate() {
         let child_last = idx + 1 == node.children.len();
-        render_node(trace, *child, &child_prefix, child_last, root_total_ns, layout);
+        render_node(
+            trace,
+            *child,
+            &child_prefix,
+            child_last,
+            root_total_ns,
+            layout,
+        );
+    }
+}
+
+fn render_plain_node(trace: &ActiveTrace, node_index: usize, depth: usize, root_total_ns: u64) {
+    let node = &trace.nodes[node_index];
+
+    let total_us = ns_to_us(node.total_ns);
+    let self_us = ns_to_us(node.self_ns);
+    let pct = if root_total_ns == 0 {
+        0.0
+    } else {
+        node.total_ns as f64 / root_total_ns as f64 * 100.0
+    };
+
+    eprintln!(
+        "scope\t{}\t{}\t{}\t{:.1}%\t{}",
+        depth,
+        fmt_time(total_us),
+        fmt_time(self_us),
+        pct,
+        shorten(node.name),
+    );
+
+    for child in &node.children {
+        render_plain_node(trace, *child, depth + 1, root_total_ns);
     }
 }
 
