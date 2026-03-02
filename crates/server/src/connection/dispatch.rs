@@ -26,11 +26,14 @@ pub(super) fn execute_regular_command(
         return RespFrame::error_static("ERR empty command");
     }
 
-    if let Some(response) = handle_pubsub_or_config_command(hub, push_tx, pubsub_state, args) {
+    let command = args[0].as_slice();
+
+    if let Some(response) =
+        handle_pubsub_or_config_command(hub, push_tx, pubsub_state, command, args)
+    {
         return response;
     }
 
-    let command = args[0].as_slice();
     if args.len() > 1 {
         profiler::bind_request_key(args[1].as_slice());
     }
@@ -45,10 +48,10 @@ fn handle_pubsub_or_config_command(
     hub: &PubSubHub,
     push_tx: &UnboundedSender<RespFrame>,
     pubsub_state: &mut ConnectionPubSub,
+    command: &[u8],
     args: &[CompactArg],
 ) -> Option<RespFrame> {
     let _trace = profiler::scope("server::connection::dispatch::handle_pubsub_or_config_command");
-    let command = args[0].as_slice();
 
     // parse_command_into uppercases args[0], so exact-byte matches are enough here.
     match command.first().copied() {

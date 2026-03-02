@@ -65,6 +65,10 @@ pub(super) fn purge_if_expired(shard: &mut Shard, key: &[u8], now_ms: u64) -> bo
 
 pub(super) fn is_expired(shard: &Shard, key: &[u8], now_ms: u64) -> bool {
     let _trace = profiler::scope("engine::helpers::is_expired");
+    // Skip the hashmap lookup entirely when no keys in this shard have TTLs.
+    if shard.ttl.is_empty() {
+        return false;
+    }
     shard
         .ttl
         .get(key)

@@ -50,12 +50,20 @@ impl<const INLINE_CAPACITY: usize> CompactBytes<INLINE_CAPACITY> {
         }
     }
 
-    pub fn as_slice(&self) -> &[u8] {
-        let _trace = profiler::scope("engine::value::as_slice");
+    /// Internal non-instrumented slice accessor used by trait impls (eq, hash,
+    /// borrow, deref, cmp) and hot-path code so they don't pay a nested
+    /// profiler scope on top of their own.
+    #[inline(always)]
+    pub(crate) fn slice(&self) -> &[u8] {
         match self {
             Self::Inline { len, data } => &data[..*len as usize],
             Self::Heap(value) => value,
         }
+    }
+
+    pub fn as_slice(&self) -> &[u8] {
+        let _trace = profiler::scope("engine::value::as_slice");
+        self.slice()
     }
 
     pub fn len(&self) -> usize {
@@ -92,7 +100,12 @@ impl<const INLINE_CAPACITY: usize> CompactBytes<INLINE_CAPACITY> {
 impl<const INLINE_CAPACITY: usize> PartialEq for CompactBytes<INLINE_CAPACITY> {
     fn eq(&self, other: &Self) -> bool {
         let _trace = profiler::scope("engine::value::eq");
-        self.as_slice() == other.as_slice()
+        match (self, other) {
+            (Self::Inline { len: la, data: da }, Self::Inline { len: lb, data: db }) => {
+                la == lb && da[..*la as usize] == db[..*lb as usize]
+            }
+            _ => self.slice() == other.slice(),
+        }
     }
 }
 
@@ -101,7 +114,7 @@ impl<const INLINE_CAPACITY: usize> Eq for CompactBytes<INLINE_CAPACITY> {}
 impl<const INLINE_CAPACITY: usize> Ord for CompactBytes<INLINE_CAPACITY> {
     fn cmp(&self, other: &Self) -> Ordering {
         let _trace = profiler::scope("engine::value::cmp");
-        self.as_slice().cmp(other.as_slice())
+        self.slice().cmp(other.slice())
     }
 }
 
@@ -115,21 +128,21 @@ impl<const INLINE_CAPACITY: usize> PartialOrd for CompactBytes<INLINE_CAPACITY> 
 impl<const INLINE_CAPACITY: usize> Hash for CompactBytes<INLINE_CAPACITY> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         let _trace = profiler::scope("engine::value::hash");
-        self.as_slice().hash(state);
+        self.slice().hash(state);
     }
 }
 
 impl<const INLINE_CAPACITY: usize> Borrow<[u8]> for CompactBytes<INLINE_CAPACITY> {
     fn borrow(&self) -> &[u8] {
         let _trace = profiler::scope("engine::value::borrow");
-        self.as_slice()
+        self.slice()
     }
 }
 
 impl<const INLINE_CAPACITY: usize> AsRef<[u8]> for CompactBytes<INLINE_CAPACITY> {
     fn as_ref(&self) -> &[u8] {
         let _trace = profiler::scope("engine::value::as_ref");
-        self.as_slice()
+        self.slice()
     }
 }
 
@@ -138,7 +151,7 @@ impl<const INLINE_CAPACITY: usize> Deref for CompactBytes<INLINE_CAPACITY> {
 
     fn deref(&self) -> &Self::Target {
         let _trace = profiler::scope("engine::value::deref");
-        self.as_slice()
+        self.slice()
     }
 }
 

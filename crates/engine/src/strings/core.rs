@@ -15,11 +15,13 @@ impl Store {
         let Some(entry) = shard.entries.get::<[u8]>(key) else {
             return Ok(None);
         };
-        if shard
-            .ttl
-            .get(key)
-            .copied()
-            .is_some_and(|deadline| now_ms >= deadline)
+        // Skip TTL lookup when no keys in this shard have TTLs (common case).
+        if !shard.ttl.is_empty()
+            && shard
+                .ttl
+                .get(key)
+                .copied()
+                .is_some_and(|deadline| now_ms >= deadline)
         {
             return Ok(None);
         }
@@ -150,11 +152,12 @@ impl Store {
         let Some(entry) = shard.entries.get::<[u8]>(key) else {
             return Ok(0);
         };
-        if shard
-            .ttl
-            .get(key)
-            .copied()
-            .is_some_and(|deadline| now_ms >= deadline)
+        if !shard.ttl.is_empty()
+            && shard
+                .ttl
+                .get(key)
+                .copied()
+                .is_some_and(|deadline| now_ms >= deadline)
         {
             return Ok(0);
         }

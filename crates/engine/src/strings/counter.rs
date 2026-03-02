@@ -16,24 +16,30 @@ impl Store {
         let mut shard = self.shards[idx].write();
         let now_ms = monotonic_now_ms();
 
-        let current = if purge_if_expired(&mut shard, key, now_ms) {
-            0
-        } else {
-            match shard.entries.get(key) {
-                Some(entry) => {
-                    let Some(value) = entry.as_string() else {
-                        return Err(());
-                    };
-                    let text = std::str::from_utf8(value.as_slice()).map_err(|_| ())?;
-                    text.parse::<i64>().map_err(|_| ())?
-                }
-                None => 0,
-            }
-        };
+        let expired = purge_if_expired(&mut shard, key, now_ms);
 
-        let ttl_deadline = shard.ttl.get(key).copied();
-        let next = current.checked_add(delta).ok_or(())?;
         let mut buffer = itoa::Buffer::new();
+
+        // Fast path: key exists and is a string — update in-place with get_mut,
+        // avoiding a second full hash lookup that insert() would do.
+        if !expired {
+            if let Some(entry) = shard.entries.get_mut::<[u8]>(key) {
+                let Some(value) = entry.as_string() else {
+                    return Err(());
+                };
+                let text = std::str::from_utf8(value.slice()).map_err(|_| ())?;
+                let current = text.parse::<i64>().map_err(|_| ())?;
+                let next = current.checked_add(delta).ok_or(())?;
+                let encoded = buffer.format(next);
+                // Replace string value in-place — no re-hash needed.
+                *entry = Entry::from_slice(encoded.as_bytes());
+                return Ok(next);
+            }
+        }
+
+        // Slow path: key absent or just expired — insert new entry.
+        let ttl_deadline = shard.ttl.get(key).copied();
+        let next = 0i64.checked_add(delta).ok_or(())?;
         let encoded = buffer.format(next);
         write_entry(
             &mut shard,
