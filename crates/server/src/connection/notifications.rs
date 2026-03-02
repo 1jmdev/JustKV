@@ -9,6 +9,7 @@ pub(super) fn emit_command_notifications(
     args: &[CompactArg],
     response: &RespFrame,
 ) {
+    let _trace = profiler::scope("server::connection::notifications::emit_command_notifications");
     let Some((event, class, keys)) = keyspace_event_for_command(command, args, response) else {
         return;
     };
@@ -23,6 +24,7 @@ fn keyspace_event_for_command<'a>(
     args: &'a [CompactArg],
     response: &RespFrame,
 ) -> Option<(&'static [u8], u8, Vec<&'a [u8]>)> {
+    let _trace = profiler::scope("server::connection::notifications::keyspace_event_for_command");
     let ok = !matches!(response, RespFrame::Error(_));
     if !ok || args.len() < 2 {
         return None;

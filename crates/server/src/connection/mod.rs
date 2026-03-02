@@ -22,6 +22,7 @@ pub async fn handle_connection(
     store: Store,
     pubsub_hub: PubSubHub,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let _trace = profiler::scope("server::connection::handle_connection");
     let mut read_buf = BytesMut::with_capacity(READ_BUFFER_INITIAL);
     let mut write_buf = BytesMut::with_capacity(WRITE_BUFFER_INITIAL);
     let mut command_args_buf = Vec::with_capacity(16);
@@ -122,6 +123,7 @@ struct CommandName {
 
 impl CommandName {
     fn from_slice(src: &[u8]) -> Self {
+        let _trace = profiler::scope("server::connection::from_slice");
         let len = src.len().min(CMD_NAME_MAX);
         let mut data = [0u8; CMD_NAME_MAX];
         data[..len].copy_from_slice(&src[..len]);
@@ -133,6 +135,7 @@ impl CommandName {
     }
 
     fn as_bytes(&self) -> &[u8] {
+        let _trace = profiler::scope("server::connection::as_bytes");
         &self.data[..self.len as usize]
     }
 }

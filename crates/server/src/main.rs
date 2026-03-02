@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use justkv_server::config::Config;
 
 fn main() {
+    let _trace = profiler::scope("server::main::main");
     let args = std::env::args().collect::<Vec<_>>();
     let action = match parse_cli_args(&args) {
         Ok(value) => value,
@@ -70,6 +71,7 @@ struct Directive {
 }
 
 fn parse_cli_args(args: &[String]) -> Result<Action, String> {
+    let _trace = profiler::scope("server::main::parse_cli_args");
     let tail = &args[1..];
     if tail.is_empty() {
         return Ok(Action::Run(RuntimeArgs::default()));
@@ -165,6 +167,7 @@ fn parse_cli_args(args: &[String]) -> Result<Action, String> {
 }
 
 fn run(runtime: RuntimeArgs) -> Result<(), String> {
+    let _trace = profiler::scope("server::main::run");
     let mut config = Config::default();
     let mut ignored = BTreeSet::new();
 
@@ -206,6 +209,7 @@ fn run(runtime: RuntimeArgs) -> Result<(), String> {
 }
 
 fn load_config_directives(input: &ConfigInput) -> Result<Vec<Directive>, String> {
+    let _trace = profiler::scope("server::main::load_config_directives");
     match input {
         ConfigInput::Path(path) => {
             let mut visited = BTreeSet::new();
@@ -225,6 +229,7 @@ fn load_config_file(
     path: &Path,
     visited: &mut BTreeSet<PathBuf>,
 ) -> Result<Vec<Directive>, String> {
+    let _trace = profiler::scope("server::main::load_config_file");
     let canonical = std::fs::canonicalize(path)
         .map_err(|err| format!("failed to read {}: {err}", path.display()))?;
     if !visited.insert(canonical.clone()) {
@@ -259,6 +264,7 @@ fn load_config_file(
 }
 
 fn parse_config_content(content: &str) -> Result<Vec<Directive>, String> {
+    let _trace = profiler::scope("server::main::parse_config_content");
     let mut directives = Vec::new();
 
     for line in content.lines() {
@@ -290,6 +296,7 @@ fn apply_directive(
     config: &mut Config,
     ignored: &mut BTreeSet<String>,
 ) -> Result<(), String> {
+    let _trace = profiler::scope("server::main::apply_directive");
     match name {
         "bind" => {
             let value = first_value(name, values)?;
@@ -344,6 +351,7 @@ fn apply_directive(
 }
 
 fn first_value<'a>(name: &str, values: &'a [String]) -> Result<&'a str, String> {
+    let _trace = profiler::scope("server::main::first_value");
     values
         .first()
         .map(String::as_str)
@@ -351,6 +359,7 @@ fn first_value<'a>(name: &str, values: &'a [String]) -> Result<&'a str, String> 
 }
 
 fn parse_yes_no(name: &str, value: &str) -> Result<bool, String> {
+    let _trace = profiler::scope("server::main::parse_yes_no");
     match value {
         "yes" => Ok(true),
         "no" => Ok(false),
@@ -359,6 +368,7 @@ fn parse_yes_no(name: &str, value: &str) -> Result<bool, String> {
 }
 
 fn print_usage() {
+    let _trace = profiler::scope("server::main::print_usage");
     let bin = std::env::args()
         .next()
         .and_then(|value| {
@@ -388,6 +398,7 @@ mod tests {
 
     #[test]
     fn parses_config_file_and_cli_overrides() {
+        let _trace = profiler::scope("server::main::parses_config_file_and_cli_overrides");
         let args = vec![
             "justkv-server".to_string(),
             "./conf/redis.conf".to_string(),
@@ -411,6 +422,7 @@ mod tests {
 
     #[test]
     fn parses_test_memory() {
+        let _trace = profiler::scope("server::main::parses_test_memory");
         let args = vec![
             "justkv-server".to_string(),
             "--test-memory".to_string(),
@@ -426,6 +438,7 @@ mod tests {
 
     #[test]
     fn parses_help_short_flag() {
+        let _trace = profiler::scope("server::main::parses_help_short_flag");
         let args = vec!["justkv-server".to_string(), "-h".to_string()];
         let action = parse_cli_args(&args).expect("parse args");
         assert!(matches!(action, Action::Help));

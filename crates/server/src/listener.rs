@@ -11,6 +11,7 @@ use tokio::task::block_in_place;
 use tokio::time::{Duration, sleep};
 
 pub async fn run_listener(config: Config) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let _trace = profiler::scope("server::listener::run_listener");
     let listeners = bind_reuse_port_listeners(config.addr(), config.io_threads).await?;
     let store = Store::new(config.shards);
     let pubsub = PubSubHub::new();
@@ -47,6 +48,7 @@ async fn run_accept_loop(
     store: Store,
     pubsub: PubSubHub,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let _trace = profiler::scope("server::listener::run_accept_loop");
     loop {
         let (socket, _) = listener.accept().await?;
         socket.set_nodelay(true)?;
@@ -63,6 +65,7 @@ async fn bind_reuse_port_listeners(
     bind_addr: String,
     io_threads: usize,
 ) -> Result<Vec<TcpListener>, io::Error> {
+    let _trace = profiler::scope("server::listener::bind_reuse_port_listeners");
     let mut addresses = tokio::net::lookup_host(bind_addr).await?;
     let Some(address) = addresses.next() else {
         return Err(io::Error::new(
@@ -81,6 +84,7 @@ async fn bind_reuse_port_listeners(
 }
 
 fn bind_single_listener(address: SocketAddr) -> Result<TcpListener, io::Error> {
+    let _trace = profiler::scope("server::listener::bind_single_listener");
     let domain = if address.is_ipv4() {
         Domain::IPV4
     } else {
@@ -100,6 +104,7 @@ fn bind_single_listener(address: SocketAddr) -> Result<TcpListener, io::Error> {
 }
 
 fn spawn_expiry_sweeper(store: Store, interval: Duration) {
+    let _trace = profiler::scope("server::listener::spawn_expiry_sweeper");
     tokio::spawn(async move {
         loop {
             sleep(interval).await;
@@ -109,6 +114,7 @@ fn spawn_expiry_sweeper(store: Store, interval: Duration) {
 }
 
 fn spawn_cached_clock_updater(store: Store) {
+    let _trace = profiler::scope("server::listener::spawn_cached_clock_updater");
     tokio::spawn(async move {
         loop {
             store.refresh_cached_time();

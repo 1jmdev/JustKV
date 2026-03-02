@@ -75,6 +75,7 @@ fn handle_pubsub_or_config_command(
 }
 
 fn publish_command(hub: &PubSubHub, args: &[CompactArg]) -> RespFrame {
+    let _trace = profiler::scope("server::connection::dispatch::publish_command");
     if args.len() != 3 {
         return wrong_args("PUBLISH");
     }
@@ -87,6 +88,7 @@ fn subscribe_command(
     pubsub_state: &mut ConnectionPubSub,
     args: &[CompactArg],
 ) -> RespFrame {
+    let _trace = profiler::scope("server::connection::dispatch::subscribe_command");
     if args.len() < 2 {
         return wrong_args("SUBSCRIBE");
     }
@@ -108,6 +110,7 @@ fn unsubscribe_command(
     pubsub_state: &mut ConnectionPubSub,
     args: &[CompactArg],
 ) -> RespFrame {
+    let _trace = profiler::scope("server::connection::dispatch::unsubscribe_command");
     let channels = if args.len() == 1 {
         let existing = pubsub_state.unsubscribe_all(hub);
         if existing.is_empty() {
@@ -145,6 +148,7 @@ fn psubscribe_command(
     pubsub_state: &mut ConnectionPubSub,
     args: &[CompactArg],
 ) -> RespFrame {
+    let _trace = profiler::scope("server::connection::dispatch::psubscribe_command");
     if args.len() < 2 {
         return wrong_args("PSUBSCRIBE");
     }
@@ -166,6 +170,7 @@ fn punsubscribe_command(
     pubsub_state: &mut ConnectionPubSub,
     args: &[CompactArg],
 ) -> RespFrame {
+    let _trace = profiler::scope("server::connection::dispatch::punsubscribe_command");
     let patterns = if args.len() == 1 {
         let existing = pubsub_state.punsubscribe_all(hub);
         if existing.is_empty() {
@@ -198,6 +203,7 @@ fn punsubscribe_command(
 }
 
 fn pubsub_command(hub: &PubSubHub, args: &[CompactArg]) -> RespFrame {
+    let _trace = profiler::scope("server::connection::dispatch::pubsub_command");
     if args.len() < 2 {
         return wrong_args("PUBSUB");
     }
@@ -245,6 +251,7 @@ fn pubsub_command(hub: &PubSubHub, args: &[CompactArg]) -> RespFrame {
 }
 
 fn config_command(hub: &PubSubHub, args: &[CompactArg]) -> RespFrame {
+    let _trace = profiler::scope("server::connection::dispatch::config_command");
     if args.len() < 2 {
         return wrong_args("CONFIG");
     }

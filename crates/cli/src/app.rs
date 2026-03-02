@@ -7,6 +7,7 @@ use crate::output;
 use crate::repl;
 
 pub async fn run() -> Result<(), String> {
+    let _trace = profiler::scope("cli::app::run");
     let cli = Cli::parse();
     let (options, command) = cli.resolve()?;
     let mut client = Client::connect(&options).await?;

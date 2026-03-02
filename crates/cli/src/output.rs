@@ -1,6 +1,7 @@
 use protocol::types::RespFrame;
 
 pub fn render(frame: &RespFrame, raw: bool) -> String {
+    let _trace = profiler::scope("cli::output::render");
     if raw {
         return render_raw(frame);
     }
@@ -8,6 +9,7 @@ pub fn render(frame: &RespFrame, raw: bool) -> String {
 }
 
 fn render_raw(frame: &RespFrame) -> String {
+    let _trace = profiler::scope("cli::output::render_raw");
     match frame {
         RespFrame::Simple(value) | RespFrame::Error(value) => value.clone(),
         RespFrame::SimpleStatic(value) | RespFrame::ErrorStatic(value) => value.to_string(),
@@ -35,6 +37,7 @@ fn render_raw(frame: &RespFrame) -> String {
 }
 
 fn render_human(frame: &RespFrame) -> String {
+    let _trace = profiler::scope("cli::output::render_human");
     match frame {
         RespFrame::Simple(value) => value.clone(),
         RespFrame::SimpleStatic(value) => value.to_string(),

@@ -14,3 +14,4 @@ clap.workspace = true
 rustyline = "14.0.0"
 shlex = "1.3.0"
 tokio.workspace = true
+profiler.workspace = true

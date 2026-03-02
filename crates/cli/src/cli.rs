@@ -47,6 +47,7 @@ pub struct ConnectionOptions {
 
 impl Cli {
     pub fn resolve(self) -> Result<(ConnectionOptions, Vec<String>), String> {
+        let _trace = profiler::scope("cli::cli::resolve");
         if self.resp2 && self.resp3 {
             return Err("Cannot use -2 and -3 together".to_string());
         }
@@ -77,6 +78,7 @@ impl Cli {
 }
 
 fn parse_uri(uri: &str, options: &mut ConnectionOptions) -> Result<(), String> {
+    let _trace = profiler::scope("cli::cli::parse_uri");
     let without_scheme = uri
         .strip_prefix("redis://")
         .ok_or("Only redis:// URIs are supported")?;

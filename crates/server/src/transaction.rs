@@ -20,6 +20,7 @@ impl TransactionState {
     where
         F: FnMut(&Store, RespFrame) -> RespFrame,
     {
+        let _trace = profiler::scope("server::transaction::handle_frame_with");
         let command = match command_name(&frame) {
             Ok(Some(value)) => value,
             Ok(None) => return RespFrame::Error("ERR empty command".to_string()),
@@ -71,6 +72,7 @@ impl TransactionState {
     }
 
     fn multi(&mut self, args: &[&[u8]]) -> RespFrame {
+        let _trace = profiler::scope("server::transaction::multi");
         if args.len() != 1 {
             return wrong_args("MULTI");
         }
@@ -87,6 +89,7 @@ impl TransactionState {
     where
         F: FnMut(&Store, RespFrame) -> RespFrame,
     {
+        let _trace = profiler::scope("server::transaction::exec_with");
         if args.len() != 1 {
             return wrong_args("EXEC");
         }
@@ -111,6 +114,7 @@ impl TransactionState {
     }
 
     fn discard(&mut self, args: &[&[u8]]) -> RespFrame {
+        let _trace = profiler::scope("server::transaction::discard");
         if args.len() != 1 {
             return wrong_args("DISCARD");
         }
@@ -125,6 +129,7 @@ impl TransactionState {
     }
 
     fn watch(&mut self, store: &Store, args: &[&[u8]]) -> RespFrame {
+        let _trace = profiler::scope("server::transaction::watch");
         if args.len() < 2 {
             return wrong_args("WATCH");
         }
@@ -139,6 +144,7 @@ impl TransactionState {
     }
 
     fn unwatch(&mut self, args: &[&[u8]]) -> RespFrame {
+        let _trace = profiler::scope("server::transaction::unwatch");
         if args.len() != 1 {
             return wrong_args("UNWATCH");
         }
@@ -147,6 +153,7 @@ impl TransactionState {
     }
 
     fn is_watch_dirty(&self, store: &Store) -> bool {
+        let _trace = profiler::scope("server::transaction::is_watch_dirty");
         self.watched
             .iter()
             .any(|(key, value)| store.dump(key) != *value)
@@ -154,6 +161,7 @@ impl TransactionState {
 }
 
 fn command_name<'a>(frame: &'a RespFrame) -> Result<Option<&'a [u8]>, String> {
+    let _trace = profiler::scope("server::transaction::command_name");
     let RespFrame::Array(Some(items)) = frame else {
         return Err("ERR protocol error".to_string());
     };
@@ -169,6 +177,7 @@ fn command_name<'a>(frame: &'a RespFrame) -> Result<Option<&'a [u8]>, String> {
 }
 
 fn parse_args<'a>(frame: &'a RespFrame) -> Result<Vec<&'a [u8]>, String> {
+    let _trace = profiler::scope("server::transaction::parse_args");
     let RespFrame::Array(Some(items)) = frame else {
         return Err("ERR protocol error".to_string());
     };
@@ -186,6 +195,7 @@ fn parse_args<'a>(frame: &'a RespFrame) -> Result<Vec<&'a [u8]>, String> {
 }
 
 fn wrong_args(command: &str) -> RespFrame {
+    let _trace = profiler::scope("server::transaction::wrong_args");
     RespFrame::Error(format!(
         "ERR wrong number of arguments for '{command}' command"
     ))

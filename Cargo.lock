@@ -333,6 +333,7 @@ version = "0.1.0"
 dependencies = [
  "bytes",
  "clap",
+ "profiler",
  "protocol",
  "rustyline",
  "shlex",
@@ -810,6 +811,7 @@ version = "0.1.0"
 dependencies = [
  "ahash",
  "hashbrown",
+ "profiler",
 ]
 
 [[package]]

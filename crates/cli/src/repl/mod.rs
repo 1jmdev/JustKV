@@ -23,6 +23,7 @@ pub async fn run(
     db: u32,
     raw: bool,
 ) -> Result<(), String> {
+    let _trace = profiler::scope("cli::repl::run");
     tokio::task::block_in_place(|| run_blocking(&mut client, host, port, db, raw))
 }
 
@@ -33,6 +34,7 @@ fn run_blocking(
     db: u32,
     raw: bool,
 ) -> Result<(), String> {
+    let _trace = profiler::scope("cli::repl::run_blocking");
     let config = Config::builder()
         .history_ignore_space(true)
         .completion_type(CompletionType::List)
@@ -103,6 +105,7 @@ fn handle_meta(
     state: &mut ReplState,
     editor: &mut Editor<ReplHelper, FileHistory>,
 ) -> bool {
+    let _trace = profiler::scope("cli::repl::handle_meta");
     match meta {
         MetaCommand::Help => {
             println!("Local commands: :help :clear :history :raw :quit");
@@ -132,6 +135,7 @@ fn handle_meta(
 }
 
 fn history_path() -> Option<PathBuf> {
+    let _trace = profiler::scope("cli::repl::history_path");
     let home = env::var_os("HOME")?;
     let mut path = PathBuf::from(home);
     path.push(".justkv-cli-history");
@@ -139,6 +143,7 @@ fn history_path() -> Option<PathBuf> {
 }
 
 fn parse_select_db(command: &[Vec<u8>]) -> Option<u32> {
+    let _trace = profiler::scope("cli::repl::parse_select_db");
     if command.len() != 2 {
         return None;
     }
@@ -160,6 +165,7 @@ struct ReplState {
 
 impl ReplState {
     fn prompt(&self) -> String {
+        let _trace = profiler::scope("cli::repl::prompt");
         if self.db == 0 {
             format!("{}:{}> ", self.host, self.port)
         } else {

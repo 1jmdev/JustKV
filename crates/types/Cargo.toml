@@ -6,3 +6,4 @@ edition.workspace = true
 [dependencies]
 ahash.workspace = true
 hashbrown.workspace = true
+profiler.workspace = true
