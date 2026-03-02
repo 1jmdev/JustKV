@@ -50,28 +50,32 @@ fn handle_pubsub_or_config_command(
     let _trace = profiler::scope("server::connection::dispatch::handle_pubsub_or_config_command");
     let command = args[0].as_slice();
 
-    if command == b"PUBLISH" {
-        return Some(publish_command(hub, args));
+    // parse_command_into uppercases args[0], so exact-byte matches are enough here.
+    match command.first().copied() {
+        Some(b'P') => {
+            if command == b"PUBLISH" {
+                return Some(publish_command(hub, args));
+            }
+            if command == b"PSUBSCRIBE" {
+                return Some(psubscribe_command(hub, push_tx, pubsub_state, args));
+            }
+            if command == b"PUNSUBSCRIBE" {
+                return Some(punsubscribe_command(hub, pubsub_state, args));
+            }
+            if command == b"PUBSUB" {
+                return Some(pubsub_command(hub, args));
+            }
+            None
+        }
+        Some(b'S') if command == b"SUBSCRIBE" => {
+            Some(subscribe_command(hub, push_tx, pubsub_state, args))
+        }
+        Some(b'U') if command == b"UNSUBSCRIBE" => {
+            Some(unsubscribe_command(hub, pubsub_state, args))
+        }
+        Some(b'C') if command == b"CONFIG" => Some(config_command(hub, args)),
+        _ => None,
     }
-    if command == b"SUBSCRIBE" {
-        return Some(subscribe_command(hub, push_tx, pubsub_state, args));
-    }
-    if command == b"UNSUBSCRIBE" {
-        return Some(unsubscribe_command(hub, pubsub_state, args));
-    }
-    if command == b"PSUBSCRIBE" {
-        return Some(psubscribe_command(hub, push_tx, pubsub_state, args));
-    }
-    if command == b"PUNSUBSCRIBE" {
-        return Some(punsubscribe_command(hub, pubsub_state, args));
-    }
-    if command == b"PUBSUB" {
-        return Some(pubsub_command(hub, args));
-    }
-    if command == b"CONFIG" {
-        return Some(config_command(hub, args));
-    }
-    None
 }
 
 fn publish_command(hub: &PubSubHub, args: &[CompactArg]) -> RespFrame {
