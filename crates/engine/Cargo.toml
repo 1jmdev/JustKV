@@ -1,0 +1,17 @@
+[package]
+name = "engine"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+rehash.workspace = true
+ahash.workspace = true
+bytes.workspace = true
+hashbrown.workspace = true
+itoa.workspace = true
+parking_lot.workspace = true
+thiserror.workspace = true
+ryu.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true

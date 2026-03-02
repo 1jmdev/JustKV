@@ -182,10 +182,41 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b05b61dc5112cbb17e4b6cd61790d9845d13888356391624cbe7e41efeac1e75"
 
 [[package]]
+name = "commands"
+version = "0.1.0"
+dependencies = [
+ "ahash",
+ "bytes",
+ "engine",
+ "hashbrown",
+ "itoa",
+ "parking_lot",
+ "protocol",
+ "ryu",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "endian-type"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c34f04666d835ff5d62e058c3995147c06f42fe86ff053337632bca83e42702d"
+
+[[package]]
+name = "engine"
+version = "0.1.0"
+dependencies = [
+ "ahash",
+ "bytes",
+ "hashbrown",
+ "itoa",
+ "parking_lot",
+ "proptest",
+ "rehash",
+ "ryu",
+ "thiserror",
+]
 
 [[package]]
 name = "equivalent"
@@ -245,12 +276,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
-name = "futures-core"
-version = "0.3.32"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e3450815272ef58cec6d564423f6e755e25379b217b0bc688e295ba24df6b1d"
-
-[[package]]
 name = "getrandom"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -301,30 +326,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "92ecc6618181def0457392ccd0ee51198e065e016d1d527a7ac1b6dc7c1f09d2"
 
 [[package]]
-name = "justkv"
-version = "0.1.0"
-dependencies = [
- "ahash",
- "bytes",
- "hashbrown",
- "itoa",
- "parking_lot",
- "proptest",
- "ryu",
- "socket2",
- "thiserror",
- "tikv-jemallocator",
- "tokio",
- "tokio-test",
-]
-
-[[package]]
 name = "justkv-cli"
 version = "0.1.0"
 dependencies = [
  "bytes",
  "clap",
- "justkv",
+ "protocol",
  "rustyline",
  "shlex",
  "tokio",
@@ -334,7 +341,14 @@ dependencies = [
 name = "justkv-server"
 version = "0.1.0"
 dependencies = [
- "justkv",
+ "ahash",
+ "bytes",
+ "commands",
+ "engine",
+ "parking_lot",
+ "protocol",
+ "socket2",
+ "tikv-jemallocator",
  "tokio",
 ]
 
@@ -491,6 +505,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "protocol"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "engine",
+ "itoa",
+ "ryu",
+ "thiserror",
+]
+
+[[package]]
 name = "quick-error"
 version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -573,6 +598,13 @@ name = "regex-syntax"
 version = "0.8.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
+
+[[package]]
+name = "rehash"
+version = "0.1.0"
+dependencies = [
+ "ahash",
+]
 
 [[package]]
 name = "rustix"
@@ -764,25 +796,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "tokio-stream"
-version = "0.1.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32da49809aab5c3bc678af03902d4ccddea2a87d028d86392a4b1560c6906c70"
+name = "types"
+version = "0.1.0"
 dependencies = [
- "futures-core",
- "pin-project-lite",
- "tokio",
-]
-
-[[package]]
-name = "tokio-test"
-version = "0.4.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f6d24790a10a7af737693a3e8f1d03faef7e6ca0cc99aae5066f533766de545"
-dependencies = [
- "futures-core",
- "tokio",
- "tokio-stream",
+ "ahash",
+ "hashbrown",
 ]
 
 [[package]]

@@ -1,0 +1,11 @@
+[package]
+name = "protocol"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+engine.workspace = true
+bytes.workspace = true
+itoa.workspace = true
+ryu.workspace = true
+thiserror.workspace = true

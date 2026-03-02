@@ -1,0 +1,16 @@
+[package]
+name = "commands"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+engine.workspace = true
+protocol.workspace = true
+ahash.workspace = true
+bytes.workspace = true
+hashbrown.workspace = true
+itoa.workspace = true
+parking_lot.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+ryu.workspace = true

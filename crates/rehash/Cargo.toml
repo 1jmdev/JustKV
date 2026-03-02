@@ -1,0 +1,7 @@
+[package]
+name = "rehash"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+ahash.workspace = true

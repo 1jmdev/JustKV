@@ -1,0 +1,19 @@
+[package]
+name = "justkv-server"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "justkv-server"
+path = "src/main.rs"
+
+[dependencies]
+commands.workspace = true
+engine.workspace = true
+protocol.workspace = true
+ahash.workspace = true
+bytes.workspace = true
+parking_lot.workspace = true
+socket2.workspace = true
+tikv-jemallocator.workspace = true
+tokio.workspace = true

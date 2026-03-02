@@ -1,0 +1,8 @@
+[package]
+name = "types"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+ahash.workspace = true
+hashbrown.workspace = true

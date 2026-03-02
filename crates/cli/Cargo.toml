@@ -1,0 +1,16 @@
+[package]
+name = "justkv-cli"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "justkv"
+path = "src/main.rs"
+
+[dependencies]
+protocol.workspace = true
+bytes.workspace = true
+clap.workspace = true
+rustyline = "14.0.0"
+shlex = "1.3.0"
+tokio.workspace = true

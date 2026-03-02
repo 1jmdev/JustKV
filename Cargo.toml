@@ -1,5 +1,13 @@
 [workspace]
-members = ["crates/justkv", "crates/justkv-cli", "crates/justkv-server"]
+members = [
+    "crates/rehash",
+    "crates/protocol",
+    "crates/types",
+    "crates/engine",
+    "crates/commands",
+    "crates/server",
+    "crates/cli",
+]
 resolver = "3"
 
 [workspace.package]
@@ -7,6 +15,12 @@ version = "0.1.0"
 edition = "2024"
 
 [workspace.dependencies]
+rehash   = { path = "crates/rehash" }
+protocol = { path = "crates/protocol" }
+types    = { path = "crates/types" }
+engine   = { path = "crates/engine" }
+commands = { path = "crates/commands" }
+
 ahash = "0.8.12"
 bytes = "1.11.1"
 clap = { version = "4.5.60", features = ["derive"] }
