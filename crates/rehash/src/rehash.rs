@@ -10,6 +10,7 @@ where
     K: Eq + Hash,
 {
     pub(crate) fn maybe_start_rehash(&mut self) {
+        let _trace = profiler::scope("crates::rehash::src::rehash::maybe_start_rehash");
         if self.rehash_table.is_some() || self.len < self.table.len() * MAX_LOAD_FACTOR {
             return;
         }
@@ -18,6 +19,7 @@ where
     }
 
     pub(crate) fn rehash_step(&mut self, mut steps: usize) {
+        let _trace = profiler::scope("crates::rehash::src::rehash::rehash_step");
         while steps > 0 {
             let Some(new_table) = self.rehash_table.as_mut() else {
                 return;

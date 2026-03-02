@@ -8,6 +8,7 @@ pub(super) struct Table {
 impl Table {
     #[inline(always)]
     pub(super) fn with_buckets(count: usize) -> Self {
+        let _trace = profiler::scope("crates::rehash::src::table::with_buckets");
         let count = count.max(1).next_power_of_two();
         Self {
             heads: vec![NIL; count],
@@ -17,6 +18,7 @@ impl Table {
 
     #[inline(always)]
     pub(super) fn len(&self) -> usize {
+        let _trace = profiler::scope("crates::rehash::src::table::len");
         self.heads.len()
     }
 }

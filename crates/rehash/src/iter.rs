@@ -9,6 +9,7 @@ impl<'a, K, V> Iterator for Iter<'a, K, V> {
     type Item = (&'a K, &'a V);
 
     fn next(&mut self) -> Option<Self::Item> {
+        let _trace = profiler::scope("crates::rehash::src::iter::next");
         while self.index < self.nodes.len() {
             let idx = self.index;
             self.index += 1;

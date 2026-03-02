@@ -28,6 +28,7 @@ where
     K: Eq + Hash,
 {
     pub fn new() -> Self {
+        let _trace = profiler::scope("crates::rehash::src::types::new");
         let table = Table::with_buckets(INITIAL_BUCKETS);
         let node_cap = table.len() * MAX_LOAD_FACTOR;
         Self {
@@ -42,10 +43,12 @@ where
     }
 
     pub fn len(&self) -> usize {
+        let _trace = profiler::scope("crates::rehash::src::types::len");
         self.len
     }
 
     pub fn clear(&mut self) {
+        let _trace = profiler::scope("crates::rehash::src::types::clear");
         self.len = 0;
         self.table = Table::with_buckets(INITIAL_BUCKETS);
         self.rehash_table = None;
@@ -55,6 +58,7 @@ where
     }
 
     pub fn iter(&self) -> Iter<'_, K, V> {
+        let _trace = profiler::scope("crates::rehash::src::types::iter");
         Iter {
             nodes: &self.nodes,
             index: 0,
