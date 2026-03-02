@@ -1,14 +1,14 @@
-use crate::commands::util::{CommandId, parse_command_id};
+use crate::commands::util::{parse_command_id, CommandId};
 use crate::commands::{connection, hash, keyspace, list, set, string, ttl, zset};
 use crate::engine::store::Store;
 use crate::engine::value::CompactArg;
 use crate::protocol::types::{BulkData, RespFrame};
 
 pub fn dispatch(store: &Store, frame: RespFrame) -> RespFrame {
-    let args = match parse_command(frame) {
-        Ok(args) => args,
-        Err(err) => return RespFrame::error_static(err),
-    };
+    let mut args = Vec::new();
+    if let Err(err) = parse_command_into(frame, &mut args) {
+        return RespFrame::error_static(err);
+    }
 
     dispatch_args(store, &args)
 }
@@ -185,11 +185,24 @@ fn dispatch_cold(store: &Store, cmd: CommandId, args: &[CompactArg]) -> RespFram
 }
 
 pub fn parse_command(frame: RespFrame) -> Result<Vec<CompactArg>, &'static str> {
+    let mut args = Vec::new();
+    parse_command_into(frame, &mut args)?;
+    Ok(args)
+}
+
+pub fn parse_command_into(
+    frame: RespFrame,
+    args: &mut Vec<CompactArg>,
+) -> Result<(), &'static str> {
     let RespFrame::Array(Some(items)) = frame else {
         return Err("ERR protocol error");
     };
 
-    let mut args = Vec::with_capacity(items.len());
+    args.clear();
+    if args.capacity() < items.len() {
+        args.reserve(items.len() - args.capacity());
+    }
+
     for item in items {
         match item {
             RespFrame::Bulk(Some(BulkData::Arg(bytes))) => args.push(bytes),
@@ -204,5 +217,9 @@ pub fn parse_command(frame: RespFrame) -> Result<Vec<CompactArg>, &'static str> 
         }
     }
 
-    Ok(args)
+    if let Some(first) = args.first_mut() {
+        first.make_ascii_uppercase();
+    }
+
+    Ok(())
 }

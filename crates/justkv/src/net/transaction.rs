@@ -20,29 +20,45 @@ impl TransactionState {
     where
         F: FnMut(&Store, RespFrame) -> RespFrame,
     {
-        let args = match parse_args(&frame) {
-            Ok(value) => value,
+        let command = match command_name(&frame) {
+            Ok(Some(value)) => value,
+            Ok(None) => return RespFrame::Error("ERR empty command".to_string()),
             Err(err) => return RespFrame::Error(err),
         };
 
-        if args.is_empty() {
-            return RespFrame::Error("ERR empty command".to_string());
-        }
-
-        let command = args[0];
         if command.eq_ignore_ascii_case(b"MULTI") {
+            let args = match parse_args(&frame) {
+                Ok(value) => value,
+                Err(err) => return RespFrame::Error(err),
+            };
             return self.multi(&args);
         }
         if command.eq_ignore_ascii_case(b"EXEC") {
+            let args = match parse_args(&frame) {
+                Ok(value) => value,
+                Err(err) => return RespFrame::Error(err),
+            };
             return self.exec_with(store, &args, execute);
         }
         if command.eq_ignore_ascii_case(b"DISCARD") {
+            let args = match parse_args(&frame) {
+                Ok(value) => value,
+                Err(err) => return RespFrame::Error(err),
+            };
             return self.discard(&args);
         }
         if command.eq_ignore_ascii_case(b"WATCH") {
+            let args = match parse_args(&frame) {
+                Ok(value) => value,
+                Err(err) => return RespFrame::Error(err),
+            };
             return self.watch(store, &args);
         }
         if command.eq_ignore_ascii_case(b"UNWATCH") {
+            let args = match parse_args(&frame) {
+                Ok(value) => value,
+                Err(err) => return RespFrame::Error(err),
+            };
             return self.unwatch(&args);
         }
 
@@ -134,6 +150,21 @@ impl TransactionState {
         self.watched
             .iter()
             .any(|(key, value)| store.dump(key) != *value)
+    }
+}
+
+fn command_name<'a>(frame: &'a RespFrame) -> Result<Option<&'a [u8]>, String> {
+    let RespFrame::Array(Some(items)) = frame else {
+        return Err("ERR protocol error".to_string());
+    };
+    let Some(first) = items.first() else {
+        return Ok(None);
+    };
+
+    match first {
+        RespFrame::Bulk(Some(value)) => Ok(Some(value.as_slice())),
+        RespFrame::Simple(value) => Ok(Some(value.as_bytes())),
+        _ => Err("ERR invalid argument type".to_string()),
     }
 }
 

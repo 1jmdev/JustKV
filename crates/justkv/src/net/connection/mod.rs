@@ -28,6 +28,7 @@ pub async fn handle_connection(
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let mut read_buf = BytesMut::with_capacity(READ_BUFFER_INITIAL);
     let mut write_buf = BytesMut::with_capacity(WRITE_BUFFER_INITIAL);
+    let mut command_args_buf = Vec::with_capacity(16);
     let mut tx_state = TransactionState::default();
     let profiling_enabled = profiler.is_some();
 
@@ -77,6 +78,7 @@ pub async fn handle_connection(
                             &pubsub_hub,
                             &push_tx,
                             &mut pubsub_state,
+                            &mut command_args_buf,
                             profiler.as_ref(),
                             frame,
                         )

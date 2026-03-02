@@ -3,7 +3,7 @@ use std::time::Instant;
 
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::commands::dispatcher::{dispatch_args, parse_command};
+use crate::commands::dispatcher::{dispatch_args, parse_command_into};
 use crate::engine::store::Store;
 use crate::engine::value::CompactArg;
 use crate::net::profiling::LatencyProfiler;
@@ -18,26 +18,27 @@ pub(super) fn execute_regular_command(
     hub: &PubSubHub,
     push_tx: &UnboundedSender<RespFrame>,
     pubsub_state: &mut ConnectionPubSub,
+    args_buf: &mut Vec<CompactArg>,
     profiler: Option<&Arc<LatencyProfiler>>,
     frame: RespFrame,
 ) -> RespFrame {
     let started = Instant::now();
-    let args = match parse_command(frame) {
-        Ok(value) => value,
-        Err(err) => return RespFrame::error_static(err),
-    };
+    if let Err(err) = parse_command_into(frame, args_buf) {
+        return RespFrame::error_static(err);
+    }
+    let args = args_buf.as_slice();
     if args.is_empty() {
         return RespFrame::error_static("ERR empty command");
     }
 
-    if let Some(response) = handle_pubsub_or_config_command(hub, push_tx, pubsub_state, &args) {
+    if let Some(response) = handle_pubsub_or_config_command(hub, push_tx, pubsub_state, args) {
         return response;
     }
 
     let command = args[0].as_slice();
-    let response = dispatch_args(store, &args);
+    let response = dispatch_args(store, args);
     if hub.keyspace_notifications_enabled() {
-        emit_command_notifications(hub, command, &args, &response);
+        emit_command_notifications(hub, command, args, &response);
     }
     if let Some(profiler) = profiler {
         profiler.record_command(command, started.elapsed());
