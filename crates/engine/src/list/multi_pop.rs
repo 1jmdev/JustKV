@@ -10,7 +10,7 @@ impl Store {
         keys: &[CompactArg],
         side: ListSide,
     ) -> Result<Option<(CompactKey, CompactValue)>, ()> {
-        let _trace = profiler::scope("crates::engine::src::list::multi_pop::list_pop_first");
+        let _trace = profiler::scope("engine::list::multi_pop::list_pop_first");
         for key in keys {
             let idx = self.shard_index(key.as_slice());
             let mut shard = self.shards[idx].write();
@@ -45,7 +45,7 @@ impl Store {
         side: ListSide,
         count: usize,
     ) -> Result<Option<(CompactKey, Vec<CompactValue>)>, ()> {
-        let _trace = profiler::scope("crates::engine::src::list::multi_pop::lmpop");
+        let _trace = profiler::scope("engine::list::multi_pop::lmpop");
         let take = count.max(1);
         for key in keys {
             let idx = self.shard_index(key.as_slice());

@@ -3,7 +3,7 @@ use engine::store::Store;
 use protocol::types::{BulkData, RespFrame};
 
 pub(crate) fn mget(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::string::multi::mget");
+    let _trace = profiler::scope("commands::string::multi::mget");
     if args.len() < 2 {
         return wrong_args("MGET");
     }
@@ -19,7 +19,7 @@ pub(crate) fn mget(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn mset(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::string::multi::mset");
+    let _trace = profiler::scope("commands::string::multi::mset");
     if args.len() < 3 || (args.len() - 1) % 2 != 0 {
         return wrong_args("MSET");
     }
@@ -32,7 +32,7 @@ pub(crate) fn mset(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn msetnx(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::string::multi::msetnx");
+    let _trace = profiler::scope("commands::string::multi::msetnx");
     if args.len() < 3 || (args.len() - 1) % 2 != 0 {
         return wrong_args("MSETNX");
     }

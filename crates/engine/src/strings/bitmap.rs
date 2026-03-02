@@ -6,7 +6,7 @@ use super::write_entry;
 
 impl Store {
     pub fn getbit(&self, key: &[u8], offset: usize) -> Result<i64, ()> {
-        let _trace = profiler::scope("crates::engine::src::strings::bitmap::getbit");
+        let _trace = profiler::scope("engine::strings::bitmap::getbit");
         let idx = self.shard_index(key);
         let now_ms = monotonic_now_ms();
         let shard = self.shards[idx].read();
@@ -26,7 +26,7 @@ impl Store {
     }
 
     pub fn setbit(&self, key: &[u8], offset: usize, bit: u8) -> Result<i64, ()> {
-        let _trace = profiler::scope("crates::engine::src::strings::bitmap::setbit");
+        let _trace = profiler::scope("engine::strings::bitmap::setbit");
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
         let now_ms = monotonic_now_ms();
@@ -54,7 +54,7 @@ impl Store {
         end: Option<i64>,
         bit_unit: bool,
     ) -> Result<i64, ()> {
-        let _trace = profiler::scope("crates::engine::src::strings::bitmap::bitcount");
+        let _trace = profiler::scope("engine::strings::bitmap::bitcount");
         let Some(value) = self.get(key)? else {
             return Ok(0);
         };
@@ -97,7 +97,7 @@ impl Store {
         end: Option<i64>,
         bit_unit: bool,
     ) -> Result<i64, ()> {
-        let _trace = profiler::scope("crates::engine::src::strings::bitmap::bitpos");
+        let _trace = profiler::scope("engine::strings::bitmap::bitpos");
         let Some(value) = self.get(key)? else {
             return Ok(if bit == 0 && start.is_none() { 0 } else { -1 });
         };
@@ -143,7 +143,7 @@ impl Store {
     }
 
     pub fn bitop(&self, op: BitOp, destination: &[u8], keys: &[CompactArg]) -> Result<i64, ()> {
-        let _trace = profiler::scope("crates::engine::src::strings::bitmap::bitop");
+        let _trace = profiler::scope("engine::strings::bitmap::bitop");
         let mut values = Vec::with_capacity(keys.len());
         let mut max_len = 0usize;
 
@@ -210,7 +210,7 @@ impl Store {
     }
 
     pub fn bitfield(&self, key: &[u8], ops: &[BitFieldOp]) -> Result<Vec<Option<i64>>, ()> {
-        let _trace = profiler::scope("crates::engine::src::strings::bitmap::bitfield");
+        let _trace = profiler::scope("engine::strings::bitmap::bitfield");
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
         let now_ms = monotonic_now_ms();
@@ -286,7 +286,7 @@ impl Store {
 }
 
 fn read_single_bit(data: &[u8], offset: usize) -> u8 {
-    let _trace = profiler::scope("crates::engine::src::strings::bitmap::read_single_bit");
+    let _trace = profiler::scope("engine::strings::bitmap::read_single_bit");
     let byte_index = offset / 8;
     let bit_index = 7 - (offset % 8);
     data.get(byte_index)
@@ -295,7 +295,7 @@ fn read_single_bit(data: &[u8], offset: usize) -> u8 {
 }
 
 fn write_single_bit(data: &mut Vec<u8>, offset: usize, bit: u8) {
-    let _trace = profiler::scope("crates::engine::src::strings::bitmap::write_single_bit");
+    let _trace = profiler::scope("engine::strings::bitmap::write_single_bit");
     let byte_index = offset / 8;
     let bit_index = 7 - (offset % 8);
     if data.len() <= byte_index {
@@ -310,7 +310,7 @@ fn write_single_bit(data: &mut Vec<u8>, offset: usize, bit: u8) {
 }
 
 fn normalize_slice(start: i64, end: i64, len: usize) -> Option<(usize, usize)> {
-    let _trace = profiler::scope("crates::engine::src::strings::bitmap::normalize_slice");
+    let _trace = profiler::scope("engine::strings::bitmap::normalize_slice");
     if len == 0 {
         return None;
     }
@@ -338,7 +338,7 @@ fn normalize_slice(start: i64, end: i64, len: usize) -> Option<(usize, usize)> {
 }
 
 fn count_bits_in_bit_range(data: &[u8], from_bit: usize, to_bit_exclusive: usize) -> usize {
-    let _trace = profiler::scope("crates::engine::src::strings::bitmap::count_bits_in_bit_range");
+    let _trace = profiler::scope("engine::strings::bitmap::count_bits_in_bit_range");
     if from_bit >= to_bit_exclusive {
         return 0;
     }
@@ -355,19 +355,19 @@ fn find_bit_in_bit_range(
     from_bit: usize,
     to_bit_exclusive: usize,
 ) -> Option<usize> {
-    let _trace = profiler::scope("crates::engine::src::strings::bitmap::find_bit_in_bit_range");
+    let _trace = profiler::scope("engine::strings::bitmap::find_bit_in_bit_range");
     (from_bit..to_bit_exclusive).find(|offset| read_single_bit(data, *offset) == target)
 }
 
 fn encoding_bits(encoding: BitFieldEncoding) -> u8 {
-    let _trace = profiler::scope("crates::engine::src::strings::bitmap::encoding_bits");
+    let _trace = profiler::scope("engine::strings::bitmap::encoding_bits");
     match encoding {
         BitFieldEncoding::Signed { bits } | BitFieldEncoding::Unsigned { bits } => bits,
     }
 }
 
 fn encoding_limits(encoding: BitFieldEncoding) -> (i128, i128) {
-    let _trace = profiler::scope("crates::engine::src::strings::bitmap::encoding_limits");
+    let _trace = profiler::scope("engine::strings::bitmap::encoding_limits");
     match encoding {
         BitFieldEncoding::Signed { bits } => {
             let max = (1i128 << (bits - 1)) - 1;
@@ -378,13 +378,13 @@ fn encoding_limits(encoding: BitFieldEncoding) -> (i128, i128) {
 }
 
 fn wrap_to_range(value: i128, min: i128, max: i128) -> i128 {
-    let _trace = profiler::scope("crates::engine::src::strings::bitmap::wrap_to_range");
+    let _trace = profiler::scope("engine::strings::bitmap::wrap_to_range");
     let span = max - min + 1;
     min + (value - min).rem_euclid(span)
 }
 
 fn read_bitfield_value(data: &[u8], encoding: BitFieldEncoding, offset: usize) -> i64 {
-    let _trace = profiler::scope("crates::engine::src::strings::bitmap::read_bitfield_value");
+    let _trace = profiler::scope("engine::strings::bitmap::read_bitfield_value");
     let bits = encoding_bits(encoding) as usize;
     let raw = read_uint(data, offset, bits);
 
@@ -406,7 +406,7 @@ fn read_bitfield_value(data: &[u8], encoding: BitFieldEncoding, offset: usize) -
 }
 
 fn encode_for_storage(encoding: BitFieldEncoding, value: i64) -> u64 {
-    let _trace = profiler::scope("crates::engine::src::strings::bitmap::encode_for_storage");
+    let _trace = profiler::scope("engine::strings::bitmap::encode_for_storage");
     let bits = encoding_bits(encoding);
     if bits == 64 {
         return value as u64;
@@ -418,12 +418,12 @@ fn encode_for_storage(encoding: BitFieldEncoding, value: i64) -> u64 {
 }
 
 fn write_bitfield_value(data: &mut Vec<u8>, encoding: BitFieldEncoding, offset: usize, raw: u64) {
-    let _trace = profiler::scope("crates::engine::src::strings::bitmap::write_bitfield_value");
+    let _trace = profiler::scope("engine::strings::bitmap::write_bitfield_value");
     write_uint(data, offset, encoding_bits(encoding) as usize, raw);
 }
 
 fn read_uint(data: &[u8], offset: usize, bits: usize) -> u64 {
-    let _trace = profiler::scope("crates::engine::src::strings::bitmap::read_uint");
+    let _trace = profiler::scope("engine::strings::bitmap::read_uint");
     let mut value = 0u64;
     for step in 0..bits {
         value = (value << 1) | u64::from(read_single_bit(data, offset + step));
@@ -432,7 +432,7 @@ fn read_uint(data: &[u8], offset: usize, bits: usize) -> u64 {
 }
 
 fn write_uint(data: &mut Vec<u8>, offset: usize, bits: usize, value: u64) {
-    let _trace = profiler::scope("crates::engine::src::strings::bitmap::write_uint");
+    let _trace = profiler::scope("engine::strings::bitmap::write_uint");
     for step in 0..bits {
         let shift = bits - 1 - step;
         let bit = ((value >> shift) & 1) as u8;

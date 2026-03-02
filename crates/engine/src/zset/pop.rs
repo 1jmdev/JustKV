@@ -6,12 +6,12 @@ use super::get_zset_mut;
 
 impl Store {
     pub fn zpopmin(&self, key: &[u8], count: usize) -> Result<Option<Vec<(CompactKey, f64)>>, ()> {
-        let _trace = profiler::scope("crates::engine::src::zset::pop::zpopmin");
+        let _trace = profiler::scope("engine::zset::pop::zpopmin");
         self.zpop_edge(key, count, false)
     }
 
     pub fn zpopmax(&self, key: &[u8], count: usize) -> Result<Option<Vec<(CompactKey, f64)>>, ()> {
-        let _trace = profiler::scope("crates::engine::src::zset::pop::zpopmax");
+        let _trace = profiler::scope("engine::zset::pop::zpopmax");
         self.zpop_edge(key, count, true)
     }
 
@@ -20,7 +20,7 @@ impl Store {
         keys: &[CompactArg],
         max: bool,
     ) -> Result<Option<(CompactKey, CompactKey, f64)>, ()> {
-        let _trace = profiler::scope("crates::engine::src::zset::pop::bzpop_edge");
+        let _trace = profiler::scope("engine::zset::pop::bzpop_edge");
         for key in keys {
             let popped = if max {
                 self.zpopmax(key.as_slice(), 1)?
@@ -46,7 +46,7 @@ impl Store {
         max: bool,
         count: usize,
     ) -> Result<Option<(CompactKey, Vec<(CompactKey, f64)>)>, ()> {
-        let _trace = profiler::scope("crates::engine::src::zset::pop::zmpop");
+        let _trace = profiler::scope("engine::zset::pop::zmpop");
         let take = count.max(1);
         for key in keys {
             let popped = if max {
@@ -69,7 +69,7 @@ impl Store {
         count: usize,
         max: bool,
     ) -> Result<Option<Vec<(CompactKey, f64)>>, ()> {
-        let _trace = profiler::scope("crates::engine::src::zset::pop::zpop_edge");
+        let _trace = profiler::scope("engine::zset::pop::zpop_edge");
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
         let now_ms = monotonic_now_ms();

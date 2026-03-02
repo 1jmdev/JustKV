@@ -6,7 +6,7 @@ use super::get_hash_map_mut;
 
 impl Store {
     pub fn hincrby(&self, key: &[u8], field: &[u8], delta: i64) -> Result<i64, HashIntOpError> {
-        let _trace = profiler::scope("crates::engine::src::hash::counter::hincrby");
+        let _trace = profiler::scope("engine::hash::counter::hincrby");
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
         let now_ms = monotonic_now_ms();
@@ -43,7 +43,7 @@ impl Store {
         field: &[u8],
         delta: f64,
     ) -> Result<f64, HashFloatOpError> {
-        let _trace = profiler::scope("crates::engine::src::hash::counter::hincrbyfloat");
+        let _trace = profiler::scope("engine::hash::counter::hincrbyfloat");
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
         let now_ms = monotonic_now_ms();

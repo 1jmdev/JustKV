@@ -10,7 +10,7 @@ where
     K: Eq + Hash,
 {
     pub fn insert(&mut self, key: K, value: V) -> Option<V> {
-        let _trace = profiler::scope("crates::rehash::src::insert::insert");
+        let _trace = profiler::scope("rehash::insert::insert");
         self.rehash_step(REHASH_STEPS_PER_WRITE);
 
         let hash = hash_key(&self.hash_builder, &key);
@@ -34,7 +34,7 @@ where
     where
         F: FnOnce() -> V,
     {
-        let _trace = profiler::scope("crates::rehash::src::insert::get_or_insert_with");
+        let _trace = profiler::scope("rehash::insert::get_or_insert_with");
         self.rehash_step(REHASH_STEPS_PER_WRITE);
 
         let hash = hash_key(&self.hash_builder, &key);
@@ -55,7 +55,7 @@ where
 
     #[inline(always)]
     pub(super) fn insert_new(&mut self, target: TargetTable, hash: u64, key: K, value: V) -> u32 {
-        let _trace = profiler::scope("crates::rehash::src::insert::insert_new");
+        let _trace = profiler::scope("rehash::insert::insert_new");
         let idx = self.alloc_node(Node {
             hash,
             key,
@@ -84,7 +84,7 @@ where
 
     #[inline(always)]
     pub(super) fn alloc_node(&mut self, node: Node<K, V>) -> u32 {
-        let _trace = profiler::scope("crates::rehash::src::insert::alloc_node");
+        let _trace = profiler::scope("rehash::insert::alloc_node");
         if let Some(idx) = self.free.pop() {
             self.nodes[idx as usize] = Some(node);
             idx

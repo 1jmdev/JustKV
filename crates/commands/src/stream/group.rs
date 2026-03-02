@@ -4,7 +4,7 @@ use engine::store::Store;
 use protocol::types::RespFrame;
 
 pub(crate) fn xgroup(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::stream::group::xgroup");
+    let _trace = profiler::scope("commands::stream::group::xgroup");
     if args.len() < 2 {
         return wrong_args("XGROUP");
     }

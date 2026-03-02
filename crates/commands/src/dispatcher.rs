@@ -276,7 +276,7 @@ fn dispatch_long(store: &Store, raw: &[u8], args: &[CompactArg]) -> RespFrame {
 }
 
 pub fn parse_command(frame: RespFrame) -> Result<Vec<CompactArg>, &'static str> {
-    let _trace = profiler::scope("crates::commands::src::dispatcher::parse_command");
+    let _trace = profiler::scope("commands::dispatcher::parse_command");
     let mut args = Vec::new();
     parse_command_into(frame, &mut args)?;
     Ok(args)

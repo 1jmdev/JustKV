@@ -3,7 +3,7 @@ use bytes::BytesMut;
 use crate::types::RespFrame;
 
 pub fn encode(frame: &RespFrame, out: &mut BytesMut) {
-    let _trace = profiler::scope("crates::protocol::src::encoder::encode");
+    let _trace = profiler::scope("protocol::encoder::encode");
     match frame {
         RespFrame::Simple(value) => {
             out.extend_from_slice(b"+");
@@ -77,13 +77,13 @@ pub fn encode(frame: &RespFrame, out: &mut BytesMut) {
 }
 
 fn push_i64(out: &mut BytesMut, value: i64) {
-    let _trace = profiler::scope("crates::protocol::src::encoder::push_i64");
+    let _trace = profiler::scope("protocol::encoder::push_i64");
     let mut buf = itoa::Buffer::new();
     out.extend_from_slice(buf.format(value).as_bytes());
 }
 
 fn push_usize(out: &mut BytesMut, value: usize) {
-    let _trace = profiler::scope("crates::protocol::src::encoder::push_usize");
+    let _trace = profiler::scope("protocol::encoder::push_usize");
     let mut buf = itoa::Buffer::new();
     out.extend_from_slice(buf.format(value).as_bytes());
 }

@@ -3,7 +3,7 @@ use engine::store::Store;
 use protocol::types::{BulkData, RespFrame};
 
 pub(crate) fn spop(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::set::random::spop");
+    let _trace = profiler::scope("commands::set::random::spop");
     if args.len() != 2 && args.len() != 3 {
         return wrong_args("SPOP");
     }
@@ -31,7 +31,7 @@ pub(crate) fn spop(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn srandmember(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::set::random::srandmember");
+    let _trace = profiler::scope("commands::set::random::srandmember");
     if args.len() != 2 && args.len() != 3 {
         return wrong_args("SRANDMEMBER");
     }
@@ -58,7 +58,7 @@ pub(crate) fn srandmember(store: &Store, args: &Args) -> RespFrame {
 }
 
 fn parse_i64(raw: &[u8]) -> Result<i64, RespFrame> {
-    let _trace = profiler::scope("crates::commands::src::set::random::parse_i64");
+    let _trace = profiler::scope("commands::set::random::parse_i64");
     match std::str::from_utf8(raw) {
         Ok(value) => value.parse::<i64>().map_err(|_| int_error()),
         Err(_) => Err(int_error()),
@@ -66,7 +66,7 @@ fn parse_i64(raw: &[u8]) -> Result<i64, RespFrame> {
 }
 
 fn parse_usize(raw: &[u8]) -> Result<usize, RespFrame> {
-    let _trace = profiler::scope("crates::commands::src::set::random::parse_usize");
+    let _trace = profiler::scope("commands::set::random::parse_usize");
     match std::str::from_utf8(raw) {
         Ok(value) => value
             .parse::<u64>()

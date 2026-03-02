@@ -3,7 +3,7 @@ use engine::store::Store;
 use protocol::types::RespFrame;
 
 pub(crate) fn pfadd(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::string::hyperlog::pfadd");
+    let _trace = profiler::scope("commands::string::hyperlog::pfadd");
     if args.len() < 3 {
         return wrong_args("PFADD");
     }
@@ -15,7 +15,7 @@ pub(crate) fn pfadd(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn pfcount(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::string::hyperlog::pfcount");
+    let _trace = profiler::scope("commands::string::hyperlog::pfcount");
     if args.len() < 2 {
         return wrong_args("PFCOUNT");
     }
@@ -27,7 +27,7 @@ pub(crate) fn pfcount(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn pfmerge(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::string::hyperlog::pfmerge");
+    let _trace = profiler::scope("commands::string::hyperlog::pfmerge");
     if args.len() < 3 {
         return wrong_args("PFMERGE");
     }

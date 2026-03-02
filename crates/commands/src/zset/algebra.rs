@@ -3,7 +3,7 @@ use engine::store::Store;
 use protocol::types::{BulkData, RespFrame};
 
 pub(crate) fn zop(store: &Store, args: &Args, command: &str) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::zset::algebra::zop");
+    let _trace = profiler::scope("commands::zset::algebra::zop");
     if args.len() < 3 {
         return wrong_args(command);
     }
@@ -62,7 +62,7 @@ pub(crate) fn zop(store: &Store, args: &Args, command: &str) -> RespFrame {
 }
 
 fn parse_usize(raw: &[u8]) -> Result<usize, RespFrame> {
-    let _trace = profiler::scope("crates::commands::src::zset::algebra::parse_usize");
+    let _trace = profiler::scope("commands::zset::algebra::parse_usize");
     match std::str::from_utf8(raw) {
         Ok(value) => value
             .parse::<u64>()

@@ -21,7 +21,7 @@ pub(super) struct SearchOptions {
 
 impl SearchOptions {
     pub(super) fn new() -> Self {
-        let _trace = profiler::scope("crates::commands::src::geo::parse::new");
+        let _trace = profiler::scope("commands::geo::parse::new");
         Self {
             withcoord: false,
             withdist: false,
@@ -36,7 +36,7 @@ impl SearchOptions {
 }
 
 pub(super) fn parse_f64(raw: &[u8]) -> Result<f64, RespFrame> {
-    let _trace = profiler::scope("crates::commands::src::geo::parse::parse_f64");
+    let _trace = profiler::scope("commands::geo::parse::parse_f64");
     match std::str::from_utf8(raw) {
         Ok(value) => value
             .parse::<f64>()
@@ -50,7 +50,7 @@ pub(super) fn parse_f64(raw: &[u8]) -> Result<f64, RespFrame> {
 }
 
 pub(super) fn parse_usize(raw: &[u8]) -> Result<usize, RespFrame> {
-    let _trace = profiler::scope("crates::commands::src::geo::parse::parse_usize");
+    let _trace = profiler::scope("commands::geo::parse::parse_usize");
     match std::str::from_utf8(raw) {
         Ok(value) => value
             .parse::<u64>()
@@ -61,7 +61,7 @@ pub(super) fn parse_usize(raw: &[u8]) -> Result<usize, RespFrame> {
 }
 
 pub(super) fn parse_distance_unit(raw: &[u8]) -> Result<f64, RespFrame> {
-    let _trace = profiler::scope("crates::commands::src::geo::parse::parse_distance_unit");
+    let _trace = profiler::scope("commands::geo::parse::parse_distance_unit");
     if raw.eq_ignore_ascii_case(b"M") {
         Ok(1.0)
     } else if raw.eq_ignore_ascii_case(b"KM") {
@@ -81,7 +81,7 @@ pub(super) fn parse_search_options(
     args: &Args,
     mut index: usize,
 ) -> Result<SearchOptions, RespFrame> {
-    let _trace = profiler::scope("crates::commands::src::geo::parse::parse_search_options");
+    let _trace = profiler::scope("commands::geo::parse::parse_search_options");
     let mut options = SearchOptions::new();
     while index < args.len() {
         let token = args[index].as_slice();
@@ -134,7 +134,7 @@ pub(super) fn geosearch_center_from_member(
     key: &[u8],
     member: &[u8],
 ) -> Result<Option<(f64, f64)>, RespFrame> {
-    let _trace = profiler::scope("crates::commands::src::geo::parse::geosearch_center_from_member");
+    let _trace = profiler::scope("commands::geo::parse::geosearch_center_from_member");
     let members = [engine::value::CompactArg::from_slice(member)];
     store
         .geopos(key, &members)

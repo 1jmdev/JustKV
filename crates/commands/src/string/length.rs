@@ -3,7 +3,7 @@ use engine::store::Store;
 use protocol::types::{BulkData, RespFrame};
 
 pub(crate) fn append(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::string::length::append");
+    let _trace = profiler::scope("commands::string::length::append");
     if args.len() != 3 {
         return wrong_args("APPEND");
     }
@@ -14,7 +14,7 @@ pub(crate) fn append(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn strlen(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::string::length::strlen");
+    let _trace = profiler::scope("commands::string::length::strlen");
     if args.len() != 2 {
         return wrong_args("STRLEN");
     }
@@ -25,7 +25,7 @@ pub(crate) fn strlen(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn setrange(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::string::length::setrange");
+    let _trace = profiler::scope("commands::string::length::setrange");
     if args.len() != 4 {
         return wrong_args("SETRANGE");
     }
@@ -41,7 +41,7 @@ pub(crate) fn setrange(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn getrange(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::string::length::getrange");
+    let _trace = profiler::scope("commands::string::length::getrange");
     if args.len() != 4 {
         return wrong_args("GETRANGE");
     }
@@ -61,7 +61,7 @@ pub(crate) fn getrange(store: &Store, args: &Args) -> RespFrame {
 }
 
 fn parse_i64(raw: &[u8]) -> Result<i64, RespFrame> {
-    let _trace = profiler::scope("crates::commands::src::string::length::parse_i64");
+    let _trace = profiler::scope("commands::string::length::parse_i64");
     match std::str::from_utf8(raw) {
         Ok(value) => value.parse::<i64>().map_err(|_| int_error()),
         Err(_) => Err(int_error()),
@@ -69,7 +69,7 @@ fn parse_i64(raw: &[u8]) -> Result<i64, RespFrame> {
 }
 
 fn parse_usize(raw: &[u8]) -> Result<usize, RespFrame> {
-    let _trace = profiler::scope("crates::commands::src::string::length::parse_usize");
+    let _trace = profiler::scope("commands::string::length::parse_usize");
     let value = match std::str::from_utf8(raw) {
         Ok(value) => value.parse::<u64>().map_err(|_| int_error())?,
         Err(_) => return Err(int_error()),

@@ -6,7 +6,7 @@ use engine::value::CompactArg;
 use protocol::types::{BulkData, RespFrame};
 
 pub(crate) fn setex(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::string::expiry::setex");
+    let _trace = profiler::scope("commands::string::expiry::setex");
     if args.len() != 4 {
         return wrong_args("SETEX");
     }
@@ -21,7 +21,7 @@ pub(crate) fn setex(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn psetex(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::string::expiry::psetex");
+    let _trace = profiler::scope("commands::string::expiry::psetex");
     if args.len() != 4 {
         return wrong_args("PSETEX");
     }
@@ -36,7 +36,7 @@ pub(crate) fn psetex(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn getex(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::string::expiry::getex");
+    let _trace = profiler::scope("commands::string::expiry::getex");
     if args.len() < 2 {
         return wrong_args("GETEX");
     }
@@ -53,7 +53,7 @@ pub(crate) fn getex(store: &Store, args: &Args) -> RespFrame {
 }
 
 fn parse_getex_mode(args: &Args) -> Result<GetExMode, RespFrame> {
-    let _trace = profiler::scope("crates::commands::src::string::expiry::parse_getex_mode");
+    let _trace = profiler::scope("commands::string::expiry::parse_getex_mode");
     if args.len() == 2 {
         return Ok(GetExMode::KeepTtl);
     }
@@ -84,7 +84,7 @@ fn parse_getex_mode(args: &Args) -> Result<GetExMode, RespFrame> {
 }
 
 fn parse_positive_u64(raw: &[u8], command: &str) -> Result<u64, RespFrame> {
-    let _trace = profiler::scope("crates::commands::src::string::expiry::parse_positive_u64");
+    let _trace = profiler::scope("commands::string::expiry::parse_positive_u64");
     let value = match std::str::from_utf8(raw) {
         Ok(value) => value.parse::<u64>().map_err(|_| int_error())?,
         Err(_) => return Err(int_error()),

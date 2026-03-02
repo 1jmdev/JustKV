@@ -4,7 +4,7 @@ use engine::store::Store;
 use protocol::types::RespFrame;
 
 pub(crate) fn geoadd(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::geo::add::geoadd");
+    let _trace = profiler::scope("commands::geo::add::geoadd");
     if args.len() < 5 || (args.len() - 2) % 3 != 0 {
         return wrong_args("GEOADD");
     }

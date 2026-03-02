@@ -3,7 +3,7 @@ use engine::store::Store;
 use protocol::types::{BulkData, RespFrame};
 
 pub(crate) fn zscan(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::zset::scan::zscan");
+    let _trace = profiler::scope("commands::zset::scan::zscan");
     if args.len() < 3 {
         return wrong_args("ZSCAN");
     }
@@ -56,7 +56,7 @@ pub(crate) fn zscan(store: &Store, args: &Args) -> RespFrame {
 }
 
 fn parse_u64(raw: &[u8]) -> Result<u64, RespFrame> {
-    let _trace = profiler::scope("crates::commands::src::zset::scan::parse_u64");
+    let _trace = profiler::scope("commands::zset::scan::parse_u64");
     match std::str::from_utf8(raw) {
         Ok(value) => value.parse::<u64>().map_err(|_| int_error()),
         Err(_) => Err(int_error()),
@@ -64,7 +64,7 @@ fn parse_u64(raw: &[u8]) -> Result<u64, RespFrame> {
 }
 
 fn parse_usize(raw: &[u8]) -> Result<usize, RespFrame> {
-    let _trace = profiler::scope("crates::commands::src::zset::scan::parse_usize");
+    let _trace = profiler::scope("commands::zset::scan::parse_usize");
     let value = parse_u64(raw)?;
     usize::try_from(value).map_err(|_| int_error())
 }

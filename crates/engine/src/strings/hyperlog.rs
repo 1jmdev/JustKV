@@ -14,7 +14,7 @@ const HLL_MAGIC: &[u8] = b"JKVHLL1";
 
 impl Store {
     pub fn pfadd(&self, key: &[u8], elements: &[CompactArg]) -> Result<i64, ()> {
-        let _trace = profiler::scope("crates::engine::src::strings::hyperlog::pfadd");
+        let _trace = profiler::scope("engine::strings::hyperlog::pfadd");
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
         let now_ms = monotonic_now_ms();
@@ -47,7 +47,7 @@ impl Store {
     }
 
     pub fn pfcount(&self, keys: &[CompactArg]) -> Result<i64, ()> {
-        let _trace = profiler::scope("crates::engine::src::strings::hyperlog::pfcount");
+        let _trace = profiler::scope("engine::strings::hyperlog::pfcount");
         let mut union = HashSet::with_hasher(RandomState::new());
         for key in keys {
             let Some(value) = self.get(key.as_slice())? else {
@@ -61,7 +61,7 @@ impl Store {
     }
 
     pub fn pfmerge(&self, destination: &[u8], keys: &[CompactArg]) -> Result<(), ()> {
-        let _trace = profiler::scope("crates::engine::src::strings::hyperlog::pfmerge");
+        let _trace = profiler::scope("engine::strings::hyperlog::pfmerge");
         let mut union = HashSet::with_hasher(RandomState::new());
         for key in keys {
             let Some(value) = self.get(key.as_slice())? else {
@@ -78,14 +78,14 @@ impl Store {
 }
 
 fn hash_element(value: &[u8]) -> u64 {
-    let _trace = profiler::scope("crates::engine::src::strings::hyperlog::hash_element");
+    let _trace = profiler::scope("engine::strings::hyperlog::hash_element");
     let mut hasher = DefaultHasher::new();
     value.hash(&mut hasher);
     hasher.finish()
 }
 
 fn encode_hll(entries: &HashSet<u64, RandomState>) -> Vec<u8> {
-    let _trace = profiler::scope("crates::engine::src::strings::hyperlog::encode_hll");
+    let _trace = profiler::scope("engine::strings::hyperlog::encode_hll");
     let mut values: Vec<u64> = entries.iter().copied().collect();
     values.sort_unstable();
 
@@ -99,7 +99,7 @@ fn encode_hll(entries: &HashSet<u64, RandomState>) -> Vec<u8> {
 }
 
 fn decode_hll(raw: &[u8]) -> Option<HashSet<u64, RandomState>> {
-    let _trace = profiler::scope("crates::engine::src::strings::hyperlog::decode_hll");
+    let _trace = profiler::scope("engine::strings::hyperlog::decode_hll");
     if raw.is_empty() {
         return Some(HashSet::with_hasher(RandomState::new()));
     }

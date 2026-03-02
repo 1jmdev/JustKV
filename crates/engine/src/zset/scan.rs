@@ -13,7 +13,7 @@ impl Store {
         pattern: Option<&[u8]>,
         count: usize,
     ) -> Result<(u64, Vec<(CompactKey, f64)>), ()> {
-        let _trace = profiler::scope("crates::engine::src::zset::scan::zscan");
+        let _trace = profiler::scope("engine::zset::scan::zscan");
         let idx = self.shard_index(key);
         let shard = self.shards[idx].read();
         let now_ms = monotonic_now_ms();

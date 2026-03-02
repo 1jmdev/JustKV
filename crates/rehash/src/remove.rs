@@ -14,7 +14,7 @@ where
         K: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
-        let _trace = profiler::scope("crates::rehash::src::remove::remove");
+        let _trace = profiler::scope("rehash::remove::remove");
         self.rehash_step(REHASH_STEPS_PER_WRITE);
         let hash = hash_key(&self.hash_builder, key);
 
@@ -42,7 +42,7 @@ where
         K: Borrow<Q>,
         Q: Eq + ?Sized,
     {
-        let _trace = profiler::scope("crates::rehash::src::remove::remove_from_table_hashed");
+        let _trace = profiler::scope("rehash::remove::remove_from_table_hashed");
         let bucket = match target {
             TargetTable::Old => bucket_index_from_hash(hash, self.table.mask),
             TargetTable::New => {

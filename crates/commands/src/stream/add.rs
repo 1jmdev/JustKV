@@ -5,7 +5,7 @@ use engine::value::StreamId;
 use protocol::types::RespFrame;
 
 pub(crate) fn xadd(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::stream::add::xadd");
+    let _trace = profiler::scope("commands::stream::add::xadd");
     if args.len() < 4 {
         return wrong_args("XADD");
     }
@@ -48,7 +48,7 @@ pub(crate) fn xadd(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn xlen(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::stream::add::xlen");
+    let _trace = profiler::scope("commands::stream::add::xlen");
     if args.len() != 2 {
         return wrong_args("XLEN");
     }
@@ -59,7 +59,7 @@ pub(crate) fn xlen(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn xdel(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::stream::add::xdel");
+    let _trace = profiler::scope("commands::stream::add::xdel");
     if args.len() < 3 {
         return wrong_args("XDEL");
     }
@@ -77,7 +77,7 @@ pub(crate) fn xdel(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn xtrim(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::stream::add::xtrim");
+    let _trace = profiler::scope("commands::stream::add::xtrim");
     if args.len() < 4 {
         return wrong_args("XTRIM");
     }

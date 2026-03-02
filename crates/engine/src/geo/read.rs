@@ -11,7 +11,7 @@ impl Store {
         key: &[u8],
         members: &[CompactArg],
     ) -> Result<Vec<Option<(f64, f64)>>, ()> {
-        let _trace = profiler::scope("crates::engine::src::geo::read::geopos");
+        let _trace = profiler::scope("engine::geo::read::geopos");
         let idx = self.shard_index(key);
         let shard = self.shards[idx].read();
         let now_ms = monotonic_now_ms();
@@ -31,7 +31,7 @@ impl Store {
     }
 
     pub fn geodist(&self, key: &[u8], member1: &[u8], member2: &[u8]) -> Result<Option<f64>, ()> {
-        let _trace = profiler::scope("crates::engine::src::geo::read::geodist");
+        let _trace = profiler::scope("engine::geo::read::geodist");
         let idx = self.shard_index(key);
         let shard = self.shards[idx].read();
         let now_ms = monotonic_now_ms();
@@ -54,7 +54,7 @@ impl Store {
     }
 
     pub fn geohash(&self, key: &[u8], members: &[CompactArg]) -> Result<Vec<Option<String>>, ()> {
-        let _trace = profiler::scope("crates::engine::src::geo::read::geohash");
+        let _trace = profiler::scope("engine::geo::read::geohash");
         let positions = self.geopos(key, members)?;
         Ok(positions
             .into_iter()

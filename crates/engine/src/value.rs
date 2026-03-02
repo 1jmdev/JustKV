@@ -23,7 +23,7 @@ pub enum CompactBytes<const INLINE_CAPACITY: usize> {
 
 impl<const INLINE_CAPACITY: usize> CompactBytes<INLINE_CAPACITY> {
     pub fn from_slice(value: &[u8]) -> Self {
-        let _trace = profiler::scope("crates::engine::src::value::from_slice");
+        let _trace = profiler::scope("engine::value::from_slice");
         if value.len() <= INLINE_CAPACITY {
             let mut data = [0; INLINE_CAPACITY];
             data[..value.len()].copy_from_slice(value);
@@ -37,7 +37,7 @@ impl<const INLINE_CAPACITY: usize> CompactBytes<INLINE_CAPACITY> {
     }
 
     pub fn from_vec(value: Vec<u8>) -> Self {
-        let _trace = profiler::scope("crates::engine::src::value::from_vec");
+        let _trace = profiler::scope("engine::value::from_vec");
         if value.len() <= INLINE_CAPACITY {
             let mut data = [0; INLINE_CAPACITY];
             data[..value.len()].copy_from_slice(&value);
@@ -51,7 +51,7 @@ impl<const INLINE_CAPACITY: usize> CompactBytes<INLINE_CAPACITY> {
     }
 
     pub fn as_slice(&self) -> &[u8] {
-        let _trace = profiler::scope("crates::engine::src::value::as_slice");
+        let _trace = profiler::scope("engine::value::as_slice");
         match self {
             Self::Inline { len, data } => &data[..*len as usize],
             Self::Heap(value) => value,
@@ -59,17 +59,17 @@ impl<const INLINE_CAPACITY: usize> CompactBytes<INLINE_CAPACITY> {
     }
 
     pub fn len(&self) -> usize {
-        let _trace = profiler::scope("crates::engine::src::value::len");
+        let _trace = profiler::scope("engine::value::len");
         self.as_slice().len()
     }
 
     pub fn to_vec(&self) -> Vec<u8> {
-        let _trace = profiler::scope("crates::engine::src::value::to_vec");
+        let _trace = profiler::scope("engine::value::to_vec");
         self.as_slice().to_vec()
     }
 
     pub fn into_vec(self) -> Vec<u8> {
-        let _trace = profiler::scope("crates::engine::src::value::into_vec");
+        let _trace = profiler::scope("engine::value::into_vec");
         match self {
             Self::Inline { len, data } => data[..len as usize].to_vec(),
             Self::Heap(value) => value.into_vec(),
@@ -77,7 +77,7 @@ impl<const INLINE_CAPACITY: usize> CompactBytes<INLINE_CAPACITY> {
     }
 
     pub fn make_ascii_uppercase(&mut self) {
-        let _trace = profiler::scope("crates::engine::src::value::make_ascii_uppercase");
+        let _trace = profiler::scope("engine::value::make_ascii_uppercase");
         match self {
             Self::Inline { len, data } => {
                 data[..*len as usize].make_ascii_uppercase();
@@ -91,7 +91,7 @@ impl<const INLINE_CAPACITY: usize> CompactBytes<INLINE_CAPACITY> {
 
 impl<const INLINE_CAPACITY: usize> PartialEq for CompactBytes<INLINE_CAPACITY> {
     fn eq(&self, other: &Self) -> bool {
-        let _trace = profiler::scope("crates::engine::src::value::eq");
+        let _trace = profiler::scope("engine::value::eq");
         self.as_slice() == other.as_slice()
     }
 }
@@ -100,35 +100,35 @@ impl<const INLINE_CAPACITY: usize> Eq for CompactBytes<INLINE_CAPACITY> {}
 
 impl<const INLINE_CAPACITY: usize> Ord for CompactBytes<INLINE_CAPACITY> {
     fn cmp(&self, other: &Self) -> Ordering {
-        let _trace = profiler::scope("crates::engine::src::value::cmp");
+        let _trace = profiler::scope("engine::value::cmp");
         self.as_slice().cmp(other.as_slice())
     }
 }
 
 impl<const INLINE_CAPACITY: usize> PartialOrd for CompactBytes<INLINE_CAPACITY> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        let _trace = profiler::scope("crates::engine::src::value::partial_cmp");
+        let _trace = profiler::scope("engine::value::partial_cmp");
         Some(self.cmp(other))
     }
 }
 
 impl<const INLINE_CAPACITY: usize> Hash for CompactBytes<INLINE_CAPACITY> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        let _trace = profiler::scope("crates::engine::src::value::hash");
+        let _trace = profiler::scope("engine::value::hash");
         self.as_slice().hash(state);
     }
 }
 
 impl<const INLINE_CAPACITY: usize> Borrow<[u8]> for CompactBytes<INLINE_CAPACITY> {
     fn borrow(&self) -> &[u8] {
-        let _trace = profiler::scope("crates::engine::src::value::borrow");
+        let _trace = profiler::scope("engine::value::borrow");
         self.as_slice()
     }
 }
 
 impl<const INLINE_CAPACITY: usize> AsRef<[u8]> for CompactBytes<INLINE_CAPACITY> {
     fn as_ref(&self) -> &[u8] {
-        let _trace = profiler::scope("crates::engine::src::value::as_ref");
+        let _trace = profiler::scope("engine::value::as_ref");
         self.as_slice()
     }
 }
@@ -137,7 +137,7 @@ impl<const INLINE_CAPACITY: usize> Deref for CompactBytes<INLINE_CAPACITY> {
     type Target = [u8];
 
     fn deref(&self) -> &Self::Target {
-        let _trace = profiler::scope("crates::engine::src::value::deref");
+        let _trace = profiler::scope("engine::value::deref");
         self.as_slice()
     }
 }
@@ -178,7 +178,7 @@ pub struct StreamValue {
 
 impl StreamValue {
     pub fn new() -> Self {
-        let _trace = profiler::scope("crates::engine::src::value::new");
+        let _trace = profiler::scope("engine::value::new");
         Self {
             entries: BTreeMap::new(),
             groups: HashMap::with_hasher(RandomState::new()),
@@ -195,14 +195,14 @@ pub struct ZSetOrderEntry {
 
 impl ZSetOrderEntry {
     fn new(score: f64, member: CompactKey) -> Self {
-        let _trace = profiler::scope("crates::engine::src::value::new");
+        let _trace = profiler::scope("engine::value::new");
         Self { score, member }
     }
 }
 
 impl PartialEq for ZSetOrderEntry {
     fn eq(&self, other: &Self) -> bool {
-        let _trace = profiler::scope("crates::engine::src::value::eq");
+        let _trace = profiler::scope("engine::value::eq");
         self.score.total_cmp(&other.score) == Ordering::Equal && self.member == other.member
     }
 }
@@ -211,7 +211,7 @@ impl Eq for ZSetOrderEntry {}
 
 impl Ord for ZSetOrderEntry {
     fn cmp(&self, other: &Self) -> Ordering {
-        let _trace = profiler::scope("crates::engine::src::value::cmp");
+        let _trace = profiler::scope("engine::value::cmp");
         self.score
             .total_cmp(&other.score)
             .then_with(|| self.member.as_slice().cmp(other.member.as_slice()))
@@ -220,7 +220,7 @@ impl Ord for ZSetOrderEntry {
 
 impl PartialOrd for ZSetOrderEntry {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        let _trace = profiler::scope("crates::engine::src::value::partial_cmp");
+        let _trace = profiler::scope("engine::value::partial_cmp");
         Some(self.cmp(other))
     }
 }
@@ -233,7 +233,7 @@ pub struct ZSetValue {
 
 impl ZSetValue {
     pub fn new() -> Self {
-        let _trace = profiler::scope("crates::engine::src::value::new");
+        let _trace = profiler::scope("engine::value::new");
         Self {
             member_scores: HashMap::with_hasher(RandomState::new()),
             ordered: BTreeSet::new(),
@@ -241,27 +241,27 @@ impl ZSetValue {
     }
 
     pub fn len(&self) -> usize {
-        let _trace = profiler::scope("crates::engine::src::value::len");
+        let _trace = profiler::scope("engine::value::len");
         self.member_scores.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        let _trace = profiler::scope("crates::engine::src::value::is_empty");
+        let _trace = profiler::scope("engine::value::is_empty");
         self.member_scores.is_empty()
     }
 
     pub fn get(&self, member: &[u8]) -> Option<f64> {
-        let _trace = profiler::scope("crates::engine::src::value::get");
+        let _trace = profiler::scope("engine::value::get");
         self.member_scores.get(member).copied()
     }
 
     pub fn contains_key(&self, member: &[u8]) -> bool {
-        let _trace = profiler::scope("crates::engine::src::value::contains_key");
+        let _trace = profiler::scope("engine::value::contains_key");
         self.member_scores.contains_key(member)
     }
 
     pub fn insert(&mut self, member: CompactKey, score: f64) -> Option<f64> {
-        let _trace = profiler::scope("crates::engine::src::value::insert");
+        let _trace = profiler::scope("engine::value::insert");
         if let Some(old_score) = self.member_scores.insert(member.clone(), score) {
             let _ = self
                 .ordered
@@ -275,7 +275,7 @@ impl ZSetValue {
     }
 
     pub fn remove(&mut self, member: &[u8]) -> Option<f64> {
-        let _trace = profiler::scope("crates::engine::src::value::remove");
+        let _trace = profiler::scope("engine::value::remove");
         let old_score = self.member_scores.remove(member)?;
         let _ = self.ordered.remove(&ZSetOrderEntry::new(
             old_score,
@@ -285,14 +285,14 @@ impl ZSetValue {
     }
 
     pub fn iter_member_scores(&self) -> impl Iterator<Item = (&CompactKey, f64)> {
-        let _trace = profiler::scope("crates::engine::src::value::iter_member_scores");
+        let _trace = profiler::scope("engine::value::iter_member_scores");
         self.member_scores
             .iter()
             .map(|(member, score)| (member, *score))
     }
 
     pub fn iter_ordered(&self, reverse: bool) -> impl Iterator<Item = (&CompactKey, f64)> {
-        let _trace = profiler::scope("crates::engine::src::value::iter_ordered");
+        let _trace = profiler::scope("engine::value::iter_ordered");
         if reverse {
             EitherIter::Rev(self.ordered.iter().rev())
         } else {
@@ -304,7 +304,7 @@ impl ZSetValue {
 
 impl Default for ZSetValue {
     fn default() -> Self {
-        let _trace = profiler::scope("crates::engine::src::value::default");
+        let _trace = profiler::scope("engine::value::default");
         Self::new()
     }
 }
@@ -318,7 +318,7 @@ impl<'a> Iterator for EitherIter<'a> {
     type Item = &'a ZSetOrderEntry;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let _trace = profiler::scope("crates::engine::src::value::next");
+        let _trace = profiler::scope("engine::value::next");
         match self {
             Self::Fwd(iter) => iter.next(),
             Self::Rev(iter) => iter.next(),
@@ -341,22 +341,22 @@ pub enum Entry {
 
 impl Entry {
     pub fn from_slice(value: &[u8]) -> Self {
-        let _trace = profiler::scope("crates::engine::src::value::from_slice");
+        let _trace = profiler::scope("engine::value::from_slice");
         Self::String(CompactValue::from_slice(value))
     }
 
     pub fn new(value: Vec<u8>) -> Self {
-        let _trace = profiler::scope("crates::engine::src::value::new");
+        let _trace = profiler::scope("engine::value::new");
         Self::String(CompactValue::from_vec(value))
     }
 
     pub fn empty_hash() -> Self {
-        let _trace = profiler::scope("crates::engine::src::value::empty_hash");
+        let _trace = profiler::scope("engine::value::empty_hash");
         Self::Hash(Box::new(HashMap::with_hasher(RandomState::new())))
     }
 
     pub fn as_string(&self) -> Option<&CompactValue> {
-        let _trace = profiler::scope("crates::engine::src::value::as_string");
+        let _trace = profiler::scope("engine::value::as_string");
         match self {
             Self::String(value) => Some(value),
             Self::Hash(_)
@@ -369,7 +369,7 @@ impl Entry {
     }
 
     pub fn into_string(self) -> Option<CompactValue> {
-        let _trace = profiler::scope("crates::engine::src::value::into_string");
+        let _trace = profiler::scope("engine::value::into_string");
         match self {
             Self::String(value) => Some(value),
             Self::Hash(_)
@@ -382,7 +382,7 @@ impl Entry {
     }
 
     pub fn as_hash(&self) -> Option<&HashValueMap> {
-        let _trace = profiler::scope("crates::engine::src::value::as_hash");
+        let _trace = profiler::scope("engine::value::as_hash");
         match self {
             Self::Hash(value) => Some(value),
             Self::String(_)
@@ -395,7 +395,7 @@ impl Entry {
     }
 
     pub fn as_hash_mut(&mut self) -> Option<&mut HashValueMap> {
-        let _trace = profiler::scope("crates::engine::src::value::as_hash_mut");
+        let _trace = profiler::scope("engine::value::as_hash_mut");
         match self {
             Self::Hash(value) => Some(value),
             Self::String(_) => None,
@@ -408,7 +408,7 @@ impl Entry {
     }
 
     pub fn as_list(&self) -> Option<&ListValue> {
-        let _trace = profiler::scope("crates::engine::src::value::as_list");
+        let _trace = profiler::scope("engine::value::as_list");
         match self {
             Self::List(value) => Some(value),
             Self::String(_)
@@ -421,7 +421,7 @@ impl Entry {
     }
 
     pub fn as_list_mut(&mut self) -> Option<&mut ListValue> {
-        let _trace = profiler::scope("crates::engine::src::value::as_list_mut");
+        let _trace = profiler::scope("engine::value::as_list_mut");
         match self {
             Self::List(value) => Some(value),
             Self::String(_)
@@ -434,7 +434,7 @@ impl Entry {
     }
 
     pub fn as_set(&self) -> Option<&SetValue> {
-        let _trace = profiler::scope("crates::engine::src::value::as_set");
+        let _trace = profiler::scope("engine::value::as_set");
         match self {
             Self::Set(value) => Some(value),
             Self::String(_)
@@ -447,7 +447,7 @@ impl Entry {
     }
 
     pub fn as_set_mut(&mut self) -> Option<&mut SetValue> {
-        let _trace = profiler::scope("crates::engine::src::value::as_set_mut");
+        let _trace = profiler::scope("engine::value::as_set_mut");
         match self {
             Self::Set(value) => Some(value),
             Self::String(_)
@@ -460,7 +460,7 @@ impl Entry {
     }
 
     pub fn as_zset(&self) -> Option<&ZSetValueMap> {
-        let _trace = profiler::scope("crates::engine::src::value::as_zset");
+        let _trace = profiler::scope("engine::value::as_zset");
         match self {
             Self::ZSet(value) => Some(value),
             Self::String(_)
@@ -473,7 +473,7 @@ impl Entry {
     }
 
     pub fn as_zset_mut(&mut self) -> Option<&mut ZSetValueMap> {
-        let _trace = profiler::scope("crates::engine::src::value::as_zset_mut");
+        let _trace = profiler::scope("engine::value::as_zset_mut");
         match self {
             Self::ZSet(value) => Some(value),
             Self::String(_)
@@ -486,7 +486,7 @@ impl Entry {
     }
 
     pub fn as_geo(&self) -> Option<&GeoValue> {
-        let _trace = profiler::scope("crates::engine::src::value::as_geo");
+        let _trace = profiler::scope("engine::value::as_geo");
         match self {
             Self::Geo(value) => Some(value),
             Self::String(_)
@@ -499,7 +499,7 @@ impl Entry {
     }
 
     pub fn as_geo_mut(&mut self) -> Option<&mut GeoValue> {
-        let _trace = profiler::scope("crates::engine::src::value::as_geo_mut");
+        let _trace = profiler::scope("engine::value::as_geo_mut");
         match self {
             Self::Geo(value) => Some(value),
             Self::String(_)
@@ -512,7 +512,7 @@ impl Entry {
     }
 
     pub fn as_stream(&self) -> Option<&StreamValue> {
-        let _trace = profiler::scope("crates::engine::src::value::as_stream");
+        let _trace = profiler::scope("engine::value::as_stream");
         match self {
             Self::Stream(value) => Some(value),
             Self::String(_)
@@ -525,7 +525,7 @@ impl Entry {
     }
 
     pub fn as_stream_mut(&mut self) -> Option<&mut StreamValue> {
-        let _trace = profiler::scope("crates::engine::src::value::as_stream_mut");
+        let _trace = profiler::scope("engine::value::as_stream_mut");
         match self {
             Self::Stream(value) => Some(value),
             Self::String(_)
@@ -538,7 +538,7 @@ impl Entry {
     }
 
     pub fn kind(&self) -> &'static str {
-        let _trace = profiler::scope("crates::engine::src::value::kind");
+        let _trace = profiler::scope("engine::value::kind");
         match self {
             Self::String(_) => "string",
             Self::Hash(_) => "hash",

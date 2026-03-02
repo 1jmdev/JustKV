@@ -16,16 +16,16 @@ pub struct GeoSearchMatch {
 }
 
 fn get_geo(entry: &Entry) -> Option<&GeoValue> {
-    let _trace = profiler::scope("crates::engine::src::geo::get_geo");
+    let _trace = profiler::scope("engine::geo::get_geo");
     entry.as_geo()
 }
 
 fn get_geo_mut(entry: &mut Entry) -> Option<&mut GeoValue> {
-    let _trace = profiler::scope("crates::engine::src::geo::get_geo_mut");
+    let _trace = profiler::scope("engine::geo::get_geo_mut");
     entry.as_geo_mut()
 }
 
 fn new_geo() -> GeoValue {
-    let _trace = profiler::scope("crates::engine::src::geo::new_geo");
+    let _trace = profiler::scope("engine::geo::new_geo");
     HashMap::with_hasher(RandomState::new())
 }

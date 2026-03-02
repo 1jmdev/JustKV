@@ -3,7 +3,7 @@ use engine::store::{HashFloatOpError, HashIntOpError, Store};
 use protocol::types::{BulkData, RespFrame};
 
 pub(crate) fn hincrby(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::hash::counter::hincrby");
+    let _trace = profiler::scope("commands::hash::counter::hincrby");
     if args.len() != 4 {
         return wrong_args("HINCRBY");
     }
@@ -26,7 +26,7 @@ pub(crate) fn hincrby(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn hincrbyfloat(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::hash::counter::hincrbyfloat");
+    let _trace = profiler::scope("commands::hash::counter::hincrbyfloat");
     if args.len() != 4 {
         return wrong_args("HINCRBYFLOAT");
     }
@@ -46,7 +46,7 @@ pub(crate) fn hincrbyfloat(store: &Store, args: &Args) -> RespFrame {
 }
 
 fn parse_i64(raw: &[u8]) -> Result<i64, RespFrame> {
-    let _trace = profiler::scope("crates::commands::src::hash::counter::parse_i64");
+    let _trace = profiler::scope("commands::hash::counter::parse_i64");
     match std::str::from_utf8(raw) {
         Ok(value) => value.parse::<i64>().map_err(|_| int_error()),
         Err(_) => Err(int_error()),
@@ -54,7 +54,7 @@ fn parse_i64(raw: &[u8]) -> Result<i64, RespFrame> {
 }
 
 fn parse_f64(raw: &[u8]) -> Result<f64, RespFrame> {
-    let _trace = profiler::scope("crates::commands::src::hash::counter::parse_f64");
+    let _trace = profiler::scope("commands::hash::counter::parse_f64");
     match std::str::from_utf8(raw) {
         Ok(value) => value
             .parse::<f64>()

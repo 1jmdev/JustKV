@@ -3,7 +3,7 @@ use engine::store::Store;
 use protocol::types::{BulkData, RespFrame};
 
 pub(crate) fn lpush(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::list::core::lpush");
+    let _trace = profiler::scope("commands::list::core::lpush");
     if args.len() < 3 {
         return wrong_args("LPUSH");
     }
@@ -14,7 +14,7 @@ pub(crate) fn lpush(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn rpush(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::list::core::rpush");
+    let _trace = profiler::scope("commands::list::core::rpush");
     if args.len() < 3 {
         return wrong_args("RPUSH");
     }
@@ -25,17 +25,17 @@ pub(crate) fn rpush(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn lpop(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::list::core::lpop");
+    let _trace = profiler::scope("commands::list::core::lpop");
     pop(store, args, true)
 }
 
 pub(crate) fn rpop(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::list::core::rpop");
+    let _trace = profiler::scope("commands::list::core::rpop");
     pop(store, args, false)
 }
 
 fn pop(store: &Store, args: &Args, left: bool) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::list::core::pop");
+    let _trace = profiler::scope("commands::list::core::pop");
     if args.len() != 2 && args.len() != 3 {
         return wrong_args(if left { "LPOP" } else { "RPOP" });
     }
@@ -70,7 +70,7 @@ fn pop(store: &Store, args: &Args, left: bool) -> RespFrame {
 }
 
 pub(crate) fn llen(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::list::core::llen");
+    let _trace = profiler::scope("commands::list::core::llen");
     if args.len() != 2 {
         return wrong_args("LLEN");
     }
@@ -81,7 +81,7 @@ pub(crate) fn llen(store: &Store, args: &Args) -> RespFrame {
 }
 
 fn parse_usize(raw: &[u8]) -> Result<usize, RespFrame> {
-    let _trace = profiler::scope("crates::commands::src::list::core::parse_usize");
+    let _trace = profiler::scope("commands::list::core::parse_usize");
     match std::str::from_utf8(raw) {
         Ok(value) => value
             .parse::<u64>()

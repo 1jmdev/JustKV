@@ -6,12 +6,12 @@ use super::write_entry;
 
 impl Store {
     pub fn incr(&self, key: &[u8]) -> Result<i64, ()> {
-        let _trace = profiler::scope("crates::engine::src::strings::counter::incr");
+        let _trace = profiler::scope("engine::strings::counter::incr");
         self.incr_by(key, 1)
     }
 
     pub fn incr_by(&self, key: &[u8], delta: i64) -> Result<i64, ()> {
-        let _trace = profiler::scope("crates::engine::src::strings::counter::incr_by");
+        let _trace = profiler::scope("engine::strings::counter::incr_by");
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
         let now_ms = monotonic_now_ms();

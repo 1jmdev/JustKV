@@ -9,27 +9,27 @@ use super::{get_list, get_list_mut};
 
 impl Store {
     pub fn lpush(&self, key: &[u8], values: &[CompactArg]) -> Result<i64, ()> {
-        let _trace = profiler::scope("crates::engine::src::list::core::lpush");
+        let _trace = profiler::scope("engine::list::core::lpush");
         self.push_with_side(key, values, ListSide::Left)
     }
 
     pub fn rpush(&self, key: &[u8], values: &[CompactArg]) -> Result<i64, ()> {
-        let _trace = profiler::scope("crates::engine::src::list::core::rpush");
+        let _trace = profiler::scope("engine::list::core::rpush");
         self.push_with_side(key, values, ListSide::Right)
     }
 
     pub fn lpop(&self, key: &[u8], count: usize) -> Result<Option<Vec<CompactValue>>, ()> {
-        let _trace = profiler::scope("crates::engine::src::list::core::lpop");
+        let _trace = profiler::scope("engine::list::core::lpop");
         self.pop_with_side(key, count, ListSide::Left)
     }
 
     pub fn rpop(&self, key: &[u8], count: usize) -> Result<Option<Vec<CompactValue>>, ()> {
-        let _trace = profiler::scope("crates::engine::src::list::core::rpop");
+        let _trace = profiler::scope("engine::list::core::rpop");
         self.pop_with_side(key, count, ListSide::Right)
     }
 
     pub fn llen(&self, key: &[u8]) -> Result<i64, ()> {
-        let _trace = profiler::scope("crates::engine::src::list::core::llen");
+        let _trace = profiler::scope("engine::list::core::llen");
         let idx = self.shard_index(key);
         let shard = self.shards[idx].read();
         let now_ms = monotonic_now_ms();
@@ -45,7 +45,7 @@ impl Store {
     }
 
     pub fn lindex(&self, key: &[u8], index: i64) -> Result<Option<CompactValue>, ()> {
-        let _trace = profiler::scope("crates::engine::src::list::core::lindex");
+        let _trace = profiler::scope("engine::list::core::lindex");
         let idx = self.shard_index(key);
         let shard = self.shards[idx].read();
         let now_ms = monotonic_now_ms();
@@ -64,7 +64,7 @@ impl Store {
     }
 
     pub fn lrange(&self, key: &[u8], start: i64, stop: i64) -> Result<Vec<CompactValue>, ()> {
-        let _trace = profiler::scope("crates::engine::src::list::core::lrange");
+        let _trace = profiler::scope("engine::list::core::lrange");
         let idx = self.shard_index(key);
         let shard = self.shards[idx].read();
         let now_ms = monotonic_now_ms();
@@ -105,7 +105,7 @@ impl Store {
     /// Encode the LRANGE response directly into a `BytesMut` while holding the
     /// shard read lock, avoiding a heap-allocated `Vec<CompactValue>` clone.
     pub fn lrange_encode(&self, key: &[u8], start: i64, stop: i64) -> Result<bytes::Bytes, ()> {
-        let _trace = profiler::scope("crates::engine::src::list::core::lrange_encode");
+        let _trace = profiler::scope("engine::list::core::lrange_encode");
         let idx = self.shard_index(key);
         let shard = self.shards[idx].read();
         let now_ms = monotonic_now_ms();
@@ -163,7 +163,7 @@ impl Store {
     }
 
     pub fn lset(&self, key: &[u8], index: i64, value: &[u8]) -> Result<(), ListSetError> {
-        let _trace = profiler::scope("crates::engine::src::list::core::lset");
+        let _trace = profiler::scope("engine::list::core::lset");
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
         let now_ms = monotonic_now_ms();
@@ -184,7 +184,7 @@ impl Store {
     }
 
     pub fn ltrim(&self, key: &[u8], start: i64, stop: i64) -> Result<(), ()> {
-        let _trace = profiler::scope("crates::engine::src::list::core::ltrim");
+        let _trace = profiler::scope("engine::list::core::ltrim");
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
         let now_ms = monotonic_now_ms();
@@ -219,7 +219,7 @@ impl Store {
         pivot: &[u8],
         element: &[u8],
     ) -> Result<i64, ()> {
-        let _trace = profiler::scope("crates::engine::src::list::core::linsert");
+        let _trace = profiler::scope("engine::list::core::linsert");
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
         let now_ms = monotonic_now_ms();
@@ -251,7 +251,7 @@ impl Store {
         count: Option<usize>,
         maxlen: Option<usize>,
     ) -> Result<Option<Vec<i64>>, ()> {
-        let _trace = profiler::scope("crates::engine::src::list::core::lpos");
+        let _trace = profiler::scope("engine::list::core::lpos");
         let idx = self.shard_index(key);
         let shard = self.shards[idx].read();
         let now_ms = monotonic_now_ms();
@@ -315,7 +315,7 @@ impl Store {
     }
 
     fn push_with_side(&self, key: &[u8], values: &[CompactArg], side: ListSide) -> Result<i64, ()> {
-        let _trace = profiler::scope("crates::engine::src::list::core::push_with_side");
+        let _trace = profiler::scope("engine::list::core::push_with_side");
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
         let now_ms = monotonic_now_ms();
@@ -350,7 +350,7 @@ impl Store {
         count: usize,
         side: ListSide,
     ) -> Result<Option<Vec<CompactValue>>, ()> {
-        let _trace = profiler::scope("crates::engine::src::list::core::pop_with_side");
+        let _trace = profiler::scope("engine::list::core::pop_with_side");
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
         let now_ms = monotonic_now_ms();
@@ -384,13 +384,13 @@ impl Store {
 }
 
 fn write_usize(buf: &mut BytesMut, value: usize) {
-    let _trace = profiler::scope("crates::engine::src::list::core::write_usize");
+    let _trace = profiler::scope("engine::list::core::write_usize");
     let mut tmp = itoa::Buffer::new();
     buf.put_slice(tmp.format(value).as_bytes());
 }
 
 fn normalize_index(index: i64, len: usize) -> Option<usize> {
-    let _trace = profiler::scope("crates::engine::src::list::core::normalize_index");
+    let _trace = profiler::scope("engine::list::core::normalize_index");
     if len == 0 {
         return None;
     }
@@ -405,7 +405,7 @@ fn normalize_index(index: i64, len: usize) -> Option<usize> {
 }
 
 fn normalize_range(start: i64, stop: i64, len: usize) -> Option<(usize, usize)> {
-    let _trace = profiler::scope("crates::engine::src::list::core::normalize_range");
+    let _trace = profiler::scope("engine::list::core::normalize_range");
     if len == 0 {
         return None;
     }

@@ -3,7 +3,7 @@ use engine::store::Store;
 use protocol::types::{BulkData, RespFrame};
 
 pub(crate) fn zpop(store: &Store, args: &Args, max: bool) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::zset::pop::zpop");
+    let _trace = profiler::scope("commands::zset::pop::zpop");
     if args.len() != 2 && args.len() != 3 {
         return wrong_args(if max { "ZPOPMAX" } else { "ZPOPMIN" });
     }
@@ -28,7 +28,7 @@ pub(crate) fn zpop(store: &Store, args: &Args, max: bool) -> RespFrame {
 }
 
 pub(crate) fn bzpop(store: &Store, args: &Args, max: bool) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::zset::pop::bzpop");
+    let _trace = profiler::scope("commands::zset::pop::bzpop");
     if args.len() < 3 {
         return wrong_args(if max { "BZPOPMAX" } else { "BZPOPMIN" });
     }
@@ -48,7 +48,7 @@ pub(crate) fn bzpop(store: &Store, args: &Args, max: bool) -> RespFrame {
 }
 
 pub(crate) fn zmpop(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::zset::pop::zmpop");
+    let _trace = profiler::scope("commands::zset::pop::zmpop");
     if args.len() < 4 {
         return wrong_args("ZMPOP");
     }
@@ -94,7 +94,7 @@ pub(crate) fn zmpop(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn bzmpop(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::zset::pop::bzmpop");
+    let _trace = profiler::scope("commands::zset::pop::bzmpop");
     if args.len() < 5 {
         return wrong_args("BZMPOP");
     }
@@ -143,7 +143,7 @@ pub(crate) fn bzmpop(store: &Store, args: &Args) -> RespFrame {
 }
 
 fn parse_usize(raw: &[u8]) -> Result<usize, RespFrame> {
-    let _trace = profiler::scope("crates::commands::src::zset::pop::parse_usize");
+    let _trace = profiler::scope("commands::zset::pop::parse_usize");
     match std::str::from_utf8(raw) {
         Ok(value) => value
             .parse::<u64>()
@@ -154,7 +154,7 @@ fn parse_usize(raw: &[u8]) -> Result<usize, RespFrame> {
 }
 
 fn parse_timeout(raw: &[u8]) -> Result<f64, ()> {
-    let _trace = profiler::scope("crates::commands::src::zset::pop::parse_timeout");
+    let _trace = profiler::scope("commands::zset::pop::parse_timeout");
     std::str::from_utf8(raw)
         .ok()
         .and_then(|value| value.parse::<f64>().ok())
@@ -163,7 +163,7 @@ fn parse_timeout(raw: &[u8]) -> Result<f64, ()> {
 }
 
 fn flatten_member_scores(items: Vec<(engine::value::CompactKey, f64)>) -> Vec<RespFrame> {
-    let _trace = profiler::scope("crates::commands::src::zset::pop::flatten_member_scores");
+    let _trace = profiler::scope("commands::zset::pop::flatten_member_scores");
     let mut out = Vec::with_capacity(items.len() * 2);
     for (member, score) in items {
         out.push(RespFrame::Bulk(Some(BulkData::Arg(member))));
@@ -175,7 +175,7 @@ fn flatten_member_scores(items: Vec<(engine::value::CompactKey, f64)>) -> Vec<Re
 }
 
 fn items_to_pairs(items: Vec<(engine::value::CompactKey, f64)>) -> Vec<RespFrame> {
-    let _trace = profiler::scope("crates::commands::src::zset::pop::items_to_pairs");
+    let _trace = profiler::scope("commands::zset::pop::items_to_pairs");
     items
         .into_iter()
         .map(|(member, score)| {

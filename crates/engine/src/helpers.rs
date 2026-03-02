@@ -8,7 +8,7 @@ static START: OnceLock<Instant> = OnceLock::new();
 static CACHED_TIME_MS: AtomicU64 = AtomicU64::new(0);
 
 pub(super) fn monotonic_now_ms() -> u64 {
-    let _trace = profiler::scope("crates::engine::src::helpers::monotonic_now_ms");
+    let _trace = profiler::scope("engine::helpers::monotonic_now_ms");
     let cached = CACHED_TIME_MS.load(Ordering::Relaxed);
     if cached != 0 {
         return cached;
@@ -25,7 +25,7 @@ pub(super) fn monotonic_now_ms() -> u64 {
 }
 
 pub(super) fn refresh_monotonic_now_ms() {
-    let _trace = profiler::scope("crates::engine::src::helpers::refresh_monotonic_now_ms");
+    let _trace = profiler::scope("engine::helpers::refresh_monotonic_now_ms");
     let now = START
         .get_or_init(Instant::now)
         .elapsed()
@@ -36,12 +36,12 @@ pub(super) fn refresh_monotonic_now_ms() {
 }
 
 pub(super) fn deadline_from_ttl(ttl: Duration) -> u64 {
-    let _trace = profiler::scope("crates::engine::src::helpers::deadline_from_ttl");
+    let _trace = profiler::scope("engine::helpers::deadline_from_ttl");
     monotonic_now_ms().saturating_add(ttl.as_millis().try_into().unwrap_or(u64::MAX))
 }
 
 pub(super) fn remaining_ttl_ms(deadline_ms: u64) -> i64 {
-    let _trace = profiler::scope("crates::engine::src::helpers::remaining_ttl_ms");
+    let _trace = profiler::scope("engine::helpers::remaining_ttl_ms");
     if deadline_ms == 0 {
         return -1;
     }
@@ -55,7 +55,7 @@ pub(super) fn remaining_ttl_ms(deadline_ms: u64) -> i64 {
 }
 
 pub(super) fn purge_if_expired(shard: &mut Shard, key: &[u8], now_ms: u64) -> bool {
-    let _trace = profiler::scope("crates::engine::src::helpers::purge_if_expired");
+    let _trace = profiler::scope("engine::helpers::purge_if_expired");
     let expired = is_expired(shard, key, now_ms);
     if expired {
         let _ = shard.remove_key(key);
@@ -64,7 +64,7 @@ pub(super) fn purge_if_expired(shard: &mut Shard, key: &[u8], now_ms: u64) -> bo
 }
 
 pub(super) fn is_expired(shard: &Shard, key: &[u8], now_ms: u64) -> bool {
-    let _trace = profiler::scope("crates::engine::src::helpers::is_expired");
+    let _trace = profiler::scope("engine::helpers::is_expired");
     shard
         .ttl
         .get(key)
@@ -73,7 +73,7 @@ pub(super) fn is_expired(shard: &Shard, key: &[u8], now_ms: u64) -> bool {
 }
 
 pub(super) fn unix_time_ms() -> u64 {
-    let _trace = profiler::scope("crates::engine::src::helpers::unix_time_ms");
+    let _trace = profiler::scope("engine::helpers::unix_time_ms");
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|value| value.as_millis() as u64)

@@ -26,7 +26,7 @@ pub const fn pack8(bytes: &[u8]) -> u64 {
 /// Returns 0 for empty or >8-byte commands (handled separately).
 #[inline(always)]
 pub fn pack_runtime(cmd: &[u8]) -> u64 {
-    let _trace = profiler::scope("crates::commands::src::util::pack_runtime");
+    let _trace = profiler::scope("commands::util::pack_runtime");
     if cmd.len() > 8 || cmd.is_empty() {
         return 0;
     }
@@ -246,35 +246,35 @@ pub mod cmd {
 }
 
 pub fn eq_ascii(command: &[u8], expected: &[u8]) -> bool {
-    let _trace = profiler::scope("crates::commands::src::util::eq_ascii");
+    let _trace = profiler::scope("commands::util::eq_ascii");
     command == expected || command.eq_ignore_ascii_case(expected)
 }
 
 pub fn wrong_args(command: &str) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::util::wrong_args");
+    let _trace = profiler::scope("commands::util::wrong_args");
     RespFrame::Error(format!(
         "ERR wrong number of arguments for '{command}' command"
     ))
 }
 
 pub fn int_error() -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::util::int_error");
+    let _trace = profiler::scope("commands::util::int_error");
     RespFrame::error_static("ERR value is not an integer or out of range")
 }
 
 pub fn wrong_type() -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::util::wrong_type");
+    let _trace = profiler::scope("commands::util::wrong_type");
     RespFrame::error_static("WRONGTYPE Operation against a key holding the wrong kind of value")
 }
 
 pub fn u64_to_bytes(value: u64) -> Vec<u8> {
-    let _trace = profiler::scope("crates::commands::src::util::u64_to_bytes");
+    let _trace = profiler::scope("commands::util::u64_to_bytes");
     let mut buffer = itoa::Buffer::new();
     buffer.format(value).as_bytes().to_vec()
 }
 
 pub fn f64_to_bytes(value: f64) -> Vec<u8> {
-    let _trace = profiler::scope("crates::commands::src::util::f64_to_bytes");
+    let _trace = profiler::scope("commands::util::f64_to_bytes");
     let mut buffer = ryu::Buffer::new();
     buffer.format(value).as_bytes().to_vec()
 }

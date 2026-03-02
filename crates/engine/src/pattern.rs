@@ -1,5 +1,5 @@
 pub(super) fn wildcard_match(pattern: &[u8], text: &[u8]) -> bool {
-    let _trace = profiler::scope("crates::engine::src::pattern::wildcard_match");
+    let _trace = profiler::scope("engine::pattern::wildcard_match");
     let mut pi = 0;
     let mut ti = 0;
     let mut star = None;

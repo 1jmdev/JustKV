@@ -3,7 +3,7 @@ use engine::store::{ListInsertPosition, ListSetError, Store};
 use protocol::types::{BulkData, RespFrame};
 
 pub(crate) fn lindex(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::list::range::lindex");
+    let _trace = profiler::scope("commands::list::range::lindex");
     if args.len() != 3 {
         return wrong_args("LINDEX");
     }
@@ -18,7 +18,7 @@ pub(crate) fn lindex(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn lrange(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::list::range::lrange");
+    let _trace = profiler::scope("commands::list::range::lrange");
     if args.len() != 4 {
         return wrong_args("LRANGE");
     }
@@ -37,7 +37,7 @@ pub(crate) fn lrange(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn lset(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::list::range::lset");
+    let _trace = profiler::scope("commands::list::range::lset");
     if args.len() != 4 {
         return wrong_args("LSET");
     }
@@ -54,7 +54,7 @@ pub(crate) fn lset(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn ltrim(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::list::range::ltrim");
+    let _trace = profiler::scope("commands::list::range::ltrim");
     if args.len() != 4 {
         return wrong_args("LTRIM");
     }
@@ -73,7 +73,7 @@ pub(crate) fn ltrim(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn linsert(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::list::range::linsert");
+    let _trace = profiler::scope("commands::list::range::linsert");
     if args.len() != 5 {
         return wrong_args("LINSERT");
     }
@@ -91,7 +91,7 @@ pub(crate) fn linsert(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn lpos(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::list::range::lpos");
+    let _trace = profiler::scope("commands::list::range::lpos");
     if args.len() < 3 {
         return wrong_args("LPOS");
     }
@@ -148,7 +148,7 @@ pub(crate) fn lpos(store: &Store, args: &Args) -> RespFrame {
 }
 
 fn parse_i64(raw: &[u8]) -> Result<i64, RespFrame> {
-    let _trace = profiler::scope("crates::commands::src::list::range::parse_i64");
+    let _trace = profiler::scope("commands::list::range::parse_i64");
     match std::str::from_utf8(raw) {
         Ok(value) => value.parse::<i64>().map_err(|_| int_error()),
         Err(_) => Err(int_error()),
@@ -156,7 +156,7 @@ fn parse_i64(raw: &[u8]) -> Result<i64, RespFrame> {
 }
 
 fn parse_usize(raw: &[u8]) -> Result<usize, RespFrame> {
-    let _trace = profiler::scope("crates::commands::src::list::range::parse_usize");
+    let _trace = profiler::scope("commands::list::range::parse_usize");
     match std::str::from_utf8(raw) {
         Ok(value) => value
             .parse::<u64>()

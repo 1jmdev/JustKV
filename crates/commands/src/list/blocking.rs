@@ -3,17 +3,17 @@ use engine::store::{ListSide, Store};
 use protocol::types::{BulkData, RespFrame};
 
 pub(crate) fn blpop(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::list::blocking::blpop");
+    let _trace = profiler::scope("commands::list::blocking::blpop");
     block_pop(store, args, ListSide::Left)
 }
 
 pub(crate) fn brpop(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::list::blocking::brpop");
+    let _trace = profiler::scope("commands::list::blocking::brpop");
     block_pop(store, args, ListSide::Right)
 }
 
 fn block_pop(store: &Store, args: &Args, side: ListSide) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::list::blocking::block_pop");
+    let _trace = profiler::scope("commands::list::blocking::block_pop");
     if args.len() < 3 {
         return wrong_args(if matches!(side, ListSide::Left) {
             "BLPOP"
@@ -36,7 +36,7 @@ fn block_pop(store: &Store, args: &Args, side: ListSide) -> RespFrame {
 }
 
 pub(crate) fn blmpop(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::list::blocking::blmpop");
+    let _trace = profiler::scope("commands::list::blocking::blmpop");
     if args.len() < 5 {
         return wrong_args("BLMPOP");
     }
@@ -88,7 +88,7 @@ pub(crate) fn blmpop(store: &Store, args: &Args) -> RespFrame {
 }
 
 fn parse_side(raw: &[u8]) -> Result<ListSide, RespFrame> {
-    let _trace = profiler::scope("crates::commands::src::list::blocking::parse_side");
+    let _trace = profiler::scope("commands::list::blocking::parse_side");
     if eq_ascii(raw, b"LEFT") {
         Ok(ListSide::Left)
     } else if eq_ascii(raw, b"RIGHT") {
@@ -99,7 +99,7 @@ fn parse_side(raw: &[u8]) -> Result<ListSide, RespFrame> {
 }
 
 fn parse_usize(raw: &[u8]) -> Result<usize, RespFrame> {
-    let _trace = profiler::scope("crates::commands::src::list::blocking::parse_usize");
+    let _trace = profiler::scope("commands::list::blocking::parse_usize");
     match std::str::from_utf8(raw) {
         Ok(value) => value
             .parse::<u64>()
@@ -110,7 +110,7 @@ fn parse_usize(raw: &[u8]) -> Result<usize, RespFrame> {
 }
 
 fn parse_timeout(raw: &[u8]) -> Result<f64, ()> {
-    let _trace = profiler::scope("crates::commands::src::list::blocking::parse_timeout");
+    let _trace = profiler::scope("commands::list::blocking::parse_timeout");
     std::str::from_utf8(raw)
         .ok()
         .and_then(|value| value.parse::<f64>().ok())

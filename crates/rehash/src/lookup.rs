@@ -14,7 +14,7 @@ where
         K: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
-        let _trace = profiler::scope("crates::rehash::src::lookup::contains_key");
+        let _trace = profiler::scope("rehash::lookup::contains_key");
         self.find_index(key).is_some()
     }
 
@@ -23,7 +23,7 @@ where
         K: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
-        let _trace = profiler::scope("crates::rehash::src::lookup::get");
+        let _trace = profiler::scope("rehash::lookup::get");
         let idx = self.find_index(key)?;
         Some(&self.nodes[idx as usize].as_ref().unwrap().value)
     }
@@ -33,7 +33,7 @@ where
         K: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
-        let _trace = profiler::scope("crates::rehash::src::lookup::get_mut");
+        let _trace = profiler::scope("rehash::lookup::get_mut");
         self.rehash_step(REHASH_STEPS_PER_WRITE);
         let idx = self.find_index(key)?;
         Some(&mut self.nodes[idx as usize].as_mut().unwrap().value)
@@ -45,7 +45,7 @@ where
         K: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
-        let _trace = profiler::scope("crates::rehash::src::lookup::find_index");
+        let _trace = profiler::scope("rehash::lookup::find_index");
         let hash = hash_key(&self.hash_builder, key);
         self.find_index_hashed(key, hash)
     }
@@ -56,7 +56,7 @@ where
         K: Borrow<Q>,
         Q: Eq + ?Sized,
     {
-        let _trace = profiler::scope("crates::rehash::src::lookup::find_index_hashed");
+        let _trace = profiler::scope("rehash::lookup::find_index_hashed");
         if let Some(table) = self.rehash_table.as_ref() {
             let bucket = bucket_index_from_hash(hash, table.mask);
             if let Some(idx) = find_in_chain(&self.nodes, table.heads[bucket], hash, key) {

@@ -5,17 +5,17 @@ use engine::value::StreamId;
 use protocol::types::{BulkData, RespFrame};
 
 pub(crate) fn xrange(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::stream::range::xrange");
+    let _trace = profiler::scope("commands::stream::range::xrange");
     range_common(store, args, false)
 }
 
 pub(crate) fn xrevrange(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::stream::range::xrevrange");
+    let _trace = profiler::scope("commands::stream::range::xrevrange");
     range_common(store, args, true)
 }
 
 fn range_common(store: &Store, args: &Args, reverse: bool) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::stream::range::range_common");
+    let _trace = profiler::scope("commands::stream::range::range_common");
     if args.len() < 4 {
         return wrong_args(if reverse { "XREVRANGE" } else { "XRANGE" });
     }
@@ -45,7 +45,7 @@ fn range_common(store: &Store, args: &Args, reverse: bool) -> RespFrame {
 }
 
 pub(crate) fn xread(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::stream::range::xread");
+    let _trace = profiler::scope("commands::stream::range::xread");
     if args.len() < 4 {
         return wrong_args("XREAD");
     }
@@ -121,7 +121,7 @@ pub(crate) fn xread(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(super) fn format_items(items: Vec<StreamRangeItem>) -> Vec<RespFrame> {
-    let _trace = profiler::scope("crates::commands::src::stream::range::format_items");
+    let _trace = profiler::scope("commands::stream::range::format_items");
     items
         .into_iter()
         .map(|item| {

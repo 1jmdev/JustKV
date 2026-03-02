@@ -4,7 +4,7 @@ use engine::store::Store;
 use protocol::types::{BulkData, RespFrame};
 
 pub(crate) fn xack(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::stream::ack::xack");
+    let _trace = profiler::scope("commands::stream::ack::xack");
     if args.len() < 4 {
         return wrong_args("XACK");
     }
@@ -24,7 +24,7 @@ pub(crate) fn xack(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn xpending(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("crates::commands::src::stream::ack::xpending");
+    let _trace = profiler::scope("commands::stream::ack::xpending");
     if args.len() != 3 {
         return wrong_args("XPENDING");
     }

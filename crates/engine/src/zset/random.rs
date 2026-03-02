@@ -10,7 +10,7 @@ impl Store {
         key: &[u8],
         count: i64,
     ) -> Result<Option<Vec<(CompactKey, f64)>>, ()> {
-        let _trace = profiler::scope("crates::engine::src::zset::random::zrandmember");
+        let _trace = profiler::scope("engine::zset::random::zrandmember");
         let idx = self.shard_index(key);
         let shard = self.shards[idx].read();
         let now_ms = monotonic_now_ms();
