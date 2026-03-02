@@ -755,9 +755,7 @@ pub fn parse_command_id(command: &[u8]) -> CommandId {
                 }
             }
             b'G' => {
-                if command.eq_ignore_ascii_case(b"GEOSEARCH") {
-                    CommandId::Geosearch
-                } else if command.eq_ignore_ascii_case(b"GETRANGE") {
+                if command.eq_ignore_ascii_case(b"GETRANGE") {
                     CommandId::Getrange
                 } else {
                     CommandId::Unknown
@@ -806,6 +804,8 @@ pub fn parse_command_id(command: &[u8]) -> CommandId {
             b'G' => {
                 if command.eq_ignore_ascii_case(b"GEORADIUS") {
                     CommandId::Georadius
+                } else if command.eq_ignore_ascii_case(b"GEOSEARCH") {
+                    CommandId::Geosearch
                 } else {
                     CommandId::Unknown
                 }
