@@ -7,6 +7,7 @@ use socket2::{Domain, Protocol, Socket, Type};
 use std::io;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
+use tokio::task::block_in_place;
 use tokio::task::JoinSet;
 use tokio::time::{sleep, Duration};
 
@@ -118,7 +119,7 @@ fn spawn_expiry_sweeper(store: Store, interval: Duration) {
     tokio::spawn(async move {
         loop {
             sleep(interval).await;
-            let _ = store.sweep_expired();
+            let _ = block_in_place(|| store.sweep_expired());
         }
     });
 }

@@ -4,6 +4,7 @@ use std::time::Instant;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc::unbounded_channel;
+use tokio::task::block_in_place;
 
 use crate::engine::store::Store;
 use crate::net::profiling::LatencyProfiler;
@@ -72,16 +73,18 @@ pub async fn handle_connection(
                         None
                     };
                     let execute_started = profiling_enabled.then(Instant::now);
-                    let response = tx_state.handle_frame_with(&store, parsed.frame, |store, frame| {
-                        dispatch::execute_regular_command(
-                            store,
-                            &pubsub_hub,
-                            &push_tx,
-                            &mut pubsub_state,
-                            &mut command_args_buf,
-                            profiler.as_ref(),
-                            frame,
-                        )
+                    let response = block_in_place(|| {
+                        tx_state.handle_frame_with(&store, parsed.frame, |store, frame| {
+                            dispatch::execute_regular_command(
+                                store,
+                                &pubsub_hub,
+                                &push_tx,
+                                &mut pubsub_state,
+                                &mut command_args_buf,
+                                profiler.as_ref(),
+                                frame,
+                            )
+                        })
                     });
                     let execute_elapsed = execute_started
                         .map(|started| started.elapsed())
