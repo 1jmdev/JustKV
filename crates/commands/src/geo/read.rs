@@ -4,6 +4,7 @@ use engine::store::Store;
 use protocol::types::{BulkData, RespFrame};
 
 pub(crate) fn geopos(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::geo::read::geopos");
     if args.len() < 3 {
         return wrong_args("GEOPOS");
     }
@@ -26,6 +27,7 @@ pub(crate) fn geopos(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn geohash(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::geo::read::geohash");
     if args.len() < 3 {
         return wrong_args("GEOHASH");
     }
@@ -44,6 +46,7 @@ pub(crate) fn geohash(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn geodist(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::geo::read::geodist");
     if args.len() != 4 && args.len() != 5 {
         return wrong_args("GEODIST");
     }
@@ -67,6 +70,7 @@ pub(crate) fn geodist(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn georadiusbymember(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::geo::read::georadiusbymember");
     if args.len() < 5 {
         return wrong_args("GEORADIUSBYMEMBER");
     }
@@ -80,6 +84,7 @@ pub(crate) fn georadiusbymember(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn georadiusbymember_ro(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::geo::read::georadiusbymember_ro");
     if args.len() < 5 {
         return wrong_args("GEORADIUSBYMEMBER_RO");
     }
@@ -93,6 +98,7 @@ pub(crate) fn georadiusbymember_ro(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn georadius(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::geo::read::georadius");
     if args.len() < 6 {
         return wrong_args("GEORADIUS");
     }
@@ -108,6 +114,7 @@ pub(crate) fn georadius(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn georadius_ro(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::geo::read::georadius_ro");
     if args.len() < 6 {
         return wrong_args("GEORADIUS_RO");
     }
@@ -129,6 +136,7 @@ fn geosearch_like_radius(
     radius_index: usize,
     read_only: bool,
 ) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::geo::read::geosearch_like_radius");
     let radius = match parse_f64(&args[radius_index]) {
         Ok(value) => value,
         Err(response) => return response,

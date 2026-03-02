@@ -5,6 +5,7 @@ use engine::value::CompactArg;
 use protocol::types::{BulkData, RespFrame};
 
 pub fn dispatch(store: &Store, frame: RespFrame) -> RespFrame {
+    let _trace = profiler::scope("commands::dispatcher::dispatch");
     let mut args = Vec::new();
     if let Err(err) = parse_command_into(frame, &mut args) {
         return RespFrame::error_static(err);
@@ -15,6 +16,7 @@ pub fn dispatch(store: &Store, frame: RespFrame) -> RespFrame {
 
 #[inline]
 pub fn dispatch_args(store: &Store, args: &[CompactArg]) -> RespFrame {
+    let _trace = profiler::scope("commands::dispatcher::dispatch_args");
     if args.is_empty() {
         return RespFrame::error_static("ERR empty command");
     }
@@ -193,6 +195,7 @@ pub fn dispatch_args(store: &Store, args: &[CompactArg]) -> RespFrame {
 /// These are rare so a simple eq_ignore_ascii_case chain is fine.
 #[cold]
 fn dispatch_long(store: &Store, raw: &[u8], args: &[CompactArg]) -> RespFrame {
+    let _trace = profiler::scope("commands::dispatcher::dispatch_long");
     if raw.eq_ignore_ascii_case(b"PEXPIREAT") {
         return ttl::pexpireat(store, args);
     }
@@ -273,6 +276,7 @@ fn dispatch_long(store: &Store, raw: &[u8], args: &[CompactArg]) -> RespFrame {
 }
 
 pub fn parse_command(frame: RespFrame) -> Result<Vec<CompactArg>, &'static str> {
+    let _trace = profiler::scope("crates::commands::src::dispatcher::parse_command");
     let mut args = Vec::new();
     parse_command_into(frame, &mut args)?;
     Ok(args)
@@ -282,6 +286,7 @@ pub fn parse_command_into(
     frame: RespFrame,
     args: &mut Vec<CompactArg>,
 ) -> Result<(), &'static str> {
+    let _trace = profiler::scope("commands::dispatcher::parse_command_into");
     let RespFrame::Array(Some(items)) = frame else {
         return Err("ERR protocol error");
     };

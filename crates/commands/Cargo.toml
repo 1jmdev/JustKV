@@ -6,6 +6,7 @@ edition.workspace = true
 [dependencies]
 engine.workspace = true
 protocol.workspace = true
+profiler.workspace = true
 ahash.workspace = true
 bytes.workspace = true
 hashbrown.workspace = true

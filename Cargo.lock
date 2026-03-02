@@ -191,6 +191,7 @@ dependencies = [
  "hashbrown",
  "itoa",
  "parking_lot",
+ "profiler",
  "protocol",
  "ryu",
  "thiserror",
@@ -212,6 +213,7 @@ dependencies = [
  "hashbrown",
  "itoa",
  "parking_lot",
+ "profiler",
  "proptest",
  "rehash",
  "ryu",
@@ -346,6 +348,7 @@ dependencies = [
  "commands",
  "engine",
  "parking_lot",
+ "profiler",
  "protocol",
  "socket2",
  "tikv-jemallocator",
@@ -486,6 +489,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "profiler"
+version = "0.1.0"
+
+[[package]]
 name = "proptest"
 version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -511,6 +518,7 @@ dependencies = [
  "bytes",
  "engine",
  "itoa",
+ "profiler",
  "ryu",
  "thiserror",
 ]

@@ -1,9 +1,5 @@
-use std::sync::Arc;
-use std::time::Instant;
-
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::profiling::LatencyProfiler;
 use commands::dispatcher::{dispatch_args, parse_command_into};
 use engine::store::Store;
 use engine::value::CompactArg;
@@ -19,10 +15,9 @@ pub(super) fn execute_regular_command(
     push_tx: &UnboundedSender<RespFrame>,
     pubsub_state: &mut ConnectionPubSub,
     args_buf: &mut Vec<CompactArg>,
-    profiler: Option<&Arc<LatencyProfiler>>,
     frame: RespFrame,
 ) -> RespFrame {
-    let started = Instant::now();
+    let _trace = profiler::scope("server::connection::execute_regular_command");
     if let Err(err) = parse_command_into(frame, args_buf) {
         return RespFrame::error_static(err);
     }
@@ -36,12 +31,12 @@ pub(super) fn execute_regular_command(
     }
 
     let command = args[0].as_slice();
+    if args.len() > 1 {
+        profiler::bind_request_key(args[1].as_slice());
+    }
     let response = dispatch_args(store, args);
     if hub.keyspace_notifications_enabled() {
         emit_command_notifications(hub, command, args, &response);
-    }
-    if let Some(profiler) = profiler {
-        profiler.record_command(command, started.elapsed());
     }
     response
 }
@@ -52,6 +47,7 @@ fn handle_pubsub_or_config_command(
     pubsub_state: &mut ConnectionPubSub,
     args: &[CompactArg],
 ) -> Option<RespFrame> {
+    let _trace = profiler::scope("server::connection::handle_pubsub_or_config_command");
     let command = args[0].as_slice();
 
     if command == b"PUBLISH" {
@@ -140,7 +136,6 @@ fn unsubscribe_command(
             RespFrame::Integer(pubsub_state.subscription_count()),
         ])));
     }
-
     collapse_pubsub_responses(responses)
 }
 
@@ -199,7 +194,6 @@ fn punsubscribe_command(
             RespFrame::Integer(pubsub_state.subscription_count()),
         ])));
     }
-
     collapse_pubsub_responses(responses)
 }
 

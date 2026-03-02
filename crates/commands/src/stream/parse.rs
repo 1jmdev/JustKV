@@ -4,6 +4,7 @@ use engine::value::StreamId;
 use protocol::types::RespFrame;
 
 pub(super) fn parse_stream_id(raw: &[u8]) -> Result<StreamId, RespFrame> {
+    let _trace = profiler::scope("crates::commands::src::stream::parse::parse_stream_id");
     if raw == b"-" {
         return Ok(StreamId { ms: 0, seq: 0 });
     }
@@ -30,6 +31,7 @@ pub(super) fn parse_stream_id(raw: &[u8]) -> Result<StreamId, RespFrame> {
 }
 
 pub(super) fn parse_xadd_id(raw: &[u8]) -> Result<XAddId, RespFrame> {
+    let _trace = profiler::scope("crates::commands::src::stream::parse::parse_xadd_id");
     if raw == b"*" {
         return Ok(XAddId::Auto);
     }
@@ -53,6 +55,7 @@ pub(super) fn parse_xadd_id(raw: &[u8]) -> Result<XAddId, RespFrame> {
 }
 
 pub(super) fn parse_count(raw: &[u8]) -> Result<usize, RespFrame> {
+    let _trace = profiler::scope("crates::commands::src::stream::parse::parse_count");
     match std::str::from_utf8(raw) {
         Ok(value) => value
             .parse::<u64>()
@@ -66,6 +69,7 @@ pub(super) fn parse_xtrim_args(
     args: &Args,
     mut index: usize,
 ) -> Result<(Option<(XTrimMode, StreamId, Option<usize>)>, usize), RespFrame> {
+    let _trace = profiler::scope("crates::commands::src::stream::parse::parse_xtrim_args");
     if index >= args.len() || !args[index].eq_ignore_ascii_case(b"MAXLEN") {
         return Ok((None, index));
     }
@@ -95,6 +99,7 @@ pub(super) fn parse_xtrim_args(
 }
 
 pub(super) fn stream_id_to_bulk(id: StreamId) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::stream::parse::stream_id_to_bulk");
     RespFrame::Bulk(Some(protocol::types::BulkData::from_vec(
         format!("{}-{}", id.ms, id.seq).into_bytes(),
     )))

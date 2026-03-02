@@ -12,6 +12,7 @@ impl Store {
         stop: i64,
         reverse: bool,
     ) -> Result<Vec<(CompactKey, f64)>, ()> {
+        let _trace = profiler::scope("crates::engine::src::zset::range::zrange");
         let idx = self.shard_index(key);
         let shard = self.shards[idx].read();
         let now_ms = monotonic_now_ms();
@@ -40,6 +41,7 @@ impl Store {
         offset: usize,
         count: Option<usize>,
     ) -> Result<Vec<(CompactKey, f64)>, ()> {
+        let _trace = profiler::scope("crates::engine::src::zset::range::zrange_by_score");
         let idx = self.shard_index(key);
         let shard = self.shards[idx].read();
         let now_ms = monotonic_now_ms();

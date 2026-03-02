@@ -6,6 +6,7 @@ use super::write_entry;
 
 impl Store {
     pub fn setrange(&self, key: &[u8], offset: usize, value: &[u8]) -> Result<usize, ()> {
+        let _trace = profiler::scope("crates::engine::src::strings::range::setrange");
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
         let now_ms = monotonic_now_ms();
@@ -38,6 +39,7 @@ impl Store {
     }
 
     pub fn getrange(&self, key: &[u8], start: i64, end: i64) -> Result<Vec<u8>, ()> {
+        let _trace = profiler::scope("crates::engine::src::strings::range::getrange");
         let Some(value) = self.get(key)? else {
             return Ok(Vec::new());
         };

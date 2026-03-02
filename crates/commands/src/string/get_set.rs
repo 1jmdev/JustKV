@@ -6,6 +6,7 @@ use engine::value::CompactArg;
 use protocol::types::{BulkData, RespFrame};
 
 pub(crate) fn get(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("commands::string::get");
     if args.len() != 2 {
         return wrong_args("GET");
     }
@@ -16,6 +17,7 @@ pub(crate) fn get(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn set(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::string::get_set::set");
     if args.len() < 3 {
         return wrong_args("SET");
     }
@@ -96,6 +98,7 @@ pub(crate) fn set(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn setnx(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::string::get_set::setnx");
     if args.len() != 3 {
         return wrong_args("SETNX");
     }
@@ -103,6 +106,7 @@ pub(crate) fn setnx(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn getset(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::string::get_set::getset");
     if args.len() != 3 {
         return wrong_args("GETSET");
     }
@@ -113,6 +117,7 @@ pub(crate) fn getset(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn getdel(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::string::get_set::getdel");
     if args.len() != 2 {
         return wrong_args("GETDEL");
     }
@@ -123,6 +128,7 @@ pub(crate) fn getdel(store: &Store, args: &Args) -> RespFrame {
 }
 
 fn parse_u64(raw: &[u8]) -> Result<u64, RespFrame> {
+    let _trace = profiler::scope("crates::commands::src::string::get_set::parse_u64");
     match std::str::from_utf8(raw) {
         Ok(value) => value.parse::<u64>().map_err(|_| {
             RespFrame::Error("ERR value is not an integer or out of range".to_string())

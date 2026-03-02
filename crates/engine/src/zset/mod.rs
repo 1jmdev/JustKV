@@ -8,20 +8,24 @@ mod scan;
 use crate::value::{CompactKey, Entry, ZSetValueMap};
 
 fn get_zset(entry: &Entry) -> Option<&ZSetValueMap> {
+    let _trace = profiler::scope("crates::engine::src::zset::get_zset");
     entry.as_zset()
 }
 
 fn get_zset_mut(entry: &mut Entry) -> Option<&mut ZSetValueMap> {
+    let _trace = profiler::scope("crates::engine::src::zset::get_zset_mut");
     entry.as_zset_mut()
 }
 
 fn sorted_by_score(map: &ZSetValueMap, reverse: bool) -> Vec<(CompactKey, f64)> {
+    let _trace = profiler::scope("crates::engine::src::zset::sorted_by_score");
     map.iter_ordered(reverse)
         .map(|(member, score)| (member.clone(), score))
         .collect()
 }
 
 fn sorted_by_score_refs(map: &ZSetValueMap, reverse: bool) -> Vec<(&CompactKey, f64)> {
+    let _trace = profiler::scope("crates::engine::src::zset::sorted_by_score_refs");
     map.iter_ordered(reverse).collect()
 }
 
@@ -30,6 +34,7 @@ fn compare_member_score(
     right: &(CompactKey, f64),
     reverse: bool,
 ) -> std::cmp::Ordering {
+    let _trace = profiler::scope("crates::engine::src::zset::compare_member_score");
     let score_order = left.1.total_cmp(&right.1);
     let score_order = if reverse {
         score_order.reverse()
@@ -48,6 +53,7 @@ fn compare_member_score(
 }
 
 fn normalize_range(start: i64, stop: i64, len: usize) -> Option<(usize, usize)> {
+    let _trace = profiler::scope("crates::engine::src::zset::normalize_range");
     if len == 0 {
         return None;
     }

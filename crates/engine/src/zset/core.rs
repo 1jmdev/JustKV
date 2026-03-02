@@ -6,6 +6,7 @@ use super::{get_zset, get_zset_mut, sorted_by_score};
 
 impl Store {
     pub fn zadd(&self, key: &[u8], pairs: &[(f64, CompactArg)]) -> Result<i64, ()> {
+        let _trace = profiler::scope("crates::engine::src::zset::core::zadd");
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
         let now_ms = monotonic_now_ms();
@@ -29,6 +30,7 @@ impl Store {
     }
 
     pub fn zrem(&self, key: &[u8], members: &[CompactArg]) -> Result<i64, ()> {
+        let _trace = profiler::scope("crates::engine::src::zset::core::zrem");
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
         let now_ms = monotonic_now_ms();
@@ -54,6 +56,7 @@ impl Store {
     }
 
     pub fn zcard(&self, key: &[u8]) -> Result<i64, ()> {
+        let _trace = profiler::scope("crates::engine::src::zset::core::zcard");
         let idx = self.shard_index(key);
         let shard = self.shards[idx].read();
         let now_ms = monotonic_now_ms();
@@ -69,6 +72,7 @@ impl Store {
     }
 
     pub fn zcount(&self, key: &[u8], min: f64, max: f64) -> Result<i64, ()> {
+        let _trace = profiler::scope("crates::engine::src::zset::core::zcount");
         if min > max {
             return Ok(0);
         }
@@ -90,6 +94,7 @@ impl Store {
     }
 
     pub fn zscore(&self, key: &[u8], member: &[u8]) -> Result<Option<f64>, ()> {
+        let _trace = profiler::scope("crates::engine::src::zset::core::zscore");
         let idx = self.shard_index(key);
         let shard = self.shards[idx].read();
         let now_ms = monotonic_now_ms();
@@ -105,6 +110,7 @@ impl Store {
     }
 
     pub fn zincrby(&self, key: &[u8], increment: f64, member: &[u8]) -> Result<f64, ()> {
+        let _trace = profiler::scope("crates::engine::src::zset::core::zincrby");
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
         let now_ms = monotonic_now_ms();
@@ -125,6 +131,7 @@ impl Store {
     }
 
     pub fn zmscore(&self, key: &[u8], members: &[CompactArg]) -> Result<Vec<Option<f64>>, ()> {
+        let _trace = profiler::scope("crates::engine::src::zset::core::zmscore");
         let idx = self.shard_index(key);
         let shard = self.shards[idx].read();
         let now_ms = monotonic_now_ms();
@@ -143,6 +150,7 @@ impl Store {
     }
 
     pub fn zrank(&self, key: &[u8], member: &[u8], reverse: bool) -> Result<Option<i64>, ()> {
+        let _trace = profiler::scope("crates::engine::src::zset::core::zrank");
         let idx = self.shard_index(key);
         let shard = self.shards[idx].read();
         let now_ms = monotonic_now_ms();
@@ -162,6 +170,7 @@ impl Store {
     }
 
     pub fn zremrangebyrank(&self, key: &[u8], start: i64, stop: i64) -> Result<i64, ()> {
+        let _trace = profiler::scope("crates::engine::src::zset::core::zremrangebyrank");
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
         let now_ms = monotonic_now_ms();
@@ -192,5 +201,6 @@ impl Store {
 }
 
 fn new_zset() -> ZSetValueMap {
+    let _trace = profiler::scope("crates::engine::src::zset::core::new_zset");
     ZSetValueMap::new()
 }

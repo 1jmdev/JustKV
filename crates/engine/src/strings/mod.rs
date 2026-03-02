@@ -9,6 +9,7 @@ mod range;
 use crate::value::{CompactKey, Entry};
 
 fn write_entry(shard: &mut super::Shard, key: &[u8], entry: Entry, ttl_deadline: Option<u64>) {
+    let _trace = profiler::scope("crates::engine::src::strings::write_entry");
     let compact_key = CompactKey::from_slice(key);
     shard.entries.insert(compact_key.clone(), entry);
 

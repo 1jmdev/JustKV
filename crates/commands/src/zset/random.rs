@@ -3,6 +3,7 @@ use engine::store::Store;
 use protocol::types::{BulkData, RespFrame};
 
 pub(crate) fn zrandmember(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::zset::random::zrandmember");
     if args.len() < 2 || args.len() > 4 {
         return wrong_args("ZRANDMEMBER");
     }
@@ -56,6 +57,7 @@ pub(crate) fn zrandmember(store: &Store, args: &Args) -> RespFrame {
 }
 
 fn parse_i64(raw: &[u8]) -> Result<i64, RespFrame> {
+    let _trace = profiler::scope("crates::commands::src::zset::random::parse_i64");
     match std::str::from_utf8(raw) {
         Ok(value) => value.parse::<i64>().map_err(|_| int_error()),
         Err(_) => Err(int_error()),

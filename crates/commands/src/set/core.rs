@@ -3,6 +3,7 @@ use engine::store::Store;
 use protocol::types::{BulkData, RespFrame};
 
 pub(crate) fn sadd(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::set::core::sadd");
     if args.len() < 3 {
         return wrong_args("SADD");
     }
@@ -13,6 +14,7 @@ pub(crate) fn sadd(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn srem(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::set::core::srem");
     if args.len() < 3 {
         return wrong_args("SREM");
     }
@@ -23,6 +25,7 @@ pub(crate) fn srem(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn smembers(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::set::core::smembers");
     if args.len() != 2 {
         return wrong_args("SMEMBERS");
     }
@@ -38,6 +41,7 @@ pub(crate) fn smembers(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn sismember(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::set::core::sismember");
     if args.len() != 3 {
         return wrong_args("SISMEMBER");
     }
@@ -48,6 +52,7 @@ pub(crate) fn sismember(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn scard(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::set::core::scard");
     if args.len() != 2 {
         return wrong_args("SCARD");
     }
@@ -58,6 +63,7 @@ pub(crate) fn scard(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn smove(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::set::core::smove");
     if args.len() != 4 {
         return wrong_args("SMOVE");
     }

@@ -1,6 +1,5 @@
 use crate::config::Config;
 use crate::connection::handle_connection;
-use crate::profiling::{LatencyProfiler, ProfilingConfig};
 use crate::pubsub::PubSubHub;
 use engine::store::Store;
 use socket2::{Domain, Protocol, Socket, Type};
@@ -15,31 +14,19 @@ pub async fn run_listener(config: Config) -> Result<(), Box<dyn std::error::Erro
     let listeners = bind_reuse_port_listeners(config.addr(), config.io_threads).await?;
     let store = Store::new(config.shards);
     let pubsub = PubSubHub::new();
-    let profiler = ProfilingConfig::from_env().map(LatencyProfiler::new);
 
     spawn_expiry_sweeper(
         store.clone(),
         Duration::from_millis(config.sweep_interval_ms),
     );
     spawn_cached_clock_updater(store.clone());
-    if let Some(profiler) = profiler.as_ref() {
-        eprintln!(
-            "[latency-profiler] enabled interval={}s slow_threshold={}ms long_threshold={}ms slow_samples={}",
-            profiler.report_interval().as_secs(),
-            profiler.slow_threshold().as_millis(),
-            profiler.long_request_threshold().as_millis(),
-            profiler.slow_sample_limit(),
-        );
-        spawn_latency_reporter(profiler.clone());
-    }
 
     let mut accept_tasks = JoinSet::new();
     for listener in listeners {
         let shared_store = store.clone();
         let shared_pubsub = pubsub.clone();
-        let shared_profiler = profiler.clone();
         accept_tasks.spawn(async move {
-            run_accept_loop(listener, shared_store, shared_pubsub, shared_profiler).await
+            run_accept_loop(listener, shared_store, shared_pubsub).await
         });
     }
 
@@ -60,7 +47,6 @@ async fn run_accept_loop(
     listener: TcpListener,
     store: Store,
     pubsub: PubSubHub,
-    profiler: Option<std::sync::Arc<LatencyProfiler>>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     loop {
         let (socket, _) = listener.accept().await?;
@@ -68,9 +54,8 @@ async fn run_accept_loop(
 
         let shared_store = store.clone();
         let shared_pubsub = pubsub.clone();
-        let shared_profiler = profiler.clone();
         tokio::spawn(async move {
-            let _ = handle_connection(socket, shared_store, shared_pubsub, shared_profiler).await;
+            let _ = handle_connection(socket, shared_store, shared_pubsub).await;
         });
     }
 }
@@ -129,15 +114,6 @@ fn spawn_cached_clock_updater(store: Store) {
         loop {
             store.refresh_cached_time();
             sleep(Duration::from_millis(1)).await;
-        }
-    });
-}
-
-fn spawn_latency_reporter(profiler: std::sync::Arc<LatencyProfiler>) {
-    tokio::spawn(async move {
-        loop {
-            sleep(profiler.report_interval()).await;
-            profiler.report_and_reset();
         }
     });
 }

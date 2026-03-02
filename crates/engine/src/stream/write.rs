@@ -14,6 +14,7 @@ impl Store {
         trim: Option<(XTrimMode, StreamId, Option<usize>)>,
         nomkstream: bool,
     ) -> Result<Option<StreamId>, ()> {
+        let _trace = profiler::scope("crates::engine::src::stream::write::xadd");
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
         let now_ms = monotonic_now_ms();
@@ -41,6 +42,7 @@ impl Store {
     }
 
     pub fn xlen(&self, key: &[u8]) -> Result<i64, ()> {
+        let _trace = profiler::scope("crates::engine::src::stream::write::xlen");
         let idx = self.shard_index(key);
         let shard = self.shards[idx].read();
         let now_ms = monotonic_now_ms();
@@ -55,6 +57,7 @@ impl Store {
     }
 
     pub fn xdel(&self, key: &[u8], ids: &[StreamId]) -> Result<i64, ()> {
+        let _trace = profiler::scope("crates::engine::src::stream::write::xdel");
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
         let now_ms = monotonic_now_ms();
@@ -85,6 +88,7 @@ impl Store {
         threshold: StreamId,
         limit: Option<usize>,
     ) -> Result<i64, ()> {
+        let _trace = profiler::scope("crates::engine::src::stream::write::xtrim");
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
         let now_ms = monotonic_now_ms();

@@ -6,6 +6,7 @@ use super::{collect_members, get_set, new_set};
 
 impl Store {
     pub fn sinter(&self, keys: &[CompactArg]) -> Result<Vec<CompactKey>, ()> {
+        let _trace = profiler::scope("crates::engine::src::set::algebra::sinter");
         let snapshots = self.set_snapshots(keys)?;
         if snapshots.iter().any(|set| set.is_empty()) {
             return Ok(Vec::new());
@@ -20,6 +21,7 @@ impl Store {
     }
 
     pub fn sunion(&self, keys: &[CompactArg]) -> Result<Vec<CompactKey>, ()> {
+        let _trace = profiler::scope("crates::engine::src::set::algebra::sunion");
         let snapshots = self.set_snapshots(keys)?;
         let mut out = new_set();
         for set in snapshots {
@@ -29,6 +31,7 @@ impl Store {
     }
 
     pub fn sdiff(&self, keys: &[CompactArg]) -> Result<Vec<CompactKey>, ()> {
+        let _trace = profiler::scope("crates::engine::src::set::algebra::sdiff");
         let snapshots = self.set_snapshots(keys)?;
         let Some((first, rest)) = snapshots.split_first() else {
             return Ok(Vec::new());
@@ -39,21 +42,25 @@ impl Store {
     }
 
     pub fn sinterstore(&self, destination: &[u8], keys: &[CompactArg]) -> Result<i64, ()> {
+        let _trace = profiler::scope("crates::engine::src::set::algebra::sinterstore");
         let result = self.sinter(keys)?;
         self.write_set_result(destination, result)
     }
 
     pub fn sunionstore(&self, destination: &[u8], keys: &[CompactArg]) -> Result<i64, ()> {
+        let _trace = profiler::scope("crates::engine::src::set::algebra::sunionstore");
         let result = self.sunion(keys)?;
         self.write_set_result(destination, result)
     }
 
     pub fn sdiffstore(&self, destination: &[u8], keys: &[CompactArg]) -> Result<i64, ()> {
+        let _trace = profiler::scope("crates::engine::src::set::algebra::sdiffstore");
         let result = self.sdiff(keys)?;
         self.write_set_result(destination, result)
     }
 
     pub fn sintercard(&self, keys: &[CompactArg], limit: Option<usize>) -> Result<i64, ()> {
+        let _trace = profiler::scope("crates::engine::src::set::algebra::sintercard");
         let mut values = self.sinter(keys)?;
         if let Some(limit) = limit {
             values.truncate(limit);
@@ -62,6 +69,7 @@ impl Store {
     }
 
     fn set_snapshots(&self, keys: &[CompactArg]) -> Result<Vec<SetValue>, ()> {
+        let _trace = profiler::scope("crates::engine::src::set::algebra::set_snapshots");
         let mut snapshots = Vec::with_capacity(keys.len());
         let now_ms = monotonic_now_ms();
         for key in keys {
@@ -86,6 +94,7 @@ impl Store {
     }
 
     fn write_set_result(&self, destination: &[u8], values: Vec<CompactKey>) -> Result<i64, ()> {
+        let _trace = profiler::scope("crates::engine::src::set::algebra::write_set_result");
         let idx = self.shard_index(destination);
         let mut shard = self.shards[idx].write();
         let now_ms = monotonic_now_ms();

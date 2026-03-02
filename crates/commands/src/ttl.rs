@@ -3,6 +3,7 @@ use engine::store::Store;
 use protocol::types::RespFrame;
 
 pub(crate) fn expire(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::ttl::expire");
     if args.len() != 3 {
         return wrong_args("EXPIRE");
     }
@@ -16,6 +17,7 @@ pub(crate) fn expire(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn ttl(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::ttl::ttl");
     if args.len() != 2 {
         return wrong_args("TTL");
     }
@@ -23,6 +25,7 @@ pub(crate) fn ttl(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn pexpire(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::ttl::pexpire");
     if args.len() != 3 {
         return wrong_args("PEXPIRE");
     }
@@ -34,6 +37,7 @@ pub(crate) fn pexpire(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn expireat(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::ttl::expireat");
     if args.len() != 3 {
         return wrong_args("EXPIREAT");
     }
@@ -45,6 +49,7 @@ pub(crate) fn expireat(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn pexpireat(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::ttl::pexpireat");
     if args.len() != 3 {
         return wrong_args("PEXPIREAT");
     }
@@ -56,6 +61,7 @@ pub(crate) fn pexpireat(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn persist(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::ttl::persist");
     if args.len() != 2 {
         return wrong_args("PERSIST");
     }
@@ -63,6 +69,7 @@ pub(crate) fn persist(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn pttl(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::ttl::pttl");
     if args.len() != 2 {
         return wrong_args("PTTL");
     }
@@ -70,6 +77,7 @@ pub(crate) fn pttl(store: &Store, args: &Args) -> RespFrame {
 }
 
 fn parse_u64(raw: &[u8]) -> Result<u64, RespFrame> {
+    let _trace = profiler::scope("crates::commands::src::ttl::parse_u64");
     match std::str::from_utf8(raw) {
         Ok(value) => value.parse::<u64>().map_err(|_| int_error()),
         Err(_) => Err(int_error()),

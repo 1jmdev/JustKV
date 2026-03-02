@@ -3,6 +3,7 @@ use engine::store::Store;
 use protocol::types::{BulkData, RespFrame};
 
 pub(crate) fn zrange(store: &Store, args: &Args, reverse: bool) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::zset::range::zrange");
     if args.len() < 4 {
         return wrong_args(if reverse { "ZREVRANGE" } else { "ZRANGE" });
     }
@@ -37,6 +38,7 @@ pub(crate) fn zrange(store: &Store, args: &Args, reverse: bool) -> RespFrame {
 }
 
 pub(crate) fn zrange_by_score(store: &Store, args: &Args, reverse: bool) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::zset::range::zrange_by_score");
     if args.len() < 4 {
         return wrong_args(if reverse {
             "ZREVRANGEBYSCORE"
@@ -94,6 +96,7 @@ pub(crate) fn zrange_by_score(store: &Store, args: &Args, reverse: bool) -> Resp
 }
 
 fn format_items(items: Vec<(engine::value::CompactKey, f64)>, withscores: bool) -> Vec<RespFrame> {
+    let _trace = profiler::scope("crates::commands::src::zset::range::format_items");
     if withscores {
         let mut out = Vec::with_capacity(items.len() * 2);
         for (member, score) in items {
@@ -112,6 +115,7 @@ fn format_items(items: Vec<(engine::value::CompactKey, f64)>, withscores: bool) 
 }
 
 fn parse_i64(raw: &[u8]) -> Result<i64, RespFrame> {
+    let _trace = profiler::scope("crates::commands::src::zset::range::parse_i64");
     match std::str::from_utf8(raw) {
         Ok(value) => value.parse::<i64>().map_err(|_| int_error()),
         Err(_) => Err(int_error()),
@@ -119,6 +123,7 @@ fn parse_i64(raw: &[u8]) -> Result<i64, RespFrame> {
 }
 
 fn parse_usize(raw: &[u8]) -> Result<usize, RespFrame> {
+    let _trace = profiler::scope("crates::commands::src::zset::range::parse_usize");
     match std::str::from_utf8(raw) {
         Ok(value) => value
             .parse::<u64>()
@@ -129,6 +134,7 @@ fn parse_usize(raw: &[u8]) -> Result<usize, RespFrame> {
 }
 
 fn parse_f64(raw: &[u8]) -> Result<f64, RespFrame> {
+    let _trace = profiler::scope("crates::commands::src::zset::range::parse_f64");
     match std::str::from_utf8(raw) {
         Ok(value) => value
             .parse::<f64>()

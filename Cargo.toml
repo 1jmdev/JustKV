@@ -3,6 +3,7 @@ members = [
     "crates/rehash",
     "crates/protocol",
     "crates/types",
+    "crates/profiler",
     "crates/engine",
     "crates/commands",
     "crates/server",
@@ -18,6 +19,7 @@ edition = "2024"
 rehash   = { path = "crates/rehash" }
 protocol = { path = "crates/protocol" }
 types    = { path = "crates/types" }
+profiler = { path = "crates/profiler" }
 engine   = { path = "crates/engine" }
 commands = { path = "crates/commands" }
 

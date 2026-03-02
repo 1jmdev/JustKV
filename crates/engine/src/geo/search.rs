@@ -15,6 +15,7 @@ impl Store {
         ascending: bool,
         count: Option<usize>,
     ) -> Result<Vec<GeoSearchMatch>, ()> {
+        let _trace = profiler::scope("crates::engine::src::geo::search::geosearch");
         let idx = self.shard_index(key);
         let shard = self.shards[idx].read();
         let now_ms = monotonic_now_ms();
@@ -81,6 +82,7 @@ impl Store {
         count: Option<usize>,
         store_dist: bool,
     ) -> Result<i64, ()> {
+        let _trace = profiler::scope("crates::engine::src::geo::search::geosearchstore");
         let matches = self.geosearch(
             source,
             center,

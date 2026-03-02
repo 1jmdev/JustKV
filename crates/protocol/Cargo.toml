@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 engine.workspace = true
+profiler.workspace = true
 bytes.workspace = true
 itoa.workspace = true
 ryu.workspace = true

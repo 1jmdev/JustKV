@@ -1,4 +1,5 @@
 pub(super) fn haversine_meters(lon1: f64, lat1: f64, lon2: f64, lat2: f64) -> f64 {
+    let _trace = profiler::scope("crates::engine::src::geo::math::haversine_meters");
     let earth_radius = 6_372_797.560_856_f64;
     let dlat = (lat2 - lat1).to_radians();
     let dlon = (lon2 - lon1).to_radians();
@@ -10,14 +11,17 @@ pub(super) fn haversine_meters(lon1: f64, lat1: f64, lon2: f64, lat2: f64) -> f6
 }
 
 pub(super) fn meters_per_lat(delta_deg: f64) -> f64 {
+    let _trace = profiler::scope("crates::engine::src::geo::math::meters_per_lat");
     delta_deg * 111_132.0
 }
 
 pub(super) fn meters_per_lon(delta_deg: f64, lat_deg: f64) -> f64 {
+    let _trace = profiler::scope("crates::engine::src::geo::math::meters_per_lon");
     delta_deg * 111_320.0 * lat_deg.to_radians().cos().abs().max(0.000001)
 }
 
 pub(super) fn geohash11(lon: f64, lat: f64) -> String {
+    let _trace = profiler::scope("crates::engine::src::geo::math::geohash11");
     const BASE32: &[u8; 32] = b"0123456789bcdefghjkmnpqrstuvwxyz";
     let mut lon_min = -180.0;
     let mut lon_max = 180.0;

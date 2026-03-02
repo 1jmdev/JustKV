@@ -6,6 +6,7 @@ use super::{get_geo_mut, new_geo};
 
 impl Store {
     pub fn geoadd(&self, key: &[u8], items: &[(f64, f64, CompactArg)]) -> Result<i64, ()> {
+        let _trace = profiler::scope("crates::engine::src::geo::write::geoadd");
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
         let now_ms = monotonic_now_ms();

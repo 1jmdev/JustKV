@@ -11,6 +11,7 @@ path = "src/main.rs"
 commands.workspace = true
 engine.workspace = true
 protocol.workspace = true
+profiler.workspace = true
 ahash.workspace = true
 bytes.workspace = true
 parking_lot.workspace = true

@@ -3,6 +3,7 @@ use engine::store::Store;
 use protocol::types::{BulkData, RespFrame};
 
 pub(crate) fn zadd(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::zset::core::zadd");
     if args.len() < 4 || args.len() % 2 != 0 {
         return wrong_args("ZADD");
     }
@@ -23,6 +24,7 @@ pub(crate) fn zadd(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn zrem(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::zset::core::zrem");
     if args.len() < 3 {
         return wrong_args("ZREM");
     }
@@ -33,6 +35,7 @@ pub(crate) fn zrem(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn zcard(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::zset::core::zcard");
     if args.len() != 2 {
         return wrong_args("ZCARD");
     }
@@ -43,6 +46,7 @@ pub(crate) fn zcard(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn zcount(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::zset::core::zcount");
     if args.len() != 4 {
         return wrong_args("ZCOUNT");
     }
@@ -61,6 +65,7 @@ pub(crate) fn zcount(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn zscore(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::zset::core::zscore");
     if args.len() != 3 {
         return wrong_args("ZSCORE");
     }
@@ -72,6 +77,7 @@ pub(crate) fn zscore(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn zrank(store: &Store, args: &Args, reverse: bool) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::zset::core::zrank");
     if args.len() != 3 {
         return wrong_args(if reverse { "ZREVRANK" } else { "ZRANK" });
     }
@@ -83,6 +89,7 @@ pub(crate) fn zrank(store: &Store, args: &Args, reverse: bool) -> RespFrame {
 }
 
 pub(crate) fn zincrby(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::zset::core::zincrby");
     if args.len() != 4 {
         return wrong_args("ZINCRBY");
     }
@@ -97,6 +104,7 @@ pub(crate) fn zincrby(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn zmscore(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::zset::core::zmscore");
     if args.len() < 3 {
         return wrong_args("ZMSCORE");
     }
@@ -114,6 +122,7 @@ pub(crate) fn zmscore(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn zremrangebyrank(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::zset::core::zremrangebyrank");
     if args.len() != 4 {
         return wrong_args("ZREMRANGEBYRANK");
     }
@@ -132,6 +141,7 @@ pub(crate) fn zremrangebyrank(store: &Store, args: &Args) -> RespFrame {
 }
 
 fn parse_f64(raw: &[u8]) -> Result<f64, RespFrame> {
+    let _trace = profiler::scope("crates::commands::src::zset::core::parse_f64");
     match std::str::from_utf8(raw) {
         Ok(value) => value
             .parse::<f64>()
@@ -145,6 +155,7 @@ fn parse_f64(raw: &[u8]) -> Result<f64, RespFrame> {
 }
 
 fn parse_i64(raw: &[u8]) -> Result<i64, RespFrame> {
+    let _trace = profiler::scope("crates::commands::src::zset::core::parse_i64");
     match std::str::from_utf8(raw) {
         Ok(value) => value.parse::<i64>().map_err(|_| crate::util::int_error()),
         Err(_) => Err(crate::util::int_error()),

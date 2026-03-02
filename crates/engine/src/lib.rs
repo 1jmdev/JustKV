@@ -140,6 +140,7 @@ pub struct Shard {
 
 impl Shard {
     fn new() -> Self {
+        let _trace = profiler::scope("crates::engine::src::lib::new");
         Self {
             entries: RehashingMap::new(),
             ttl: HashMap::with_hasher(RandomState::new()),
@@ -148,6 +149,7 @@ impl Shard {
     }
 
     pub fn set_ttl(&mut self, key: CompactKey, deadline: u64) {
+        let _trace = profiler::scope("crates::engine::src::lib::set_ttl");
         if let Some(previous_deadline) = self.ttl.insert(key.clone(), deadline) {
             let _ = self.ttl_deadlines.remove(&(previous_deadline, key.clone()));
         }
@@ -155,6 +157,7 @@ impl Shard {
     }
 
     pub fn clear_ttl(&mut self, key: &[u8]) -> Option<u64> {
+        let _trace = profiler::scope("crates::engine::src::lib::clear_ttl");
         let deadline = self.ttl.remove(key)?;
         let _ = self
             .ttl_deadlines
@@ -163,6 +166,7 @@ impl Shard {
     }
 
     pub fn remove_key(&mut self, key: &[u8]) -> Option<Entry> {
+        let _trace = profiler::scope("crates::engine::src::lib::remove_key");
         let _ = self.clear_ttl(key);
         self.entries.remove(key)
     }
@@ -177,6 +181,7 @@ pub struct Store {
 
 impl Store {
     pub fn new(shards: usize) -> Self {
+        let _trace = profiler::scope("crates::engine::src::lib::new");
         let shard_count = shards.max(1).next_power_of_two();
         let mut shard_vec = Vec::with_capacity(shard_count);
 
@@ -192,6 +197,7 @@ impl Store {
     }
 
     pub fn sweep_expired(&self) -> usize {
+        let _trace = profiler::scope("crates::engine::src::lib::sweep_expired");
         let now_ms = helpers::monotonic_now_ms();
         let mut removed = 0;
         for shard in self.shards.iter() {
@@ -217,10 +223,12 @@ impl Store {
     }
 
     pub fn refresh_cached_time(&self) {
+        let _trace = profiler::scope("crates::engine::src::lib::refresh_cached_time");
         helpers::refresh_monotonic_now_ms();
     }
 
     pub(crate) fn shard_index(&self, key: &[u8]) -> usize {
+        let _trace = profiler::scope("crates::engine::src::lib::shard_index");
         let hash = self.hash_builder.hash_one(key);
         (hash as usize) & self.shard_mask
     }

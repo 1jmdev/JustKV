@@ -12,6 +12,7 @@ impl Store {
         from: ListSide,
         to: ListSide,
     ) -> Result<Option<CompactValue>, ()> {
+        let _trace = profiler::scope("crates::engine::src::list::moves::lmove");
         let source_idx = self.shard_index(source);
         let destination_idx = self.shard_index(destination);
         let now_ms = monotonic_now_ms();
@@ -46,6 +47,7 @@ impl Store {
     }
 
     pub fn rpoplpush(&self, source: &[u8], destination: &[u8]) -> Result<Option<CompactValue>, ()> {
+        let _trace = profiler::scope("crates::engine::src::list::moves::rpoplpush");
         self.lmove(source, destination, ListSide::Right, ListSide::Left)
     }
 }
@@ -57,6 +59,7 @@ fn move_inside_shard(
     from: ListSide,
     to: ListSide,
 ) -> Result<Option<CompactValue>, ()> {
+    let _trace = profiler::scope("crates::engine::src::list::moves::move_inside_shard");
     let Some(entry) = shard.entries.get_mut(source) else {
         return Ok(None);
     };
@@ -98,6 +101,7 @@ fn move_across_shards(
     from: ListSide,
     to: ListSide,
 ) -> Result<Option<CompactValue>, ()> {
+    let _trace = profiler::scope("crates::engine::src::list::moves::move_across_shards");
     let Some(entry) = source_shard.entries.get_mut(source) else {
         return Ok(None);
     };
@@ -128,6 +132,7 @@ fn pop_side(
     list: &mut std::collections::VecDeque<CompactValue>,
     side: ListSide,
 ) -> Option<CompactValue> {
+    let _trace = profiler::scope("crates::engine::src::list::moves::pop_side");
     match side {
         ListSide::Left => list.pop_front(),
         ListSide::Right => list.pop_back(),
@@ -139,6 +144,7 @@ fn push_side(
     value: CompactValue,
     side: ListSide,
 ) {
+    let _trace = profiler::scope("crates::engine::src::list::moves::push_side");
     match side {
         ListSide::Left => list.push_front(value),
         ListSide::Right => list.push_back(value),

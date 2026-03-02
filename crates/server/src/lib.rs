@@ -1,7 +1,6 @@
 pub mod config;
 pub mod connection;
 pub mod listener;
-pub mod profiling;
 pub mod pubsub;
 pub mod transaction;
 

@@ -13,6 +13,7 @@ pub enum ParseError {
 }
 
 pub fn parse_frame(src: &mut BytesMut) -> Result<Option<RespFrame>, ParseError> {
+    let _trace = profiler::scope("crates::protocol::src::parser::parse_frame");
     if src.is_empty() {
         return Ok(None);
     }
@@ -28,6 +29,7 @@ pub fn parse_frame(src: &mut BytesMut) -> Result<Option<RespFrame>, ParseError> 
 }
 
 fn parse_value(src: &[u8], offset: usize) -> Result<(RespFrame, usize), ParseError> {
+    let _trace = profiler::scope("crates::protocol::src::parser::parse_value");
     if offset >= src.len() {
         return Err(ParseError::Incomplete);
     }
@@ -43,6 +45,7 @@ fn parse_value(src: &[u8], offset: usize) -> Result<(RespFrame, usize), ParseErr
 }
 
 fn parse_inline(src: &[u8], offset: usize) -> Result<(RespFrame, usize), ParseError> {
+    let _trace = profiler::scope("crates::protocol::src::parser::parse_inline");
     let (line, consumed) = parse_line_bytes(src, offset)?;
     let parts: Vec<RespFrame> = line
         .split(|byte| byte.is_ascii_whitespace())
@@ -58,6 +61,7 @@ fn parse_inline(src: &[u8], offset: usize) -> Result<(RespFrame, usize), ParseEr
 }
 
 fn parse_simple(src: &[u8], offset: usize) -> Result<(RespFrame, usize), ParseError> {
+    let _trace = profiler::scope("crates::protocol::src::parser::parse_simple");
     let (line, consumed) = parse_line_bytes(src, offset + 1)?;
     let text = std::str::from_utf8(line)
         .map_err(|_| ParseError::Protocol("invalid utf8 line".to_string()))?
@@ -66,6 +70,7 @@ fn parse_simple(src: &[u8], offset: usize) -> Result<(RespFrame, usize), ParseEr
 }
 
 fn parse_error(src: &[u8], offset: usize) -> Result<(RespFrame, usize), ParseError> {
+    let _trace = profiler::scope("crates::protocol::src::parser::parse_error");
     let (line, consumed) = parse_line_bytes(src, offset + 1)?;
     let text = std::str::from_utf8(line)
         .map_err(|_| ParseError::Protocol("invalid utf8 line".to_string()))?
@@ -74,12 +79,14 @@ fn parse_error(src: &[u8], offset: usize) -> Result<(RespFrame, usize), ParseErr
 }
 
 fn parse_integer(src: &[u8], offset: usize) -> Result<(RespFrame, usize), ParseError> {
+    let _trace = profiler::scope("crates::protocol::src::parser::parse_integer");
     let (line, consumed) = parse_line_bytes(src, offset + 1)?;
     let value = parse_decimal(line).ok_or(ParseError::Protocol("invalid integer".to_string()))?;
     Ok((RespFrame::Integer(value), consumed))
 }
 
 fn parse_bulk(src: &[u8], offset: usize) -> Result<(RespFrame, usize), ParseError> {
+    let _trace = profiler::scope("crates::protocol::src::parser::parse_bulk");
     let (line, mut cursor) = parse_line_bytes(src, offset + 1)?;
     let length =
         parse_decimal(line).ok_or(ParseError::Protocol("invalid bulk length".to_string()))?;
@@ -106,6 +113,7 @@ fn parse_bulk(src: &[u8], offset: usize) -> Result<(RespFrame, usize), ParseErro
 }
 
 fn parse_array(src: &[u8], offset: usize) -> Result<(RespFrame, usize), ParseError> {
+    let _trace = profiler::scope("crates::protocol::src::parser::parse_array");
     let (line, mut cursor) = parse_line_bytes(src, offset + 1)?;
     let length =
         parse_decimal(line).ok_or(ParseError::Protocol("invalid array length".to_string()))?;
@@ -125,11 +133,13 @@ fn parse_array(src: &[u8], offset: usize) -> Result<(RespFrame, usize), ParseErr
 }
 
 fn parse_line_bytes(src: &[u8], from: usize) -> Result<(&[u8], usize), ParseError> {
+    let _trace = profiler::scope("crates::protocol::src::parser::parse_line_bytes");
     let end = find_crlf(src, from).ok_or(ParseError::Incomplete)?;
     Ok((&src[from..end], end + 2))
 }
 
 fn find_crlf(src: &[u8], from: usize) -> Option<usize> {
+    let _trace = profiler::scope("crates::protocol::src::parser::find_crlf");
     let mut index = from;
     while index + 1 < src.len() {
         if src[index] == b'\r' && src[index + 1] == b'\n' {
@@ -141,6 +151,7 @@ fn find_crlf(src: &[u8], from: usize) -> Option<usize> {
 }
 
 fn parse_decimal(raw: &[u8]) -> Option<i64> {
+    let _trace = profiler::scope("crates::protocol::src::parser::parse_decimal");
     if raw.is_empty() {
         return None;
     }

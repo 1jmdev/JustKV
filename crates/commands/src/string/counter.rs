@@ -3,6 +3,7 @@ use engine::store::Store;
 use protocol::types::RespFrame;
 
 pub(crate) fn incr(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::string::counter::incr");
     if args.len() != 2 {
         return wrong_args("INCR");
     }
@@ -16,6 +17,7 @@ pub(crate) fn incr(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn incrby(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::string::counter::incrby");
     if args.len() != 3 {
         return wrong_args("INCRBY");
     }
@@ -34,6 +36,7 @@ pub(crate) fn incrby(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn decr(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::string::counter::decr");
     if args.len() != 2 {
         return wrong_args("DECR");
     }
@@ -47,6 +50,7 @@ pub(crate) fn decr(store: &Store, args: &Args) -> RespFrame {
 }
 
 pub(crate) fn decrby(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("crates::commands::src::string::counter::decrby");
     if args.len() != 3 {
         return wrong_args("DECRBY");
     }
@@ -65,6 +69,7 @@ pub(crate) fn decrby(store: &Store, args: &Args) -> RespFrame {
 }
 
 fn parse_i64(raw: &[u8]) -> Result<i64, RespFrame> {
+    let _trace = profiler::scope("crates::commands::src::string::counter::parse_i64");
     match std::str::from_utf8(raw) {
         Ok(value) => value.parse::<i64>().map_err(|_| int_error()),
         Err(_) => Err(int_error()),

@@ -17,6 +17,7 @@ impl Store {
         count: Option<usize>,
         noack: bool,
     ) -> Result<Vec<(CompactArg, Vec<StreamRangeItem>)>, ()> {
+        let _trace = profiler::scope("crates::engine::src::stream::claim::xreadgroup");
         let mut out = Vec::new();
         for (key, start_id) in streams {
             let idx = self.shard_index(key.as_slice());
@@ -78,6 +79,7 @@ impl Store {
     }
 
     pub fn xack(&self, key: &[u8], group: &[u8], ids: &[StreamId]) -> Result<i64, ()> {
+        let _trace = profiler::scope("crates::engine::src::stream::claim::xack");
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
         let now_ms = monotonic_now_ms();
@@ -107,6 +109,7 @@ impl Store {
         key: &[u8],
         group: &[u8],
     ) -> Result<Option<XPendingSummary>, ()> {
+        let _trace = profiler::scope("crates::engine::src::stream::claim::xpending_summary");
         let idx = self.shard_index(key);
         let shard = self.shards[idx].read();
         let now_ms = monotonic_now_ms();
@@ -145,6 +148,7 @@ impl Store {
         consumer: &[u8],
         ids: &[StreamId],
     ) -> Result<Vec<StreamRangeItem>, ()> {
+        let _trace = profiler::scope("crates::engine::src::stream::claim::xclaim");
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
         let now_ms = monotonic_now_ms();
@@ -184,6 +188,7 @@ impl Store {
         start: StreamId,
         count: usize,
     ) -> Result<(StreamId, Vec<StreamRangeItem>), ()> {
+        let _trace = profiler::scope("crates::engine::src::stream::claim::xautoclaim");
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
         let now_ms = monotonic_now_ms();

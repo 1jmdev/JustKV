@@ -24,6 +24,7 @@ pub(super) fn xadd_into_stream(
     fields: &[(CompactArg, CompactArg)],
     trim: Option<(XTrimMode, StreamId, Option<usize>)>,
 ) -> Result<Option<StreamId>, ()> {
+    let _trace = profiler::scope("crates::engine::src::stream::types::xadd_into_stream");
     let assigned = match id {
         XAddId::Auto => {
             let now = current_unix_ms();
@@ -81,6 +82,7 @@ pub(super) fn apply_trim(
     threshold: StreamId,
     limit: Option<usize>,
 ) {
+    let _trace = profiler::scope("crates::engine::src::stream::types::apply_trim");
     let ids: Vec<StreamId> = match mode {
         XTrimMode::MaxLen => {
             let max_len = threshold.ms as usize;
@@ -116,6 +118,7 @@ pub(super) fn apply_trim(
 }
 
 fn current_unix_ms() -> u64 {
+    let _trace = profiler::scope("crates::engine::src::stream::types::current_unix_ms");
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|value| value.as_millis() as u64)
@@ -129,6 +132,7 @@ pub(super) fn push_items(
     reverse: bool,
     count: Option<usize>,
 ) -> Vec<StreamRangeItem> {
+    let _trace = profiler::scope("crates::engine::src::stream::types::push_items");
     let iter = stream.entries.range(start..=end);
     let limit = count.unwrap_or(usize::MAX);
     if reverse {
@@ -154,6 +158,7 @@ pub(super) fn ensure_pending_entry(
     id: StreamId,
     consumer: &[u8],
 ) {
+    let _trace = profiler::scope("crates::engine::src::stream::types::ensure_pending_entry");
     let value = pending.entry(id).or_insert(StreamPendingEntry {
         consumer: CompactKey::from_slice(consumer),
         deliveries: 0,
