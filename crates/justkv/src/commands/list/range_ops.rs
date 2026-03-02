@@ -28,8 +28,8 @@ pub(crate) fn lrange(store: &Store, args: &Args) -> RespFrame {
         Ok(value) => value,
         Err(response) => return response,
     };
-    match store.lrange(&args[1], start, stop) {
-        Ok(values) => RespFrame::BulkValues(values),
+    match store.lrange_encode(&args[1], start, stop) {
+        Ok(bytes) => RespFrame::PreEncoded(bytes),
         Err(_) => wrong_type(),
     }
 }

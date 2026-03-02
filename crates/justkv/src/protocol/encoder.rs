@@ -51,6 +51,9 @@ pub fn encode(frame: &RespFrame, out: &mut BytesMut) {
                 out.extend_from_slice(b"\r\n");
             }
         }
+        RespFrame::PreEncoded(bytes) => {
+            out.extend_from_slice(bytes);
+        }
         RespFrame::Array(None) => out.extend_from_slice(b"*-1\r\n"),
         RespFrame::Array(Some(items)) => {
             out.extend_from_slice(b"*");

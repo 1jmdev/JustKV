@@ -1,3 +1,5 @@
+use bytes::Bytes;
+
 use crate::engine::value::{CompactArg, CompactValue};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -35,6 +37,8 @@ pub enum RespFrame {
     Integer(i64),
     Bulk(Option<BulkData>),
     BulkValues(Vec<CompactValue>),
+    /// Pre-encoded RESP bytes, written directly to the output buffer.
+    PreEncoded(Bytes),
     Array(Option<Vec<RespFrame>>),
     Map(Vec<(RespFrame, RespFrame)>),
 }

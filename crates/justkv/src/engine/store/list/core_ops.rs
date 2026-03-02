@@ -1,3 +1,6 @@
+use bytes::{BufMut, BytesMut};
+use itoa;
+
 use crate::engine::store::{ListInsertPosition, ListSetError, ListSide, Store};
 use crate::engine::value::{CompactArg, CompactKey, CompactValue, Entry};
 
@@ -70,12 +73,85 @@ impl Store {
             return Ok(Vec::new());
         };
 
-        Ok(list
-            .iter()
-            .skip(from)
-            .take(to_exclusive - from)
-            .cloned()
-            .collect())
+        let count = to_exclusive - from;
+        let mut out = Vec::with_capacity(count);
+        let (a, b) = list.as_slices();
+
+        // VecDeque exposes two contiguous slices. Collect from them directly
+        // using index arithmetic so we never skip element-by-element.
+        if from < a.len() {
+            let end_in_a = to_exclusive.min(a.len());
+            out.extend_from_slice(&a[from..end_in_a]);
+            if to_exclusive > a.len() {
+                let b_end = to_exclusive - a.len();
+                out.extend_from_slice(&b[..b_end]);
+            }
+        } else {
+            let b_from = from - a.len();
+            let b_end = to_exclusive - a.len();
+            out.extend_from_slice(&b[b_from..b_end]);
+        }
+
+        Ok(out)
+    }
+
+    /// Encode the LRANGE response directly into a `BytesMut` while holding the
+    /// shard read lock, avoiding a heap-allocated `Vec<CompactValue>` clone.
+    pub fn lrange_encode(&self, key: &[u8], start: i64, stop: i64) -> Result<bytes::Bytes, ()> {
+        let idx = self.shard_index(key);
+        let shard = self.shards[idx].read();
+        let now_ms = monotonic_now_ms();
+
+        if is_expired(&shard, key, now_ms) {
+            // Empty array: *0\r\n
+            return Ok(bytes::Bytes::from_static(b"*0\r\n"));
+        }
+
+        let Some(entry) = shard.entries.get(key) else {
+            return Ok(bytes::Bytes::from_static(b"*0\r\n"));
+        };
+        let list = get_list(entry).ok_or(())?;
+        let Some((from, to_exclusive)) = normalize_range(start, stop, list.len()) else {
+            return Ok(bytes::Bytes::from_static(b"*0\r\n"));
+        };
+
+        let count = to_exclusive - from;
+        // Pre-allocate: header + count * (avg element overhead).
+        // Each element costs "$N\r\n<data>\r\n" – estimate 8 bytes overhead.
+        let mut buf = BytesMut::with_capacity(16 + count * 10);
+
+        // Write array header.
+        buf.put_u8(b'*');
+        write_usize(&mut buf, count);
+        buf.put_slice(b"\r\n");
+
+        let (a, b) = list.as_slices();
+
+        let encode_slice = |buf: &mut BytesMut, slice: &[CompactValue]| {
+            for value in slice {
+                let bytes = value.as_slice();
+                buf.put_u8(b'$');
+                write_usize(buf, bytes.len());
+                buf.put_slice(b"\r\n");
+                buf.put_slice(bytes);
+                buf.put_slice(b"\r\n");
+            }
+        };
+
+        if from < a.len() {
+            let end_in_a = to_exclusive.min(a.len());
+            encode_slice(&mut buf, &a[from..end_in_a]);
+            if to_exclusive > a.len() {
+                let b_end = to_exclusive - a.len();
+                encode_slice(&mut buf, &b[..b_end]);
+            }
+        } else {
+            let b_from = from - a.len();
+            let b_end = to_exclusive - a.len();
+            encode_slice(&mut buf, &b[b_from..b_end]);
+        }
+
+        Ok(buf.freeze())
     }
 
     pub fn lset(&self, key: &[u8], index: i64, value: &[u8]) -> Result<(), ListSetError> {
@@ -293,6 +369,11 @@ impl Store {
 
         Ok(Some(out))
     }
+}
+
+fn write_usize(buf: &mut BytesMut, value: usize) {
+    let mut tmp = itoa::Buffer::new();
+    buf.put_slice(tmp.format(value).as_bytes());
 }
 
 fn normalize_index(index: i64, len: usize) -> Option<usize> {

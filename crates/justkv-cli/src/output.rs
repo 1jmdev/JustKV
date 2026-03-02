@@ -29,6 +29,8 @@ fn render_raw(frame: &RespFrame) -> String {
             .map(|(key, value)| format!("{}\n{}", render_raw(key), render_raw(value)))
             .collect::<Vec<String>>()
             .join("\n"),
+        // PreEncoded is a server-side write optimization; the CLI never produces it.
+        RespFrame::PreEncoded(_) => unreachable!("PreEncoded is a server-only variant"),
     }
 }
 
@@ -78,5 +80,7 @@ fn render_human(frame: &RespFrame) -> String {
             }
             out.trim_end().to_string()
         }
+        // PreEncoded is a server-side write optimization; the CLI never produces it.
+        RespFrame::PreEncoded(_) => unreachable!("PreEncoded is a server-only variant"),
     }
 }

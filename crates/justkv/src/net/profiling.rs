@@ -63,8 +63,8 @@ pub struct LatencyProfiler {
     command_count: AtomicU64,
     request_count: AtomicU64,
     long_request_count: AtomicU64,
-    command_stats: Mutex<HashMap<Vec<u8>, CommandStats>>,
-    request_stats: Mutex<HashMap<Vec<u8>, RequestStats>>,
+    command_stats: Mutex<HashMap<CommandKey, CommandStats>>,
+    request_stats: Mutex<HashMap<CommandKey, RequestStats>>,
     slow_requests: Mutex<Vec<SlowRequestSample>>,
 }
 
@@ -126,7 +126,7 @@ impl LatencyProfiler {
         let elapsed_ns = duration_to_nanos(elapsed);
         self.command_count.fetch_add(1, Ordering::Relaxed);
 
-        let key = normalized_command(command);
+        let key = CommandKey::from_slice(command);
 
         let mut guard = self.command_stats.lock();
         let stats = guard.entry(key).or_default();
@@ -158,7 +158,7 @@ impl LatencyProfiler {
             self.long_request_count.fetch_add(1, Ordering::Relaxed);
         }
 
-        let command_key = normalized_command(command);
+        let command_key = CommandKey::from_slice(command);
         let bottleneck = dominant_stage(parse_ns, execute_ns, encode_ns);
 
         {
@@ -256,7 +256,7 @@ impl LatencyProfiler {
             } else {
                 (stats.slow_count as f64) * 100.0 / (stats.count as f64)
             };
-            let command_name = String::from_utf8_lossy(&command);
+            let command_name = String::from_utf8_lossy(command.as_slice());
             eprintln!(
                 "[latency-profiler] cmd={} count={} total={:.3}ms avg={:.3}us max={:.3}us slow={} ({:.1}%)",
                 command_name,
@@ -282,7 +282,7 @@ impl LatencyProfiler {
             } else {
                 (hot_count as f64) * 100.0 / (stats.slow_count as f64)
             };
-            let command_name = String::from_utf8_lossy(&command);
+            let command_name = String::from_utf8_lossy(command.as_slice());
             eprintln!(
                 "[latency-profiler] req_cmd={} count={} total={:.3}ms avg={:.3}us max={:.3}us slow={} parse={:.3}ms execute={:.3}ms encode={:.3}ms hot={} hot_pct={:.1}",
                 command_name,
@@ -300,7 +300,7 @@ impl LatencyProfiler {
         }
 
         for sample in slow_requests {
-            let command_name = String::from_utf8_lossy(&sample.command);
+            let command_name = String::from_utf8_lossy(sample.command.as_slice());
             eprintln!(
                 "[latency-profiler] slow_req cmd={} total={:.3}us parse={:.3}us execute={:.3}us encode={:.3}us bottleneck={}",
                 command_name,
@@ -358,7 +358,7 @@ impl RequestStats {
 }
 
 struct SlowRequestSample {
-    command: Vec<u8>,
+    command: CommandKey,
     parse_ns: u64,
     execute_ns: u64,
     encode_ns: u64,
@@ -393,10 +393,31 @@ fn dominant_stage(parse_ns: u64, execute_ns: u64, encode_ns: u64) -> Stage {
     }
 }
 
-fn normalized_command(command: &[u8]) -> Vec<u8> {
-    let mut out = command.to_vec();
-    out.make_ascii_uppercase();
-    out
+/// Redis command names are always short ASCII.  Using a fixed-size inline
+/// buffer avoids a heap allocation on every profiled request.
+const MAX_CMD_LEN: usize = 32;
+
+#[derive(Clone, PartialEq, Eq, Hash)]
+struct CommandKey {
+    len: u8,
+    data: [u8; MAX_CMD_LEN],
+}
+
+impl CommandKey {
+    fn from_slice(command: &[u8]) -> Self {
+        let len = command.len().min(MAX_CMD_LEN);
+        let mut data = [0u8; MAX_CMD_LEN];
+        data[..len].copy_from_slice(&command[..len]);
+        data[..len].make_ascii_uppercase();
+        Self {
+            len: len as u8,
+            data,
+        }
+    }
+
+    fn as_slice(&self) -> &[u8] {
+        &self.data[..self.len as usize]
+    }
 }
 
 fn duration_to_nanos(duration: Duration) -> u64 {

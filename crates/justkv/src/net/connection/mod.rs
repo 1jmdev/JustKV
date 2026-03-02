@@ -85,9 +85,9 @@ pub async fn handle_connection(
                     let encode_elapsed = encode_started.elapsed();
                     if let Some(profiler) = profiler.as_ref() {
                         profiler.record_encode(encode_elapsed);
-                        if let Some(command_name) = command_name.as_deref() {
+                        if let Some(ref command_name) = command_name {
                             profiler.record_request(
-                                command_name,
+                                command_name.as_bytes(),
                                 parsed.parse_elapsed,
                                 execute_elapsed,
                                 encode_elapsed,
@@ -134,19 +134,41 @@ fn parse_next_frame(src: &mut BytesMut) -> Result<Option<ParsedFrame>, ParseErro
     }
 }
 
-fn command_name_from_frame(frame: &RespFrame) -> Option<Vec<u8>> {
+/// Extract and uppercase-normalize the command name from a parsed RESP frame.
+/// Returns a stack-allocated array to avoid a heap allocation on every request.
+fn command_name_from_frame(frame: &RespFrame) -> Option<CommandName> {
     let RespFrame::Array(Some(items)) = frame else {
         return None;
     };
     let command = items.first()?;
 
-    let mut out = match command {
-        RespFrame::Bulk(Some(BulkData::Arg(arg))) => arg.as_slice().to_vec(),
-        RespFrame::Bulk(Some(BulkData::Value(value))) => value.as_slice().to_vec(),
-        RespFrame::Simple(value) => value.as_bytes().to_vec(),
-        RespFrame::SimpleStatic(value) => value.as_bytes().to_vec(),
+    let src = match command {
+        RespFrame::Bulk(Some(BulkData::Arg(arg))) => arg.as_slice(),
+        RespFrame::Bulk(Some(BulkData::Value(value))) => value.as_slice(),
+        RespFrame::Simple(value) => value.as_bytes(),
+        RespFrame::SimpleStatic(value) => value.as_bytes(),
         _ => return None,
     };
-    out.make_ascii_uppercase();
-    Some(out)
+    Some(CommandName::from_slice(src))
+}
+
+const CMD_NAME_MAX: usize = 32;
+
+struct CommandName {
+    len: u8,
+    data: [u8; CMD_NAME_MAX],
+}
+
+impl CommandName {
+    fn from_slice(src: &[u8]) -> Self {
+        let len = src.len().min(CMD_NAME_MAX);
+        let mut data = [0u8; CMD_NAME_MAX];
+        data[..len].copy_from_slice(&src[..len]);
+        data[..len].make_ascii_uppercase();
+        Self { len: len as u8, data }
+    }
+
+    fn as_bytes(&self) -> &[u8] {
+        &self.data[..self.len as usize]
+    }
 }
