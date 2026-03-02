@@ -1,0 +1,15 @@
+[package]
+name = "prof-cli"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "prof-cli"
+path = "src/main.rs"
+
+[dependencies]
+profiler.workspace = true
+protocol.workspace = true
+bytes.workspace = true
+clap.workspace = true
+tokio.workspace = true

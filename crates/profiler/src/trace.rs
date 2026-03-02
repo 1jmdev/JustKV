@@ -11,6 +11,52 @@ pub(crate) struct ActiveTrace {
     pub(crate) key: Option<Vec<u8>>,
 }
 
+/// A completed, captured trace that can be inspected or rendered.
+#[derive(Clone)]
+pub struct TraceResult {
+    pub nodes: Vec<CapturedNode>,
+    pub command: String,
+    pub key: Option<String>,
+    pub total_ns: u64,
+    pub self_ns: u64,
+}
+
+/// A node captured from an active trace.
+#[derive(Clone)]
+pub struct CapturedNode {
+    pub name: &'static str,
+    pub total_ns: u64,
+    pub self_ns: u64,
+    pub children: Vec<usize>,
+}
+
+impl TraceResult {
+    pub(crate) fn from_active(trace: &ActiveTrace) -> Self {
+        let root = &trace.nodes[0];
+        let nodes = trace
+            .nodes
+            .iter()
+            .map(|n| CapturedNode {
+                name: n.name,
+                total_ns: n.total_ns,
+                self_ns: n.self_ns,
+                children: n.children.clone(),
+            })
+            .collect();
+
+        Self {
+            nodes,
+            command: String::from_utf8_lossy(&trace.command).into_owned(),
+            key: trace
+                .key
+                .as_ref()
+                .map(|k| String::from_utf8_lossy(k).into_owned()),
+            total_ns: root.total_ns,
+            self_ns: root.self_ns,
+        }
+    }
+}
+
 impl ActiveTrace {
     pub(crate) fn new(command: Vec<u8>, pretty: bool) -> Self {
         let mut nodes = Vec::with_capacity(32);

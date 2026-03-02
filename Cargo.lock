@@ -490,6 +490,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "prof-cli"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "clap",
+ "profiler",
+ "protocol",
+ "tokio",
+]
+
+[[package]]
 name = "profiler"
 version = "0.1.0"
 
