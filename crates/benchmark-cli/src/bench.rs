@@ -121,7 +121,10 @@ async fn run_worker(client_id: u64, quota: u64, cfg: Arc<Shared>) -> Result<Work
     }
 
     let value = vec![b'x'; cfg.data_size];
-    let key_fixed = format!("justkv:bench:{client_id}");
+    let key_fixed = format!(
+        "justkv:bench:{}:{client_id}",
+        cfg.spec.name.to_ascii_lowercase()
+    );
 
     if let Some(setup) = build_setup_command(cfg.spec.kind, key_fixed.as_bytes(), &value) {
         stream
