@@ -12,6 +12,7 @@ profiler.workspace = true
 ahash.workspace = true
 bytes.workspace = true
 hashbrown.workspace = true
+indexmap.workspace = true
 itoa.workspace = true
 parking_lot.workspace = true
 thiserror.workspace = true

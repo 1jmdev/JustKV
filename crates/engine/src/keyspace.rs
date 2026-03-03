@@ -1,8 +1,8 @@
 use std::collections::VecDeque;
 
-use super::Store;
 use super::helpers::{is_expired, monotonic_now_ms, purge_if_expired};
 use super::pattern::wildcard_match;
+use super::Store;
 use crate::value::{CompactKey, CompactValue, Entry};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -556,8 +556,8 @@ fn deserialize_entry(payload: &[u8]) -> Option<Entry> {
         }
         3 => {
             let count = read_u32(&mut input)? as usize;
-            let mut set: hashbrown::HashSet<CompactKey, ahash::RandomState> =
-                hashbrown::HashSet::with_capacity_and_hasher(count, ahash::RandomState::new());
+            let mut set: indexmap::IndexSet<CompactKey, ahash::RandomState> =
+                indexmap::IndexSet::with_capacity_and_hasher(count, ahash::RandomState::new());
             for _ in 0..count {
                 set.insert(CompactKey::from_vec(read_bytes(&mut input)?));
             }

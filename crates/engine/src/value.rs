@@ -7,7 +7,8 @@ use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 
 use ahash::RandomState;
-use hashbrown::{HashMap, HashSet};
+use hashbrown::HashMap;
+use indexmap::IndexSet;
 
 const INLINE_BYTES_CAPACITY: usize = 22;
 const INLINE_VALUE_CAPACITY: usize = 22;
@@ -161,7 +162,7 @@ pub type CompactArg = CompactBytes<INLINE_BYTES_CAPACITY>;
 
 pub type HashValueMap = HashMap<CompactKey, CompactValue, RandomState>;
 pub type ListValue = VecDeque<CompactValue>;
-pub type SetValue = HashSet<CompactKey, RandomState>;
+pub type SetValue = IndexSet<CompactKey, RandomState>;
 pub type GeoValue = HashMap<CompactKey, (f64, f64), RandomState>;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

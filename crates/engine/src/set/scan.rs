@@ -34,9 +34,8 @@ impl Store {
         let mut index = usize::try_from(cursor).unwrap_or(usize::MAX).min(total_len);
         let target = count.max(1);
         let mut out = Vec::with_capacity(target);
-        let mut iter = set.iter().skip(index);
         while out.len() < target {
-            let Some(member) = iter.next() else {
+            let Some(member) = set.get_index(index) else {
                 break;
             };
             if pattern.is_none_or(|matcher| wildcard_match(matcher, member.as_slice())) {

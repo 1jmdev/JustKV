@@ -39,6 +39,7 @@ ahash = "0.8.12"
 bytes = "1.11.1"
 clap = { version = "4.5.60", features = ["derive"] }
 hashbrown = "0.16.1"
+indexmap = "2.13"
 itoa = "1.0.17"
 parking_lot = "0.12.5"
 proptest = "1.10.0"

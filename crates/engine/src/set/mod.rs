@@ -4,7 +4,6 @@ mod random;
 mod scan;
 
 use ahash::RandomState;
-use hashbrown::HashSet;
 
 use crate::value::{CompactKey, Entry, SetValue};
 
@@ -20,7 +19,7 @@ fn get_set_mut(entry: &mut Entry) -> Option<&mut SetValue> {
 
 fn new_set() -> SetValue {
     let _trace = profiler::scope("engine::set::new_set");
-    HashSet::with_hasher(RandomState::new())
+    SetValue::with_hasher(RandomState::new())
 }
 
 fn collect_members(set: &SetValue) -> Vec<CompactKey> {

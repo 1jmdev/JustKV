@@ -44,7 +44,7 @@ impl Store {
 
         let mut removed = 0;
         for member in members {
-            if set.remove(member.as_slice()) {
+            if set.swap_remove(member.as_slice()) {
                 removed += 1;
             }
         }
@@ -150,7 +150,7 @@ fn smove_inside_shard(
         return Ok(0);
     };
     let source_set = get_set_mut(source_entry).ok_or(())?;
-    if !source_set.remove(member) {
+    if !source_set.swap_remove(member) {
         return Ok(0);
     }
 
@@ -180,7 +180,7 @@ fn smove_across_shards(
         return Ok(0);
     };
     let source_set = get_set_mut(source_entry).ok_or(())?;
-    if !source_set.remove(member) {
+    if !source_set.swap_remove(member) {
         return Ok(0);
     }
 
