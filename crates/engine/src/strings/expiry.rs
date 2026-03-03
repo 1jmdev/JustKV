@@ -52,8 +52,7 @@ impl Store {
 }
 
 fn apply_getex_absolute_deadline(shard: &mut super::super::Shard, key: &[u8], timestamp_ms: u64) {
-    let _trace =
-        profiler::scope("engine::strings::expiry::apply_getex_absolute_deadline");
+    let _trace = profiler::scope("engine::strings::expiry::apply_getex_absolute_deadline");
     let now_unix_ms = unix_time_ms();
     if timestamp_ms <= now_unix_ms {
         let _ = shard.remove_key(key);

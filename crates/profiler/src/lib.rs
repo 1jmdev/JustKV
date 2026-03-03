@@ -39,7 +39,6 @@ pub fn begin_request(command_hint: &[u8]) -> Option<RequestGuard> {
     Some(RequestGuard { active: true })
 }
 
-
 #[cfg(feature = "enabled")]
 pub fn bind_request_key(key: &[u8]) {
     ACTIVE_TRACE.with(|slot| {

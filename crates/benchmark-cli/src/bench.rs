@@ -212,7 +212,9 @@ fn build_setup_command(kind: BenchKind, key: &[u8], value: &[u8]) -> Option<Vec<
         BenchKind::Srem | BenchKind::Scard | BenchKind::Sismember => {
             Some(encode_resp_parts(&[b"SADD", key, value]))
         }
-        BenchKind::Hget | BenchKind::Hgetall => Some(encode_resp_parts(&[b"HSET", key, b"field", value])),
+        BenchKind::Hget | BenchKind::Hgetall => {
+            Some(encode_resp_parts(&[b"HSET", key, b"field", value]))
+        }
         BenchKind::Hincrby => Some(encode_resp_parts(&[b"HSET", key, b"field", b"0"])),
         BenchKind::Zrem
         | BenchKind::Zcard
