@@ -1,5 +1,4 @@
 use bytes::{BufMut, BytesMut};
-use itoa;
 
 use crate::store::{ListInsertPosition, ListSetError, ListSide, Store};
 use crate::value::{CompactArg, CompactKey, CompactValue, Entry};
@@ -127,36 +126,39 @@ impl Store {
         // Pre-allocate: header + count * (avg element overhead).
         // Each element costs "$N\r\n<data>\r\n" – estimate 8 bytes overhead.
         let mut buf = BytesMut::with_capacity(16 + count * 10);
+        let mut header_buf = itoa::Buffer::new();
+        let mut len_buf = itoa::Buffer::new();
 
         // Write array header.
         buf.put_u8(b'*');
-        write_usize(&mut buf, count);
+        buf.put_slice(header_buf.format(count).as_bytes());
         buf.put_slice(b"\r\n");
 
         let (a, b) = list.as_slices();
 
-        let encode_slice = |buf: &mut BytesMut, slice: &[CompactValue]| {
-            for value in slice {
-                let bytes = value.as_slice();
-                buf.put_u8(b'$');
-                write_usize(buf, bytes.len());
-                buf.put_slice(b"\r\n");
-                buf.put_slice(bytes);
-                buf.put_slice(b"\r\n");
-            }
-        };
+        let encode_slice =
+            |buf: &mut BytesMut, slice: &[CompactValue], len_buf: &mut itoa::Buffer| {
+                for value in slice {
+                    let bytes = value.slice();
+                    buf.put_u8(b'$');
+                    buf.put_slice(len_buf.format(bytes.len()).as_bytes());
+                    buf.put_slice(b"\r\n");
+                    buf.put_slice(bytes);
+                    buf.put_slice(b"\r\n");
+                }
+            };
 
         if from < a.len() {
             let end_in_a = to_exclusive.min(a.len());
-            encode_slice(&mut buf, &a[from..end_in_a]);
+            encode_slice(&mut buf, &a[from..end_in_a], &mut len_buf);
             if to_exclusive > a.len() {
                 let b_end = to_exclusive - a.len();
-                encode_slice(&mut buf, &b[..b_end]);
+                encode_slice(&mut buf, &b[..b_end], &mut len_buf);
             }
         } else {
             let b_from = from - a.len();
             let b_end = to_exclusive - a.len();
-            encode_slice(&mut buf, &b[b_from..b_end]);
+            encode_slice(&mut buf, &b[b_from..b_end], &mut len_buf);
         }
 
         Ok(buf.freeze())
@@ -381,12 +383,6 @@ impl Store {
 
         Ok(Some(out))
     }
-}
-
-fn write_usize(buf: &mut BytesMut, value: usize) {
-    let _trace = profiler::scope("engine::list::core::write_usize");
-    let mut tmp = itoa::Buffer::new();
-    buf.put_slice(tmp.format(value).as_bytes());
 }
 
 fn normalize_index(index: i64, len: usize) -> Option<usize> {

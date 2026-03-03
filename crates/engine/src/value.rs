@@ -366,7 +366,7 @@ impl Entry {
 
     pub fn empty_hash() -> Self {
         let _trace = profiler::scope("engine::value::empty_hash");
-        Self::Hash(Box::new(HashMap::with_hasher(RandomState::new())))
+        Self::Hash(Box::new(HashValueMap::with_hasher(RandomState::new())))
     }
 
     pub fn as_string(&self) -> Option<&CompactValue> {
