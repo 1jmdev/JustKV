@@ -3,4 +3,5 @@ name = "profiler"
 version.workspace = true
 edition.workspace = true
 
-[dependencies]
+[features]
+enabled = []

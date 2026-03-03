@@ -365,9 +365,21 @@ fn pick_avg(results: &[RunResult]) -> &RunResult {
         .unwrap()
 }
 
-fn render_summary(results: &[RunResult]) {
-    use profiler::{fmt_time, ns_to_us};
+pub fn fmt_time(us: f64) -> String {
+    if us >= 1_000.0 {
+        format!("{:.2}ms", us / 1_000.0)
+    } else if us >= 1.0 {
+        format!("{:.2}µs", us)
+    } else {
+        format!("{:.0}ns", us * 1_000.0)
+    }
+}
 
+pub fn ns_to_us(ns: u64) -> f64 {
+    ns as f64 / 1_000.0
+}
+
+fn render_summary(results: &[RunResult]) {
     const RESET: &str = "\x1b[0m";
     const BOLD: &str = "\x1b[1m";
     const DIM: &str = "\x1b[2m";

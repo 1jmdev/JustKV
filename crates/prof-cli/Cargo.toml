@@ -13,3 +13,6 @@ protocol.workspace = true
 bytes.workspace = true
 clap.workspace = true
 tokio.workspace = true
+
+[features]
+profiling = ["profiler/enabled"]

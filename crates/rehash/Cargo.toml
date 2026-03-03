@@ -3,6 +3,9 @@ name = "rehash"
 version.workspace = true
 edition.workspace = true
 
+[features]
+profiling = ["profiler/enabled"]
+
 [dependencies]
 ahash.workspace = true
 profiler.workspace = true

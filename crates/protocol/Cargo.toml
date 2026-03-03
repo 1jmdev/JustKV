@@ -3,6 +3,9 @@ name = "protocol"
 version.workspace = true
 edition.workspace = true
 
+[features]
+profiling = ["profiler/enabled"]
+
 [dependencies]
 engine.workspace = true
 profiler.workspace = true

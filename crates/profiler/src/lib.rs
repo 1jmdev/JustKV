@@ -1,18 +1,27 @@
+#[cfg(feature = "enabled")]
 mod config;
+#[cfg(feature = "enabled")]
 mod guard;
+#[cfg(feature = "enabled")]
 mod render;
+#[cfg(feature = "enabled")]
 mod trace;
 
+#[cfg(feature = "enabled")]
 use config::{trace_config, uppercased};
+#[cfg(feature = "enabled")]
 use guard::ACTIVE_TRACE;
+#[cfg(feature = "enabled")]
 use trace::ActiveTrace;
 
+#[cfg(feature = "enabled")]
 pub use guard::{RequestGuard, ScopeGuard};
+#[cfg(feature = "enabled")]
 pub use render::{fmt_time, ns_to_us, render_result_plain, render_result_pretty};
+#[cfg(feature = "enabled")]
 pub use trace::{CapturedNode, TraceResult};
 
-/// Call at the start of handling a request. Returns a guard that, when
-/// dropped, finalises and prints the full call tree.
+#[cfg(feature = "enabled")]
 pub fn begin_request(command_hint: &[u8]) -> Option<RequestGuard> {
     let config = trace_config()?;
 
@@ -30,8 +39,8 @@ pub fn begin_request(command_hint: &[u8]) -> Option<RequestGuard> {
     Some(RequestGuard { active: true })
 }
 
-/// Call once the key is known so the trace header shows the key and optional
-/// key-based filtering can suppress the trace.
+
+#[cfg(feature = "enabled")]
 pub fn bind_request_key(key: &[u8]) {
     ACTIVE_TRACE.with(|slot| {
         let mut guard = slot.borrow_mut();
@@ -50,8 +59,7 @@ pub fn bind_request_key(key: &[u8]) {
     });
 }
 
-/// Wrap a function body to record it as a named node in the call tree.
-/// Typically called as `let _t = profiler::scope("module::function");`.
+#[cfg(feature = "enabled")]
 pub fn scope(name: &'static str) -> ScopeGuard {
     let mut entered = false;
     ACTIVE_TRACE.with(|slot| {
@@ -65,6 +73,7 @@ pub fn scope(name: &'static str) -> ScopeGuard {
     ScopeGuard { active: entered }
 }
 
+#[cfg(feature = "enabled")]
 pub fn run_profiled<F, R>(label: &'static str, f: F) -> (R, TraceResult)
 where
     F: FnOnce() -> R,
@@ -85,4 +94,38 @@ where
     });
 
     (ret, result)
+}
+
+// ── Disabled stubs (default)
+
+#[cfg(not(feature = "enabled"))]
+pub struct RequestGuard;
+
+#[cfg(not(feature = "enabled"))]
+impl Drop for RequestGuard {
+    fn drop(&mut self) {}
+}
+
+#[cfg(not(feature = "enabled"))]
+pub struct ScopeGuard;
+
+#[cfg(not(feature = "enabled"))]
+impl Drop for ScopeGuard {
+    fn drop(&mut self) {}
+}
+
+#[cfg(not(feature = "enabled"))]
+#[inline(always)]
+pub fn begin_request(_command_hint: &[u8]) -> Option<RequestGuard> {
+    None
+}
+
+#[cfg(not(feature = "enabled"))]
+#[inline(always)]
+pub fn bind_request_key(_key: &[u8]) {}
+
+#[cfg(not(feature = "enabled"))]
+#[inline(always)]
+pub fn scope(_name: &'static str) -> ScopeGuard {
+    ScopeGuard
 }

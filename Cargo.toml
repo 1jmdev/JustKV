@@ -16,6 +16,17 @@ resolver = "3"
 version = "0.1.0"
 edition = "2024"
 
+[workspace.features]
+profiling = [
+    "cli/profiling",
+    "commands/profiling",
+    "engine/profiling",
+    "protocol/profiling",
+    "rehash/profiling",
+    "server/profiling",
+    "types/profiling",
+]
+
 [workspace.dependencies]
 rehash   = { path = "crates/rehash" }
 protocol = { path = "crates/protocol" }

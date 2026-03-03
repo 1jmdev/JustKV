@@ -7,6 +7,9 @@ edition.workspace = true
 name = "justkv-server"
 path = "src/main.rs"
 
+[features]
+profiling = ["profiler/enabled"]
+
 [dependencies]
 commands.workspace = true
 engine.workspace = true

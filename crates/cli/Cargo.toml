@@ -7,6 +7,9 @@ edition.workspace = true
 name = "justkv"
 path = "src/main.rs"
 
+[features]
+profiling = ["profiler/enabled"]
+
 [dependencies]
 protocol.workspace = true
 bytes.workspace = true
