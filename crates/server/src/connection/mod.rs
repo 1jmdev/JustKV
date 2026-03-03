@@ -1,6 +1,8 @@
 use bytes::BytesMut;
+use commands::dispatcher::parse_command_into;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
+use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::mpsc::unbounded_channel;
 
 use crate::pubsub::{ConnectionPubSub, PubSubHub};
@@ -8,7 +10,7 @@ use crate::transaction::TransactionState;
 use engine::store::Store;
 use protocol::encoder::encode;
 use protocol::parser::{ParseError, parse_frame};
-use protocol::types::{BulkData, RespFrame};
+use protocol::types::RespFrame;
 
 mod dispatch;
 mod notifications;
@@ -16,6 +18,7 @@ mod util;
 
 const READ_BUFFER_INITIAL: usize = 16 * 1024;
 const WRITE_BUFFER_INITIAL: usize = 16 * 1024;
+const PUSH_DRAIN_BATCH: usize = 128;
 
 pub async fn handle_connection(
     mut stream: TcpStream,
@@ -38,11 +41,21 @@ pub async fn handle_connection(
                     break Ok(());
                 };
                 encode(&frame, &mut write_buf);
-                if !write_buf.is_empty() {
-                    if let Err(err) = stream.write_all(&write_buf).await {
-                        break Err(err.into());
+
+                let mut drained = 0;
+                while drained < PUSH_DRAIN_BATCH {
+                    match push_rx.try_recv() {
+                        Ok(frame) => {
+                            encode(&frame, &mut write_buf);
+                            drained += 1;
+                        }
+                        Err(TryRecvError::Empty) => break,
+                        Err(TryRecvError::Disconnected) => break,
                     }
-                    write_buf.clear();
+                }
+
+                if let Err(err) = flush_write_buf(&mut stream, &mut write_buf).await {
+                    break Err(err.into());
                 }
             }
             read_result = stream.read_buf(&mut read_buf) => {
@@ -55,30 +68,30 @@ pub async fn handle_connection(
                 }
 
                 while let Some(parsed) = parse_next_frame(&mut read_buf)? {
-                    let command_name = command_name_from_frame(&parsed);
-                    let _trace = command_name
-                        .as_ref()
-                        .and_then(|name| profiler::begin_request(name.as_bytes()));
+                    if let Err(err) = parse_command_into(parsed, &mut command_args_buf) {
+                        encode(&RespFrame::error_static(err), &mut write_buf);
+                        continue;
+                    }
 
-                    let response = tx_state.handle_frame_with(&store, parsed, |store, frame| {
+                    let _trace = command_args_buf
+                        .first()
+                        .and_then(|command| profiler::begin_request(command.as_slice()));
+
+                    let response = tx_state.handle_args_with(&store, &mut command_args_buf, |store, args| {
                         dispatch::execute_regular_command(
                             store,
                             &pubsub_hub,
                             &push_tx,
                             &mut pubsub_state,
-                            &mut command_args_buf,
-                            frame,
+                            args,
                         )
                     });
 
                     encode(&response, &mut write_buf);
                 }
 
-                if !write_buf.is_empty() {
-                    if let Err(err) = stream.write_all(&write_buf).await {
-                        break Err(err.into());
-                    }
-                    write_buf.clear();
+                if let Err(err) = flush_write_buf(&mut stream, &mut write_buf).await {
+                    break Err(err.into());
                 }
             }
         }
@@ -86,8 +99,17 @@ pub async fn handle_connection(
 
     let _ = pubsub_state.unsubscribe_all(&pubsub_hub);
     let _ = pubsub_state.punsubscribe_all(&pubsub_hub);
-    pubsub_hub.cleanup_connection(pubsub_state.id);
     result
+}
+
+#[inline]
+async fn flush_write_buf(stream: &mut TcpStream, write_buf: &mut BytesMut) -> std::io::Result<()> {
+    if write_buf.is_empty() {
+        return Ok(());
+    }
+    stream.write_all(write_buf).await?;
+    write_buf.clear();
+    Ok(())
 }
 
 fn parse_next_frame(src: &mut BytesMut) -> Result<Option<RespFrame>, ParseError> {
@@ -96,46 +118,5 @@ fn parse_next_frame(src: &mut BytesMut) -> Result<Option<RespFrame>, ParseError>
         Ok(Some(frame)) => Ok(Some(frame)),
         Ok(None) | Err(ParseError::Incomplete) => Ok(None),
         Err(err) => Err(err),
-    }
-}
-
-fn command_name_from_frame(frame: &RespFrame) -> Option<CommandName> {
-    let _trace = profiler::scope("server::connection::command_name_from_frame");
-    let RespFrame::Array(Some(items)) = frame else {
-        return None;
-    };
-    let src = match items.first()? {
-        RespFrame::Bulk(Some(BulkData::Arg(arg))) => arg.as_slice(),
-        RespFrame::Bulk(Some(BulkData::Value(value))) => value.as_slice(),
-        RespFrame::Simple(value) => value.as_bytes(),
-        RespFrame::SimpleStatic(value) => value.as_bytes(),
-        _ => return None,
-    };
-    Some(CommandName::from_slice(src))
-}
-
-const CMD_NAME_MAX: usize = 32;
-
-struct CommandName {
-    len: u8,
-    data: [u8; CMD_NAME_MAX],
-}
-
-impl CommandName {
-    fn from_slice(src: &[u8]) -> Self {
-        let _trace = profiler::scope("server::connection::from_slice");
-        let len = src.len().min(CMD_NAME_MAX);
-        let mut data = [0u8; CMD_NAME_MAX];
-        data[..len].copy_from_slice(&src[..len]);
-        data[..len].make_ascii_uppercase();
-        Self {
-            len: len as u8,
-            data,
-        }
-    }
-
-    fn as_bytes(&self) -> &[u8] {
-        let _trace = profiler::scope("server::connection::as_bytes");
-        &self.data[..self.len as usize]
     }
 }

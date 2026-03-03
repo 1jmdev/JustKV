@@ -10,20 +10,37 @@ pub(super) fn emit_command_notifications(
     response: &RespFrame,
 ) {
     let _trace = profiler::scope("server::connection::notifications::emit_command_notifications");
-    let Some((event, class, keys)) = keyspace_event_for_command(command, args, response) else {
+    let Some((event, class)) = keyspace_event_for_command(command, args, response) else {
         return;
     };
 
-    for key in keys {
-        hub.emit_keyspace_event(event, key, class);
+    if command == b"MSET" || command == b"MSETNX" {
+        for key in args.iter().skip(1).step_by(2) {
+            hub.emit_keyspace_event(event, key.as_slice(), class);
+        }
+        return;
     }
+
+    if command == b"DEL" || command == b"UNLINK" {
+        for key in args.iter().skip(1) {
+            hub.emit_keyspace_event(event, key.as_slice(), class);
+        }
+        return;
+    }
+
+    if command == b"RENAME" || command == b"RENAMENX" {
+        hub.emit_keyspace_event(event, args[2].as_slice(), class);
+        return;
+    }
+
+    hub.emit_keyspace_event(event, args[1].as_slice(), class);
 }
 
-fn keyspace_event_for_command<'a>(
+fn keyspace_event_for_command(
     command: &[u8],
-    args: &'a [CompactArg],
+    args: &[CompactArg],
     response: &RespFrame,
-) -> Option<(&'static [u8], u8, Vec<&'a [u8]>)> {
+) -> Option<(&'static [u8], u8)> {
     let _trace = profiler::scope("server::connection::notifications::keyspace_event_for_command");
     let ok = !matches!(response, RespFrame::Error(_));
     if !ok || args.len() < 2 {
@@ -43,28 +60,14 @@ fn keyspace_event_for_command<'a>(
         || command == b"DECR"
         || command == b"DECRBY"
     {
-        if command == b"MSET" || command == b"MSETNX" {
-            let keys = args
-                .iter()
-                .skip(1)
-                .step_by(2)
-                .map(CompactArg::as_slice)
-                .collect::<Vec<_>>();
-            return Some((b"set", b'$', keys));
-        }
-        return Some((b"set", b'$', vec![args[1].as_slice()]));
+        return Some((b"set", b'$'));
     }
 
     if command == b"DEL" || command == b"UNLINK" {
         if matches!(response, RespFrame::Integer(value) if *value <= 0) {
             return None;
         }
-        let keys = args
-            .iter()
-            .skip(1)
-            .map(CompactArg::as_slice)
-            .collect::<Vec<_>>();
-        return Some((b"del", b'g', keys));
+        return Some((b"del", b'g'));
     }
 
     if command == b"EXPIRE"
@@ -73,14 +76,14 @@ fn keyspace_event_for_command<'a>(
         || command == b"PEXPIREAT"
     {
         if matches!(response, RespFrame::Integer(1)) {
-            return Some((b"expire", b'g', vec![args[1].as_slice()]));
+            return Some((b"expire", b'g'));
         }
         return None;
     }
 
     if command == b"PERSIST" {
         if matches!(response, RespFrame::Integer(1)) {
-            return Some((b"persist", b'g', vec![args[1].as_slice()]));
+            return Some((b"persist", b'g'));
         }
         return None;
     }
@@ -89,7 +92,7 @@ fn keyspace_event_for_command<'a>(
         let success = matches!(response, RespFrame::Simple(value) if value == "OK")
             || matches!(response, RespFrame::Integer(1));
         if success && args.len() >= 3 {
-            return Some((b"rename", b'g', vec![args[2].as_slice()]));
+            return Some((b"rename", b'g'));
         }
         return None;
     }
@@ -100,7 +103,7 @@ fn keyspace_event_for_command<'a>(
         || command == b"HINCRBY"
         || command == b"HINCRBYFLOAT"
     {
-        return Some((b"hset", b'h', vec![args[1].as_slice()]));
+        return Some((b"hset", b'h'));
     }
 
     if command == b"LPUSH"
@@ -113,11 +116,11 @@ fn keyspace_event_for_command<'a>(
         || command == b"LMOVE"
         || command == b"RPOPLPUSH"
     {
-        return Some((b"lset", b'l', vec![args[1].as_slice()]));
+        return Some((b"lset", b'l'));
     }
 
     if command == b"SADD" || command == b"SREM" || command == b"SPOP" || command == b"SMOVE" {
-        return Some((b"sadd", b's', vec![args[1].as_slice()]));
+        return Some((b"sadd", b's'));
     }
 
     if command == b"ZADD"
@@ -126,7 +129,7 @@ fn keyspace_event_for_command<'a>(
         || command == b"ZPOPMIN"
         || command == b"ZPOPMAX"
     {
-        return Some((b"zadd", b'z', vec![args[1].as_slice()]));
+        return Some((b"zadd", b'z'));
     }
 
     None

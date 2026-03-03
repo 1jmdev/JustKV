@@ -1,6 +1,6 @@
 use tokio::sync::mpsc::UnboundedSender;
 
-use commands::dispatcher::{dispatch_args, parse_command_into};
+use commands::dispatcher::dispatch_args;
 use engine::store::Store;
 use engine::value::CompactArg;
 use protocol::types::{BulkData, RespFrame};
@@ -9,19 +9,19 @@ use super::super::pubsub::{ConnectionPubSub, PubSubHub};
 use super::notifications::emit_command_notifications;
 use super::util::{collapse_pubsub_responses, wrong_args};
 
+#[inline]
+fn bulk_static(value: &'static [u8]) -> RespFrame {
+    RespFrame::Bulk(Some(BulkData::Arg(CompactArg::from_slice(value))))
+}
+
 pub(super) fn execute_regular_command(
     store: &Store,
     hub: &PubSubHub,
     push_tx: &UnboundedSender<RespFrame>,
     pubsub_state: &mut ConnectionPubSub,
-    args_buf: &mut Vec<CompactArg>,
-    frame: RespFrame,
+    args: &[CompactArg],
 ) -> RespFrame {
     let _trace = profiler::scope("server::connection::dispatch::execute_regular_command");
-    if let Err(err) = parse_command_into(frame, args_buf) {
-        return RespFrame::error_static(err);
-    }
-    let args = args_buf.as_slice();
     if args.is_empty() {
         return RespFrame::error_static("ERR empty command");
     }
@@ -104,7 +104,7 @@ fn subscribe_command(
     for channel in &args[1..] {
         pubsub_state.subscribe(hub, channel, push_tx);
         responses.push(RespFrame::Array(Some(vec![
-            RespFrame::Bulk(Some(BulkData::from_vec(b"subscribe".to_vec()))),
+            bulk_static(b"subscribe"),
             RespFrame::Bulk(Some(BulkData::Arg(channel.clone()))),
             RespFrame::Integer(pubsub_state.subscription_count()),
         ])));
@@ -137,7 +137,7 @@ fn unsubscribe_command(
     let mut responses = Vec::with_capacity(channels.len());
     for channel in channels {
         responses.push(RespFrame::Array(Some(vec![
-            RespFrame::Bulk(Some(BulkData::from_vec(b"unsubscribe".to_vec()))),
+            bulk_static(b"unsubscribe"),
             if channel.is_empty() {
                 RespFrame::Bulk(None)
             } else {
@@ -164,7 +164,7 @@ fn psubscribe_command(
     for pattern in &args[1..] {
         pubsub_state.psubscribe(hub, pattern, push_tx);
         responses.push(RespFrame::Array(Some(vec![
-            RespFrame::Bulk(Some(BulkData::from_vec(b"psubscribe".to_vec()))),
+            bulk_static(b"psubscribe"),
             RespFrame::Bulk(Some(BulkData::Arg(pattern.clone()))),
             RespFrame::Integer(pubsub_state.subscription_count()),
         ])));
@@ -197,7 +197,7 @@ fn punsubscribe_command(
     let mut responses = Vec::with_capacity(patterns.len());
     for pattern in patterns {
         responses.push(RespFrame::Array(Some(vec![
-            RespFrame::Bulk(Some(BulkData::from_vec(b"punsubscribe".to_vec()))),
+            bulk_static(b"punsubscribe"),
             if pattern.is_empty() {
                 RespFrame::Bulk(None)
             } else {
@@ -275,7 +275,7 @@ fn config_command(hub: &PubSubHub, args: &[CompactArg]) -> RespFrame {
             return RespFrame::Array(Some(vec![]));
         }
         return RespFrame::Array(Some(vec![
-            RespFrame::Bulk(Some(BulkData::from_vec(b"notify-keyspace-events".to_vec()))),
+            bulk_static(b"notify-keyspace-events"),
             RespFrame::Bulk(Some(BulkData::from_vec(hub.get_notify_flags()))),
         ]));
     }
@@ -288,15 +288,15 @@ fn config_command(hub: &PubSubHub, args: &[CompactArg]) -> RespFrame {
             .as_slice()
             .eq_ignore_ascii_case(b"notify-keyspace-events")
         {
-            return RespFrame::Error("ERR Unsupported CONFIG parameter".to_string());
+            return RespFrame::error_static("ERR Unsupported CONFIG parameter");
         }
         return match hub.set_notify_flags(&args[3]) {
             Ok(()) => RespFrame::ok(),
             Err(()) => {
-                RespFrame::Error("ERR CONFIG SET failed (possibly related to argument)".to_string())
+                RespFrame::error_static("ERR CONFIG SET failed (possibly related to argument)")
             }
         };
     }
 
-    RespFrame::Error("ERR Unknown subcommand or wrong number of arguments for CONFIG".to_string())
+    RespFrame::error_static("ERR Unknown subcommand or wrong number of arguments for CONFIG")
 }

@@ -1,86 +1,55 @@
-use std::collections::HashMap;
+use ahash::AHashMap;
 
 use engine::store::Store;
-use protocol::types::{BulkData, RespFrame};
+use engine::value::CompactArg;
+use protocol::types::RespFrame;
 
 #[derive(Default)]
 pub struct TransactionState {
     in_multi: bool,
-    queued: Vec<RespFrame>,
-    watched: HashMap<Vec<u8>, Option<Vec<u8>>>,
+    queued: Vec<Vec<CompactArg>>,
+    watched: AHashMap<Vec<u8>, Option<Vec<u8>>>,
 }
 
 impl TransactionState {
-    pub fn handle_frame_with<F>(
+    pub fn handle_args_with<F>(
         &mut self,
         store: &Store,
-        frame: RespFrame,
+        args: &mut Vec<CompactArg>,
         mut execute: F,
     ) -> RespFrame
     where
-        F: FnMut(&Store, RespFrame) -> RespFrame,
+        F: FnMut(&Store, &[CompactArg]) -> RespFrame,
     {
-        let _trace = profiler::scope("server::transaction::handle_frame_with");
-        let command = match command_name(&frame) {
-            Ok(Some(value)) => value,
-            Ok(None) => return RespFrame::error_static("ERR empty command"),
-            Err(err) => return RespFrame::error_static(err),
-        };
+        let _trace = profiler::scope("server::transaction::handle_args_with");
+        if args.is_empty() {
+            return RespFrame::error_static("ERR empty command");
+        }
 
-        match classify_transaction_command(command) {
-            TransactionCommand::Multi => {
-                let args = match parse_args(&frame) {
-                    Ok(value) => value,
-                    Err(err) => return RespFrame::error_static(err),
-                };
-                self.multi(&args)
-            }
-            TransactionCommand::Exec => {
-                let args = match parse_args(&frame) {
-                    Ok(value) => value,
-                    Err(err) => return RespFrame::error_static(err),
-                };
-                self.exec_with(store, &args, execute)
-            }
-            TransactionCommand::Discard => {
-                let args = match parse_args(&frame) {
-                    Ok(value) => value,
-                    Err(err) => return RespFrame::error_static(err),
-                };
-                self.discard(&args)
-            }
-            TransactionCommand::Watch => {
-                let args = match parse_args(&frame) {
-                    Ok(value) => value,
-                    Err(err) => return RespFrame::error_static(err),
-                };
-                self.watch(store, &args)
-            }
-            TransactionCommand::Unwatch => {
-                let args = match parse_args(&frame) {
-                    Ok(value) => value,
-                    Err(err) => return RespFrame::error_static(err),
-                };
-                self.unwatch(&args)
-            }
+        match classify_transaction_command(args[0].as_slice()) {
+            TransactionCommand::Multi => self.multi(args.as_slice()),
+            TransactionCommand::Exec => self.exec_with(store, args.as_slice(), execute),
+            TransactionCommand::Discard => self.discard(args.as_slice()),
+            TransactionCommand::Watch => self.watch(store, args.as_slice()),
+            TransactionCommand::Unwatch => self.unwatch(args.as_slice()),
             TransactionCommand::Other => {
                 if self.in_multi {
-                    self.queued.push(frame);
-                    RespFrame::Simple("QUEUED".to_string())
+                    self.queued.push(std::mem::take(args));
+                    RespFrame::simple_static("QUEUED")
                 } else {
-                    execute(store, frame)
+                    execute(store, args.as_slice())
                 }
             }
         }
     }
 
-    fn multi(&mut self, args: &[&[u8]]) -> RespFrame {
+    fn multi(&mut self, args: &[CompactArg]) -> RespFrame {
         let _trace = profiler::scope("server::transaction::multi");
         if args.len() != 1 {
-            return wrong_args("MULTI");
+            return RespFrame::error_static("ERR wrong number of arguments for 'MULTI' command");
         }
         if self.in_multi {
-            return RespFrame::Error("ERR MULTI calls can not be nested".to_string());
+            return RespFrame::error_static("ERR MULTI calls can not be nested");
         }
 
         self.in_multi = true;
@@ -88,16 +57,16 @@ impl TransactionState {
         RespFrame::ok()
     }
 
-    fn exec_with<F>(&mut self, store: &Store, args: &[&[u8]], mut execute: F) -> RespFrame
+    fn exec_with<F>(&mut self, store: &Store, args: &[CompactArg], mut execute: F) -> RespFrame
     where
-        F: FnMut(&Store, RespFrame) -> RespFrame,
+        F: FnMut(&Store, &[CompactArg]) -> RespFrame,
     {
         let _trace = profiler::scope("server::transaction::exec_with");
         if args.len() != 1 {
-            return wrong_args("EXEC");
+            return RespFrame::error_static("ERR wrong number of arguments for 'EXEC' command");
         }
         if !self.in_multi {
-            return RespFrame::Error("ERR EXEC without MULTI".to_string());
+            return RespFrame::error_static("ERR EXEC without MULTI");
         }
 
         self.in_multi = false;
@@ -110,19 +79,19 @@ impl TransactionState {
         let queued = std::mem::take(&mut self.queued);
         let mut out = Vec::with_capacity(queued.len());
         for item in queued {
-            out.push(execute(store, item));
+            out.push(execute(store, item.as_slice()));
         }
         self.watched.clear();
         RespFrame::Array(Some(out))
     }
 
-    fn discard(&mut self, args: &[&[u8]]) -> RespFrame {
+    fn discard(&mut self, args: &[CompactArg]) -> RespFrame {
         let _trace = profiler::scope("server::transaction::discard");
         if args.len() != 1 {
-            return wrong_args("DISCARD");
+            return RespFrame::error_static("ERR wrong number of arguments for 'DISCARD' command");
         }
         if !self.in_multi {
-            return RespFrame::Error("ERR DISCARD without MULTI".to_string());
+            return RespFrame::error_static("ERR DISCARD without MULTI");
         }
 
         self.in_multi = false;
@@ -131,13 +100,13 @@ impl TransactionState {
         RespFrame::ok()
     }
 
-    fn watch(&mut self, store: &Store, args: &[&[u8]]) -> RespFrame {
+    fn watch(&mut self, store: &Store, args: &[CompactArg]) -> RespFrame {
         let _trace = profiler::scope("server::transaction::watch");
         if args.len() < 2 {
-            return wrong_args("WATCH");
+            return RespFrame::error_static("ERR wrong number of arguments for 'WATCH' command");
         }
         if self.in_multi {
-            return RespFrame::Error("ERR WATCH inside MULTI is not allowed".to_string());
+            return RespFrame::error_static("ERR WATCH inside MULTI is not allowed");
         }
 
         for key in &args[1..] {
@@ -146,10 +115,10 @@ impl TransactionState {
         RespFrame::ok()
     }
 
-    fn unwatch(&mut self, args: &[&[u8]]) -> RespFrame {
+    fn unwatch(&mut self, args: &[CompactArg]) -> RespFrame {
         let _trace = profiler::scope("server::transaction::unwatch");
         if args.len() != 1 {
-            return wrong_args("UNWATCH");
+            return RespFrame::error_static("ERR wrong number of arguments for 'UNWATCH' command");
         }
         self.watched.clear();
         RespFrame::ok()
@@ -160,23 +129,6 @@ impl TransactionState {
         self.watched
             .iter()
             .any(|(key, value)| store.dump(key) != *value)
-    }
-}
-
-fn command_name<'a>(frame: &'a RespFrame) -> Result<Option<&'a [u8]>, &'static str> {
-    let _trace = profiler::scope("server::transaction::command_name");
-    let RespFrame::Array(Some(items)) = frame else {
-        return Err("ERR protocol error");
-    };
-    let Some(first) = items.first() else {
-        return Ok(None);
-    };
-
-    match first {
-        RespFrame::Bulk(Some(BulkData::Arg(value))) => Ok(Some(value.as_slice())),
-        RespFrame::Bulk(Some(BulkData::Value(value))) => Ok(Some(value.as_slice())),
-        RespFrame::Simple(value) => Ok(Some(value.as_bytes())),
-        _ => Err("ERR invalid argument type"),
     }
 }
 
@@ -192,52 +144,12 @@ enum TransactionCommand {
 
 #[inline]
 fn classify_transaction_command(command: &[u8]) -> TransactionCommand {
-    match command.len() {
-        4 if command.eq_ignore_ascii_case(b"EXEC") => TransactionCommand::Exec,
-        5 => {
-            if command.eq_ignore_ascii_case(b"MULTI") {
-                TransactionCommand::Multi
-            } else if command.eq_ignore_ascii_case(b"WATCH") {
-                TransactionCommand::Watch
-            } else {
-                TransactionCommand::Other
-            }
-        }
-        7 => {
-            if command.eq_ignore_ascii_case(b"DISCARD") {
-                TransactionCommand::Discard
-            } else if command.eq_ignore_ascii_case(b"UNWATCH") {
-                TransactionCommand::Unwatch
-            } else {
-                TransactionCommand::Other
-            }
-        }
+    match command.first().copied() {
+        Some(b'M') if command == b"MULTI" => TransactionCommand::Multi,
+        Some(b'E') if command == b"EXEC" => TransactionCommand::Exec,
+        Some(b'D') if command == b"DISCARD" => TransactionCommand::Discard,
+        Some(b'W') if command == b"WATCH" => TransactionCommand::Watch,
+        Some(b'U') if command == b"UNWATCH" => TransactionCommand::Unwatch,
         _ => TransactionCommand::Other,
     }
-}
-
-fn parse_args<'a>(frame: &'a RespFrame) -> Result<Vec<&'a [u8]>, &'static str> {
-    let _trace = profiler::scope("server::transaction::parse_args");
-    let RespFrame::Array(Some(items)) = frame else {
-        return Err("ERR protocol error");
-    };
-
-    let mut args = Vec::with_capacity(items.len());
-    for item in items {
-        match item {
-            RespFrame::Bulk(Some(BulkData::Arg(value))) => args.push(value.as_slice()),
-            RespFrame::Bulk(Some(BulkData::Value(value))) => args.push(value.as_slice()),
-            RespFrame::Simple(value) => args.push(value.as_bytes()),
-            _ => return Err("ERR invalid argument type"),
-        }
-    }
-
-    Ok(args)
-}
-
-fn wrong_args(command: &str) -> RespFrame {
-    let _trace = profiler::scope("server::transaction::wrong_args");
-    RespFrame::Error(format!(
-        "ERR wrong number of arguments for '{command}' command"
-    ))
 }

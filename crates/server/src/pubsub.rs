@@ -1,12 +1,15 @@
-use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU16, AtomicU64, Ordering};
 
-use ahash::RandomState;
+use ahash::{AHashMap, AHashSet, RandomState};
+use bytes::{Bytes, BytesMut};
 use parking_lot::RwLock;
 use tokio::sync::mpsc::UnboundedSender;
 
+use protocol::encoder::encode;
 use protocol::types::{BulkData, RespFrame};
+
+type SubscriberMap = AHashMap<u64, UnboundedSender<RespFrame>>;
 
 #[derive(Clone)]
 pub struct PubSubHub {
@@ -18,9 +21,8 @@ pub struct PubSubHub {
 }
 
 struct PubSubShard {
-    channels: HashMap<Vec<u8>, HashMap<u64, UnboundedSender<RespFrame>>>,
-    patterns_by_prefix:
-        HashMap<Vec<u8>, HashMap<Vec<u8>, HashMap<u64, UnboundedSender<RespFrame>>>>,
+    channels: AHashMap<Vec<u8>, SubscriberMap>,
+    patterns_by_prefix: AHashMap<Vec<u8>, AHashMap<Vec<u8>, SubscriberMap>>,
 }
 
 impl PubSubHub {
@@ -36,8 +38,8 @@ impl PubSubHub {
         let mut shards = Vec::with_capacity(shard_count);
         for _ in 0..shard_count {
             shards.push(RwLock::new(PubSubShard {
-                channels: HashMap::new(),
-                patterns_by_prefix: HashMap::new(),
+                channels: AHashMap::new(),
+                patterns_by_prefix: AHashMap::new(),
             }));
         }
 
@@ -141,11 +143,7 @@ impl PubSubHub {
             shard
                 .channels
                 .get(channel)
-                .map(|subs| {
-                    subs.iter()
-                        .map(|(&id, tx)| (id, tx.clone()))
-                        .collect::<Vec<_>>()
-                })
+                .map(|subs| subs.values().cloned().collect::<Vec<_>>())
                 .unwrap_or_default()
         };
 
@@ -162,37 +160,29 @@ impl PubSubHub {
                 if !wildcard_match(pattern, channel) {
                     continue;
                 }
-                pattern_subscribers.extend(
-                    subscribers
-                        .iter()
-                        .map(|(&id, tx)| (id, pattern.clone(), tx.clone())),
-                );
+                pattern_subscribers.push((
+                    pattern.clone(),
+                    subscribers.values().cloned().collect::<Vec<_>>(),
+                ));
             }
         }
 
         let mut delivered = 0_i64;
-        for (id, tx) in channel_subscribers {
-            let frame = RespFrame::Array(Some(vec![
-                RespFrame::Bulk(Some(BulkData::from_vec(b"message".to_vec()))),
-                RespFrame::Bulk(Some(BulkData::from_vec(channel.to_vec()))),
-                RespFrame::Bulk(Some(BulkData::from_vec(payload.to_vec()))),
-            ]));
-            if tx.send(frame).is_ok() {
-                let _ = id;
-                delivered += 1;
+        if !channel_subscribers.is_empty() {
+            let frame = RespFrame::PreEncoded(encode_message_frame(channel, payload));
+            for tx in channel_subscribers {
+                if tx.send(frame.clone()).is_ok() {
+                    delivered += 1;
+                }
             }
         }
 
-        for (id, pattern, tx) in pattern_subscribers {
-            let frame = RespFrame::Array(Some(vec![
-                RespFrame::Bulk(Some(BulkData::from_vec(b"pmessage".to_vec()))),
-                RespFrame::Bulk(Some(BulkData::from_vec(pattern))),
-                RespFrame::Bulk(Some(BulkData::from_vec(channel.to_vec()))),
-                RespFrame::Bulk(Some(BulkData::from_vec(payload.to_vec()))),
-            ]));
-            if tx.send(frame).is_ok() {
-                let _ = id;
-                delivered += 1;
+        for (pattern, subscribers) in pattern_subscribers {
+            let frame = RespFrame::PreEncoded(encode_pmessage_frame(&pattern, channel, payload));
+            for tx in subscribers {
+                if tx.send(frame.clone()).is_ok() {
+                    delivered += 1;
+                }
             }
         }
 
@@ -229,12 +219,12 @@ impl PubSubHub {
         }
 
         if notifications_enabled_keyspace(mask) {
-            let channel = format!("__keyspace@0__:{}", String::from_utf8_lossy(key));
-            let _ = self.publish(channel.as_bytes(), event);
+            let channel = make_notification_channel(b"__keyspace@0__:", key);
+            let _ = self.publish(&channel, event);
         }
         if notifications_enabled_keyevent(mask) {
-            let channel = format!("__keyevent@0__:{}", String::from_utf8_lossy(event));
-            let _ = self.publish(channel.as_bytes(), key);
+            let channel = make_notification_channel(b"__keyevent@0__:", event);
+            let _ = self.publish(&channel, key);
         }
     }
 
@@ -302,8 +292,8 @@ impl PubSubHub {
 
 pub struct ConnectionPubSub {
     pub id: u64,
-    channels: HashSet<Vec<u8>>,
-    patterns: HashSet<Vec<u8>>,
+    channels: AHashSet<Vec<u8>>,
+    patterns: AHashSet<Vec<u8>>,
 }
 
 impl ConnectionPubSub {
@@ -311,8 +301,8 @@ impl ConnectionPubSub {
         let _trace = profiler::scope("server::pubsub::new");
         Self {
             id,
-            channels: HashSet::new(),
-            patterns: HashSet::new(),
+            channels: AHashSet::new(),
+            patterns: AHashSet::new(),
         }
     }
 
@@ -419,6 +409,53 @@ fn wildcard_match(pattern: &[u8], text: &[u8]) -> bool {
     }
 
     pi == pattern.len()
+}
+
+fn encode_message_frame(channel: &[u8], payload: &[u8]) -> Bytes {
+    let _trace = profiler::scope("server::pubsub::encode_message_frame");
+    let frame = RespFrame::Array(Some(vec![
+        RespFrame::Bulk(Some(BulkData::Arg(engine::value::CompactArg::from_slice(
+            b"message",
+        )))),
+        RespFrame::Bulk(Some(BulkData::Arg(engine::value::CompactArg::from_slice(
+            channel,
+        )))),
+        RespFrame::Bulk(Some(BulkData::Arg(engine::value::CompactArg::from_slice(
+            payload,
+        )))),
+    ]));
+    let mut out = BytesMut::with_capacity(channel.len() + payload.len() + 48);
+    encode(&frame, &mut out);
+    out.freeze()
+}
+
+fn encode_pmessage_frame(pattern: &[u8], channel: &[u8], payload: &[u8]) -> Bytes {
+    let _trace = profiler::scope("server::pubsub::encode_pmessage_frame");
+    let frame = RespFrame::Array(Some(vec![
+        RespFrame::Bulk(Some(BulkData::Arg(engine::value::CompactArg::from_slice(
+            b"pmessage",
+        )))),
+        RespFrame::Bulk(Some(BulkData::Arg(engine::value::CompactArg::from_slice(
+            pattern,
+        )))),
+        RespFrame::Bulk(Some(BulkData::Arg(engine::value::CompactArg::from_slice(
+            channel,
+        )))),
+        RespFrame::Bulk(Some(BulkData::Arg(engine::value::CompactArg::from_slice(
+            payload,
+        )))),
+    ]));
+    let mut out = BytesMut::with_capacity(pattern.len() + channel.len() + payload.len() + 56);
+    encode(&frame, &mut out);
+    out.freeze()
+}
+
+fn make_notification_channel(prefix: &[u8], value: &[u8]) -> Vec<u8> {
+    let _trace = profiler::scope("server::pubsub::make_notification_channel");
+    let mut out = Vec::with_capacity(prefix.len() + value.len());
+    out.extend_from_slice(prefix);
+    out.extend_from_slice(value);
+    out
 }
 
 const FLAG_G: u16 = 1 << 0;
