@@ -72,6 +72,10 @@ pub mod cmd {
     pub const QUIT: u64 = pack8(b"QUIT");
     pub const PING: u64 = pack8(b"PING");
     pub const ECHO: u64 = pack8(b"ECHO");
+    pub const EVAL: u64 = pack8(b"EVAL");
+    pub const EVAL_RO: u64 = pack8(b"EVAL_RO");
+    pub const EVALSHA: u64 = pack8(b"EVALSHA");
+    pub const SCRIPT: u64 = pack8(b"SCRIPT");
 
     // ── Keyspace ──────────────────────────────────────────────────────────────
     pub const DEL: u64 = pack8(b"DEL");

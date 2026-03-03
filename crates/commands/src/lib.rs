@@ -4,6 +4,7 @@ pub mod geo;
 pub mod hash;
 pub mod keyspace;
 pub mod list;
+pub mod scripting;
 pub mod set;
 pub mod stream;
 pub mod string;

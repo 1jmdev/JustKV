@@ -17,6 +17,7 @@ itoa.workspace = true
 parking_lot.workspace = true
 thiserror.workspace = true
 ryu.workspace = true
+sha1.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true

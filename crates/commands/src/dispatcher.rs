@@ -1,5 +1,5 @@
 use crate::util::{cmd, pack_runtime};
-use crate::{connection, geo, hash, keyspace, list, set, stream, string, ttl, zset};
+use crate::{connection, geo, hash, keyspace, list, scripting, set, stream, string, ttl, zset};
 use engine::store::Store;
 use engine::value::{CompactArg, CompactBytes};
 use protocol::types::{BulkData, RespFrame};
@@ -36,6 +36,10 @@ pub fn dispatch_args(store: &Store, args: &[CompactArg]) -> RespFrame {
             cmd::DEL => return keyspace::del(store, args),
             cmd::EXPIRE => return ttl::expire(store, args),
             cmd::PING => return connection::ping(args),
+            cmd::EVAL => return scripting::eval(store, args),
+            cmd::EVAL_RO => return scripting::eval_ro(store, args),
+            cmd::EVALSHA => return scripting::evalsha(store, args),
+            cmd::SCRIPT => return scripting::script(store, args),
 
             // ── Connection ────────────────────────────────────────────────────
             cmd::AUTH => return connection::auth(args),
@@ -270,6 +274,9 @@ fn dispatch_long(store: &Store, raw: &[u8], args: &[CompactArg]) -> RespFrame {
     }
     if raw.eq_ignore_ascii_case(b"XAUTOCLAIM") {
         return stream::xautoclaim(store, args);
+    }
+    if raw.eq_ignore_ascii_case(b"EVALSHA_RO") {
+        return scripting::evalsha_ro(store, args);
     }
 
     RespFrame::error_static("ERR unknown command")

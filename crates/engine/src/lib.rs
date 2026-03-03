@@ -4,6 +4,7 @@ pub mod helpers;
 mod keyspace;
 mod list;
 mod pattern;
+mod script;
 mod set;
 mod stream;
 mod strings;
@@ -36,6 +37,7 @@ use rehash::RehashingMap;
 
 type StoreMap = RehashingMap<CompactKey, Entry>;
 type TtlMap = HashMap<CompactKey, u64, RandomState>;
+type ScriptMap = HashMap<CompactKey, crate::value::CompactValue, RandomState>;
 
 #[derive(Clone, Copy, Debug)]
 pub enum GetExMode {
@@ -177,6 +179,7 @@ pub struct Store {
     pub(crate) shards: Arc<Vec<RwLock<Shard>>>,
     pub(crate) shard_mask: usize,
     pub(crate) hash_builder: RandomState,
+    pub(crate) scripts: Arc<RwLock<ScriptMap>>,
 }
 
 impl Store {
@@ -193,6 +196,7 @@ impl Store {
             shards: Arc::new(shard_vec),
             shard_mask: shard_count - 1,
             hash_builder: RandomState::new(),
+            scripts: Arc::new(RwLock::new(HashMap::with_hasher(RandomState::new()))),
         }
     }
 
