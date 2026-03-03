@@ -195,7 +195,6 @@ dependencies = [
  "protocol",
  "ryu",
  "thiserror",
- "tokio",
 ]
 
 [[package]]

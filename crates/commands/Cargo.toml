@@ -16,5 +16,4 @@ hashbrown.workspace = true
 itoa.workspace = true
 parking_lot.workspace = true
 thiserror.workspace = true
-tokio.workspace = true
 ryu.workspace = true
