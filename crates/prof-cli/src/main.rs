@@ -6,7 +6,7 @@ use clap::{Parser, ValueEnum};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
-use protocol::encoder;
+use protocol::encoder::Encoder;
 use protocol::parser::{self, ParseError};
 use protocol::types::{BulkData, RespFrame};
 
@@ -259,7 +259,8 @@ async fn send_one(port: u16, argv: &[Vec<u8>]) -> Result<(u64, String), String> 
     ));
 
     let mut out = BytesMut::with_capacity(256);
-    encoder::encode(&frame, &mut out);
+    let mut encoder = Encoder::default();
+    encoder.encode(&frame, &mut out);
 
     let t0 = Instant::now();
     stream

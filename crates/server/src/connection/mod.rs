@@ -7,7 +7,7 @@ use tokio::sync::mpsc::unbounded_channel;
 use crate::pubsub::{ConnectionPubSub, PubSubHub};
 use crate::transaction::TransactionState;
 use engine::store::Store;
-use protocol::encoder::encode;
+use protocol::encoder::Encoder;
 use protocol::parser::parse_command_into;
 use protocol::types::RespFrame;
 
@@ -27,6 +27,9 @@ pub async fn handle_connection(
     let _trace = profiler::scope("server::connection::handle_connection");
     let mut read_buf = BytesMut::with_capacity(READ_BUFFER_INITIAL);
     let mut write_buf = BytesMut::with_capacity(WRITE_BUFFER_INITIAL);
+
+    let mut encoder = Encoder::default();
+
     let mut command_args_buf = Vec::with_capacity(16);
     let mut tx_state = TransactionState::default();
 
@@ -39,13 +42,13 @@ pub async fn handle_connection(
                 let Some(frame) = push else {
                     break Ok(());
                 };
-                encode(&frame, &mut write_buf);
+                encoder.encode(&frame, &mut write_buf);
 
                 let mut drained = 0;
                 while drained < PUSH_DRAIN_BATCH {
                     match push_rx.try_recv() {
                         Ok(frame) => {
-                            encode(&frame, &mut write_buf);
+                            encoder.encode(&frame, &mut write_buf);
                             drained += 1;
                         }
                         Err(TryRecvError::Empty) => break,
@@ -82,7 +85,7 @@ pub async fn handle_connection(
                         )
                     });
 
-                    encode(&response, &mut write_buf);
+                    encoder.encode(&response, &mut write_buf);
                 }
 
                 if let Err(err) = flush_write_buf(&mut stream, &mut write_buf).await {

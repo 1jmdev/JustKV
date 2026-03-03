@@ -2,7 +2,7 @@ use bytes::BytesMut;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
-use protocol::encoder;
+use protocol::encoder::Encoder;
 use protocol::parser::{self, ParseError};
 use protocol::types::{BulkData, RespFrame};
 
@@ -11,6 +11,7 @@ use crate::cli::ConnectionOptions;
 pub struct Client {
     stream: TcpStream,
     read_buf: BytesMut,
+    encoder: Encoder,
 }
 
 impl Client {
@@ -24,6 +25,7 @@ impl Client {
         let mut client = Self {
             stream,
             read_buf: BytesMut::with_capacity(4096),
+            encoder: Encoder::default(),
         };
 
         if options.proto == 3 {
@@ -65,7 +67,7 @@ impl Client {
         ));
 
         let mut out = BytesMut::with_capacity(256);
-        encoder::encode(&frame, &mut out);
+        self.encoder.encode(&frame, &mut out);
         self.stream
             .write_all(&out)
             .await

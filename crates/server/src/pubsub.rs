@@ -6,7 +6,7 @@ use bytes::{Bytes, BytesMut};
 use parking_lot::RwLock;
 use tokio::sync::mpsc::UnboundedSender;
 
-use protocol::encoder::encode;
+use protocol::encoder::Encoder;
 use protocol::types::{BulkData, RespFrame};
 
 type SubscriberMap = AHashMap<u64, UnboundedSender<RespFrame>>;
@@ -425,7 +425,9 @@ fn encode_message_frame(channel: &[u8], payload: &[u8]) -> Bytes {
         )))),
     ]));
     let mut out = BytesMut::with_capacity(channel.len() + payload.len() + 48);
-    encode(&frame, &mut out);
+
+    let mut encoder = Encoder::default();
+    encoder.encode(&frame, &mut out);
     out.freeze()
 }
 
@@ -446,7 +448,9 @@ fn encode_pmessage_frame(pattern: &[u8], channel: &[u8], payload: &[u8]) -> Byte
         )))),
     ]));
     let mut out = BytesMut::with_capacity(pattern.len() + channel.len() + payload.len() + 56);
-    encode(&frame, &mut out);
+
+    let mut enc = Encoder::default();
+    enc.encode(&frame, &mut out);
     out.freeze()
 }
 

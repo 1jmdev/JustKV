@@ -1,89 +1,88 @@
-use bytes::BytesMut;
-
+use bytes::{BytesMut, BufMut};
 use crate::types::RespFrame;
 
-pub fn encode(frame: &RespFrame, out: &mut BytesMut) {
-    let _trace = profiler::scope("protocol::encoder::encode");
-    match frame {
-        RespFrame::Simple(value) => {
-            out.extend_from_slice(b"+");
-            out.extend_from_slice(value.as_bytes());
-            out.extend_from_slice(b"\r\n");
-        }
-        RespFrame::SimpleStatic(value) => {
-            out.extend_from_slice(b"+");
-            out.extend_from_slice(value.as_bytes());
-            out.extend_from_slice(b"\r\n");
-        }
-        RespFrame::Error(value) => {
-            out.extend_from_slice(b"-");
-            out.extend_from_slice(value.as_bytes());
-            out.extend_from_slice(b"\r\n");
-        }
-        RespFrame::ErrorStatic(value) => {
-            out.extend_from_slice(b"-");
-            out.extend_from_slice(value.as_bytes());
-            out.extend_from_slice(b"\r\n");
-        }
-        RespFrame::Integer(value) => {
-            out.extend_from_slice(b":");
-            push_i64(out, *value);
-            out.extend_from_slice(b"\r\n");
-        }
-        RespFrame::Bulk(None) => out.extend_from_slice(b"$-1\r\n"),
-        RespFrame::Bulk(Some(value)) => {
-            out.extend_from_slice(b"$");
-            let bytes = value.as_slice();
-            push_usize(out, bytes.len());
-            out.extend_from_slice(b"\r\n");
-            out.extend_from_slice(bytes);
-            out.extend_from_slice(b"\r\n");
-        }
-        RespFrame::BulkValues(values) => {
-            out.extend_from_slice(b"*");
-            push_usize(out, values.len());
-            out.extend_from_slice(b"\r\n");
-            for value in values {
-                out.extend_from_slice(b"$");
-                let bytes = value.as_slice();
-                push_usize(out, bytes.len());
-                out.extend_from_slice(b"\r\n");
-                out.extend_from_slice(bytes);
-                out.extend_from_slice(b"\r\n");
-            }
-        }
-        RespFrame::PreEncoded(bytes) => {
-            out.extend_from_slice(bytes);
-        }
-        RespFrame::Array(None) => out.extend_from_slice(b"*-1\r\n"),
-        RespFrame::Array(Some(items)) => {
-            out.extend_from_slice(b"*");
-            push_usize(out, items.len());
-            out.extend_from_slice(b"\r\n");
-            for item in items {
-                encode(item, out);
-            }
-        }
-        RespFrame::Map(entries) => {
-            out.extend_from_slice(b"%");
-            push_usize(out, entries.len());
-            out.extend_from_slice(b"\r\n");
-            for (key, value) in entries {
-                encode(key, out);
-                encode(value, out);
-            }
-        }
+const CRLF: &[u8] = b"\r\n";
+const NULL_BULK: &[u8] = b"$-1\r\n";
+const NULL_ARRAY: &[u8] = b"*-1\r\n";
+
+pub struct Encoder {
+    itoa: itoa::Buffer,
+}
+
+impl Default for Encoder {
+    fn default() -> Self {
+        Self { itoa: itoa::Buffer::new() }
     }
 }
 
-fn push_i64(out: &mut BytesMut, value: i64) {
-    let _trace = profiler::scope("protocol::encoder::push_i64");
-    let mut buf = itoa::Buffer::new();
-    out.extend_from_slice(buf.format(value).as_bytes());
-}
+impl Encoder {
+    #[inline]
+    pub fn encode(&mut self, frame: &RespFrame, out: &mut BytesMut) {
+        let _trace = profiler::scope("protocol::encoder::encode");
+        match frame {
+            RespFrame::Simple(v) => {
+                out.put_u8(b'+');
+                out.put_slice(v.as_bytes());
+                out.put_slice(CRLF);
+            }
+            RespFrame::SimpleStatic(v) => {
+                out.put_u8(b'+');
+                out.put_slice(v.as_bytes());
+                out.put_slice(CRLF);
+            }
+            RespFrame::Error(v) => {
+                out.put_u8(b'-');
+                out.put_slice(v.as_bytes());
+                out.put_slice(CRLF);
+            }
+            RespFrame::ErrorStatic(v) => {
+                out.put_u8(b'-');
+                out.put_slice(v.as_bytes());
+                out.put_slice(CRLF);
+            }
+            RespFrame::Integer(n) => {
+                out.put_u8(b':');
+                out.put_slice(self.itoa.format(*n).as_bytes());
+                out.put_slice(CRLF);
+            }
+            RespFrame::Bulk(None) => out.put_slice(NULL_BULK),
+            RespFrame::Bulk(Some(v)) => self.encode_bulk_bytes(v.as_slice(), out),
+            RespFrame::BulkValues(values) => {
+                out.put_u8(b'*');
+                out.put_slice(self.itoa.format(values.len()).as_bytes());
+                out.put_slice(CRLF);
+                for v in values {
+                    self.encode_bulk_bytes(v.as_slice(), out);
+                }
+            }
+            RespFrame::PreEncoded(bytes) => out.put_slice(bytes),
+            RespFrame::Array(None) => out.put_slice(NULL_ARRAY),
+            RespFrame::Array(Some(items)) => {
+                out.put_u8(b'*');
+                out.put_slice(self.itoa.format(items.len()).as_bytes());
+                out.put_slice(CRLF);
+                for item in items {
+                    self.encode(item, out);
+                }
+            }
+            RespFrame::Map(entries) => {
+                out.put_u8(b'%');
+                out.put_slice(self.itoa.format(entries.len()).as_bytes());
+                out.put_slice(CRLF);
+                for (k, v) in entries {
+                    self.encode(k, out);
+                    self.encode(v, out);
+                }
+            }
+        }
+    }
 
-fn push_usize(out: &mut BytesMut, value: usize) {
-    let _trace = profiler::scope("protocol::encoder::push_usize");
-    let mut buf = itoa::Buffer::new();
-    out.extend_from_slice(buf.format(value).as_bytes());
+    #[inline]
+    fn encode_bulk_bytes(&mut self, bytes: &[u8], out: &mut BytesMut) {
+        out.put_u8(b'$');
+        out.put_slice(self.itoa.format(bytes.len()).as_bytes());
+        out.put_slice(CRLF);
+        out.put_slice(bytes);
+        out.put_slice(CRLF);
+    }
 }
