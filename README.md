@@ -15,6 +15,7 @@
 - `crates/justkv`: JustKV server library (protocol, engine, networking).
 - `crates/justkv-cli`: CLI binary package exposing the `justkv` executable.
 - `crates/justkv-server`: Redis-style server binary exposing the `justkv-server` executable.
+- `crates/benchmark-cli`: Redis-benchmark style binary exposing the `justkv-benchmark` executable.
 
 ## Run
 
@@ -26,6 +27,9 @@ cargo run -p justkv-server -- ./redis.conf --port 6379
 
 # show compatible startup flags
 cargo run -p justkv-server -- --help
+
+# redis-benchmark style load test
+cargo run -p justkv-benchmark -- -h 127.0.0.1 -p 6379 -c 100 -n 100000 -P 16
 ```
 
 Optional tuning:

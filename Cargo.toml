@@ -8,6 +8,7 @@ members = [
     "crates/commands",
     "crates/server",
     "crates/cli",
+    "crates/benchmark-cli",
     "crates/prof-cli",
 ]
 resolver = "3"
@@ -18,6 +19,7 @@ edition = "2024"
 
 [workspace.features]
 profiling = [
+    "benchmark-cli/profiling",
     "cli/profiling",
     "commands/profiling",
     "engine/profiling",
