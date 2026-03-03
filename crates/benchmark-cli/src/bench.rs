@@ -193,7 +193,29 @@ async fn run_worker(client_id: u64, quota: u64, cfg: Arc<Shared>) -> Result<Work
 
 fn build_setup_command(kind: BenchKind, key: &[u8], value: &[u8]) -> Option<Vec<u8>> {
     match kind {
-        BenchKind::Get => Some(encode_resp_parts(&[b"SET", key, value])),
+        BenchKind::Get
+        | BenchKind::GetSet
+        | BenchKind::Mget
+        | BenchKind::Exists
+        | BenchKind::Expire
+        | BenchKind::Ttl
+        | BenchKind::Strlen
+        | BenchKind::SetRange
+        | BenchKind::GetRange => Some(encode_resp_parts(&[b"SET", key, value])),
+        BenchKind::Mset => Some(encode_resp_parts(&[b"DEL", key, b"bench:m2"])),
+        BenchKind::Lpop | BenchKind::Rpop | BenchKind::Llen | BenchKind::Lrange => {
+            Some(encode_resp_parts(&[b"LPUSH", key, value]))
+        }
+        BenchKind::Srem | BenchKind::Scard | BenchKind::Sismember => {
+            Some(encode_resp_parts(&[b"SADD", key, value]))
+        }
+        BenchKind::Hget | BenchKind::Hgetall => Some(encode_resp_parts(&[b"HSET", key, b"field", value])),
+        BenchKind::Hincrby => Some(encode_resp_parts(&[b"HSET", key, b"field", b"0"])),
+        BenchKind::Zrem
+        | BenchKind::Zcard
+        | BenchKind::Zscore
+        | BenchKind::Zrank
+        | BenchKind::Zrevrank => Some(encode_resp_parts(&[b"ZADD", key, b"1", value])),
         _ => None,
     }
 }
@@ -202,17 +224,78 @@ fn build_command(kind: BenchKind, key_base: &[u8], value: &[u8], sequence: u64) 
     match kind {
         BenchKind::PingInline => b"PING\r\n".to_vec(),
         BenchKind::PingMbulk => encode_resp_parts(&[b"PING"]),
+        BenchKind::Echo => encode_resp_parts(&[b"ECHO", value]),
         BenchKind::Set => {
             let key = make_key(key_base, sequence);
             encode_resp_parts(&[b"SET", key.as_slice(), value])
+        }
+        BenchKind::SetNx => {
+            let key = make_key(key_base, sequence);
+            encode_resp_parts(&[b"SETNX", key.as_slice(), value])
         }
         BenchKind::Get => {
             let key = make_key(key_base, sequence);
             encode_resp_parts(&[b"GET", key.as_slice()])
         }
+        BenchKind::GetSet => {
+            let key = make_key(key_base, sequence);
+            encode_resp_parts(&[b"GETSET", key.as_slice(), value])
+        }
+        BenchKind::Mset => {
+            let key1 = make_key(key_base, sequence);
+            let mut key2 = key1.clone();
+            key2.extend_from_slice(b":m2");
+            encode_resp_parts(&[b"MSET", key1.as_slice(), value, key2.as_slice(), value])
+        }
+        BenchKind::Mget => {
+            let key1 = make_key(key_base, sequence);
+            let mut key2 = key1.clone();
+            key2.extend_from_slice(b":m2");
+            encode_resp_parts(&[b"MGET", key1.as_slice(), key2.as_slice()])
+        }
+        BenchKind::Del => {
+            let key = make_key(key_base, sequence);
+            encode_resp_parts(&[b"DEL", key.as_slice()])
+        }
+        BenchKind::Exists => {
+            let key = make_key(key_base, sequence);
+            encode_resp_parts(&[b"EXISTS", key.as_slice()])
+        }
+        BenchKind::Expire => {
+            let key = make_key(key_base, sequence);
+            encode_resp_parts(&[b"EXPIRE", key.as_slice(), b"60"])
+        }
+        BenchKind::Ttl => {
+            let key = make_key(key_base, sequence);
+            encode_resp_parts(&[b"TTL", key.as_slice()])
+        }
         BenchKind::Incr => {
             let key = make_key(key_base, sequence);
             encode_resp_parts(&[b"INCR", key.as_slice()])
+        }
+        BenchKind::IncrBy => {
+            let key = make_key(key_base, sequence);
+            encode_resp_parts(&[b"INCRBY", key.as_slice(), b"3"])
+        }
+        BenchKind::Decr => {
+            let key = make_key(key_base, sequence);
+            encode_resp_parts(&[b"DECR", key.as_slice()])
+        }
+        BenchKind::DecrBy => {
+            let key = make_key(key_base, sequence);
+            encode_resp_parts(&[b"DECRBY", key.as_slice(), b"3"])
+        }
+        BenchKind::Strlen => {
+            let key = make_key(key_base, sequence);
+            encode_resp_parts(&[b"STRLEN", key.as_slice()])
+        }
+        BenchKind::SetRange => {
+            let key = make_key(key_base, sequence);
+            encode_resp_parts(&[b"SETRANGE", key.as_slice(), b"0", value])
+        }
+        BenchKind::GetRange => {
+            let key = make_key(key_base, sequence);
+            encode_resp_parts(&[b"GETRANGE", key.as_slice(), b"0", b"2"])
         }
         BenchKind::Lpush => {
             let key = make_key(key_base, sequence);
@@ -222,17 +305,77 @@ fn build_command(kind: BenchKind, key_base: &[u8], value: &[u8], sequence: u64) 
             let key = make_key(key_base, sequence);
             encode_resp_parts(&[b"RPUSH", key.as_slice(), value])
         }
+        BenchKind::Lpop => {
+            let key = make_key(key_base, sequence);
+            encode_resp_parts(&[b"LPOP", key.as_slice()])
+        }
+        BenchKind::Rpop => {
+            let key = make_key(key_base, sequence);
+            encode_resp_parts(&[b"RPOP", key.as_slice()])
+        }
+        BenchKind::Llen => {
+            let key = make_key(key_base, sequence);
+            encode_resp_parts(&[b"LLEN", key.as_slice()])
+        }
+        BenchKind::Lrange => {
+            let key = make_key(key_base, sequence);
+            encode_resp_parts(&[b"LRANGE", key.as_slice(), b"0", b"9"])
+        }
         BenchKind::Sadd => {
             let key = make_key(key_base, sequence);
             encode_resp_parts(&[b"SADD", key.as_slice(), value])
+        }
+        BenchKind::Srem => {
+            let key = make_key(key_base, sequence);
+            encode_resp_parts(&[b"SREM", key.as_slice(), value])
+        }
+        BenchKind::Scard => {
+            let key = make_key(key_base, sequence);
+            encode_resp_parts(&[b"SCARD", key.as_slice()])
+        }
+        BenchKind::Sismember => {
+            let key = make_key(key_base, sequence);
+            encode_resp_parts(&[b"SISMEMBER", key.as_slice(), value])
         }
         BenchKind::Hset => {
             let key = make_key(key_base, sequence);
             encode_resp_parts(&[b"HSET", key.as_slice(), b"field", value])
         }
+        BenchKind::Hget => {
+            let key = make_key(key_base, sequence);
+            encode_resp_parts(&[b"HGET", key.as_slice(), b"field"])
+        }
+        BenchKind::Hgetall => {
+            let key = make_key(key_base, sequence);
+            encode_resp_parts(&[b"HGETALL", key.as_slice()])
+        }
+        BenchKind::Hincrby => {
+            let key = make_key(key_base, sequence);
+            encode_resp_parts(&[b"HINCRBY", key.as_slice(), b"field", b"1"])
+        }
         BenchKind::Zadd => {
             let key = make_key(key_base, sequence);
             encode_resp_parts(&[b"ZADD", key.as_slice(), b"1", value])
+        }
+        BenchKind::Zrem => {
+            let key = make_key(key_base, sequence);
+            encode_resp_parts(&[b"ZREM", key.as_slice(), value])
+        }
+        BenchKind::Zcard => {
+            let key = make_key(key_base, sequence);
+            encode_resp_parts(&[b"ZCARD", key.as_slice()])
+        }
+        BenchKind::Zscore => {
+            let key = make_key(key_base, sequence);
+            encode_resp_parts(&[b"ZSCORE", key.as_slice(), value])
+        }
+        BenchKind::Zrank => {
+            let key = make_key(key_base, sequence);
+            encode_resp_parts(&[b"ZRANK", key.as_slice(), value])
+        }
+        BenchKind::Zrevrank => {
+            let key = make_key(key_base, sequence);
+            encode_resp_parts(&[b"ZREVRANK", key.as_slice(), value])
         }
     }
 }
