@@ -1,4 +1,4 @@
-use crate::util::{Args, wrong_args, wrong_type};
+use crate::util::{wrong_args, wrong_type, Args};
 use engine::store::Store;
 use protocol::types::{BulkData, RespFrame};
 
@@ -23,11 +23,7 @@ pub(crate) fn mset(store: &Store, args: &Args) -> RespFrame {
     if args.len() < 3 || (args.len() - 1) % 2 != 0 {
         return wrong_args("MSET");
     }
-    let mut pairs = Vec::with_capacity((args.len() - 1) / 2);
-    for chunk in args[1..].chunks(2) {
-        pairs.push((chunk[0].clone(), chunk[1].clone()));
-    }
-    store.mset(pairs);
+    store.mset_args(&args[1..]);
     RespFrame::ok()
 }
 
