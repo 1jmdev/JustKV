@@ -73,30 +73,31 @@ export function LandingPage() {
     <div>
       <section className="relative overflow-hidden border-b border-border/50">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,oklch(0.65_0.2_280_/_0.08),transparent_60%)]" />
-        <div className="relative mx-auto max-w-6xl px-6 py-28 lg:py-36">
+        <div className="relative mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24 lg:py-36">
           <motion.div {...fadeUp} className="max-w-3xl">
-            <Badge variant="secondary" className="mb-6">
+            <Badge variant="secondary" className="mb-5 sm:mb-6">
               Now in Early Access
             </Badge>
-            <h1 className="text-5xl font-bold tracking-tight lg:text-6xl">
+            <h1 className="text-3xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
               The key-value store
               <br />
               <span className="text-primary">Redis should have been.</span>
             </h1>
-            <p className="mt-6 max-w-xl text-lg text-muted-foreground">
+            <p className="mt-4 max-w-xl text-base text-muted-foreground sm:mt-6 sm:text-lg">
               BetterKV is a Redis-compatible key-value store built in Rust.
               Multi-threaded, memory-efficient, and 5-15x faster. Drop it in — your code doesn't change.
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
+            <div className="mt-6 flex flex-col gap-3 sm:mt-8 sm:flex-row sm:flex-wrap">
               <Button
                 size="lg"
+                className="w-full sm:w-auto"
                 render={<a href="https://docs.betterkv.com/installation" target="_blank" rel="noopener noreferrer" />}
               >
                 Get Started
                 <ArrowRightIcon className="ml-1 size-4" />
               </Button>
               <WaitlistModal>
-                <Button size="lg" variant="outline" className="cursor-pointer">
+                <Button size="lg" variant="outline" className="w-full cursor-pointer sm:w-auto">
                   Join Cloud Waitlist
                 </Button>
               </WaitlistModal>

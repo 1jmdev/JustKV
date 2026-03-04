@@ -69,23 +69,23 @@ export function PerformancePage() {
             </p>
           </motion.div>
 
-          <motion.div {...fadeUp} className="mt-10 overflow-hidden rounded-xl border border-border/50">
-            <table className="w-full text-sm">
+          <motion.div {...fadeUp} className="mt-10 rounded-xl border border-border/50 overflow-x-auto">
+            <table className="w-full min-w-[520px] text-sm">
               <thead>
                 <tr className="border-b border-border/50 bg-card">
-                  <th className="px-6 py-3.5 text-left font-medium text-muted-foreground">Operation</th>
-                  <th className="px-6 py-3.5 text-right font-medium text-primary">BetterKV</th>
-                  <th className="px-6 py-3.5 text-right font-medium text-muted-foreground">Redis</th>
-                  <th className="px-6 py-3.5 text-right font-medium text-muted-foreground">Improvement</th>
+                  <th className="px-4 py-3.5 text-left font-medium text-muted-foreground sm:px-6">Operation</th>
+                  <th className="px-4 py-3.5 text-right font-medium text-primary sm:px-6">BetterKV</th>
+                  <th className="px-4 py-3.5 text-right font-medium text-muted-foreground sm:px-6">Redis</th>
+                  <th className="px-4 py-3.5 text-right font-medium text-muted-foreground sm:px-6">Improvement</th>
                 </tr>
               </thead>
               <tbody>
                 {benchmarks.map((row, i) => (
                   <tr key={row.label} className={i % 2 === 0 ? "bg-card/50" : ""}>
-                    <td className="px-6 py-3.5 font-medium">{row.label}</td>
-                    <td className="px-6 py-3.5 text-right font-mono text-sm text-primary">{row.betterkv}</td>
-                    <td className="px-6 py-3.5 text-right font-mono text-sm text-muted-foreground">{row.redis}</td>
-                    <td className="px-6 py-3.5 text-right">
+                    <td className="px-4 py-3.5 font-medium sm:px-6">{row.label}</td>
+                    <td className="px-4 py-3.5 text-right font-mono text-sm text-primary sm:px-6">{row.betterkv}</td>
+                    <td className="px-4 py-3.5 text-right font-mono text-sm text-muted-foreground sm:px-6">{row.redis}</td>
+                    <td className="px-4 py-3.5 text-right sm:px-6">
                       <Badge variant="secondary">{row.ratio}</Badge>
                     </td>
                   </tr>

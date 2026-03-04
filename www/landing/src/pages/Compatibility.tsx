@@ -178,21 +178,21 @@ export function CompatibilityPage() {
             </p>
           </motion.div>
 
-          <motion.div {...fadeUp} className="mt-10 overflow-hidden rounded-xl border border-border/50">
-            <table className="w-full text-sm">
+          <motion.div {...fadeUp} className="mt-10 rounded-xl border border-border/50 overflow-x-auto">
+            <table className="w-full min-w-[400px] text-sm">
               <thead>
                 <tr className="border-b border-border/50 bg-card">
-                  <th className="px-6 py-3.5 text-left font-medium text-muted-foreground">Client</th>
-                  <th className="px-6 py-3.5 text-left font-medium text-muted-foreground">Language</th>
-                  <th className="px-6 py-3.5 text-right font-medium text-muted-foreground">Status</th>
+                  <th className="px-4 py-3.5 text-left font-medium text-muted-foreground sm:px-6">Client</th>
+                  <th className="px-4 py-3.5 text-left font-medium text-muted-foreground sm:px-6">Language</th>
+                  <th className="px-4 py-3.5 text-right font-medium text-muted-foreground sm:px-6">Status</th>
                 </tr>
               </thead>
               <tbody>
                 {clients.map((client, i) => (
                   <tr key={client.name} className={i % 2 === 0 ? "bg-card/50" : ""}>
-                    <td className="px-6 py-3.5 font-mono text-sm">{client.name}</td>
-                    <td className="px-6 py-3.5 text-muted-foreground">{client.language}</td>
-                    <td className="px-6 py-3.5 text-right">
+                    <td className="px-4 py-3.5 font-mono text-sm sm:px-6">{client.name}</td>
+                    <td className="px-4 py-3.5 text-muted-foreground sm:px-6">{client.language}</td>
+                    <td className="px-4 py-3.5 text-right sm:px-6">
                       <Badge variant="secondary">{client.status}</Badge>
                     </td>
                   </tr>

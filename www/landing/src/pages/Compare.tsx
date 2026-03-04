@@ -64,25 +64,25 @@ export function ComparePage() {
             </p>
           </motion.div>
 
-          <motion.div {...fadeUp} className="mt-10 overflow-x-auto rounded-xl border border-border/50">
-            <table className="w-full text-sm">
+          <motion.div {...fadeUp} className="mt-10 rounded-xl border border-border/50 overflow-x-auto">
+            <table className="w-full min-w-[560px] text-sm">
               <thead>
                 <tr className="border-b border-border/50 bg-card">
-                  <th className="px-5 py-3.5 text-left font-medium text-muted-foreground">Feature</th>
-                  <th className="px-5 py-3.5 text-center font-medium text-primary">BetterKV</th>
-                  <th className="px-5 py-3.5 text-center font-medium text-muted-foreground">Redis</th>
-                  <th className="px-5 py-3.5 text-center font-medium text-muted-foreground">Dragonfly</th>
-                  <th className="px-5 py-3.5 text-center font-medium text-muted-foreground">KeyDB</th>
+                  <th className="px-4 py-3.5 text-left font-medium text-muted-foreground sm:px-5">Feature</th>
+                  <th className="px-4 py-3.5 text-center font-medium text-primary sm:px-5">BetterKV</th>
+                  <th className="px-4 py-3.5 text-center font-medium text-muted-foreground sm:px-5">Redis</th>
+                  <th className="px-4 py-3.5 text-center font-medium text-muted-foreground sm:px-5">Dragonfly</th>
+                  <th className="px-4 py-3.5 text-center font-medium text-muted-foreground sm:px-5">KeyDB</th>
                 </tr>
               </thead>
               <tbody>
                 {features.map((row, i) => (
                   <tr key={row.feature} className={i % 2 === 0 ? "bg-card/50" : ""}>
-                    <td className="px-5 py-3 font-medium">{row.feature}</td>
-                    <td className="px-5 py-3 text-center"><CellValue value={row.betterkv} /></td>
-                    <td className="px-5 py-3 text-center"><CellValue value={row.redis} /></td>
-                    <td className="px-5 py-3 text-center"><CellValue value={row.dragonfly} /></td>
-                    <td className="px-5 py-3 text-center"><CellValue value={row.keydb} /></td>
+                    <td className="px-4 py-3 font-medium sm:px-5">{row.feature}</td>
+                    <td className="px-4 py-3 text-center sm:px-5"><CellValue value={row.betterkv} /></td>
+                    <td className="px-4 py-3 text-center sm:px-5"><CellValue value={row.redis} /></td>
+                    <td className="px-4 py-3 text-center sm:px-5"><CellValue value={row.dragonfly} /></td>
+                    <td className="px-4 py-3 text-center sm:px-5"><CellValue value={row.keydb} /></td>
                   </tr>
                 ))}
               </tbody>
