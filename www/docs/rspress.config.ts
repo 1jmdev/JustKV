@@ -6,7 +6,7 @@ export default defineConfig({
   root: path.join(import.meta.dirname, 'pages'),
   plugins: [
     pluginSitemap({
-      siteUrl: 'https://docs.betterkv.dev',
+      siteUrl: 'https://docs.betterkv.com',
     }),
   ],
   title: 'BetterKV Docs',
