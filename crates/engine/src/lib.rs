@@ -25,7 +25,6 @@ pub mod store {
     };
 }
 
-use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use ahash::RandomState;
@@ -137,7 +136,9 @@ pub enum XTrimMode {
 pub struct Shard {
     pub(crate) entries: StoreMap,
     pub(crate) ttl: TtlMap,
-    pub(crate) ttl_deadlines: BTreeSet<(u64, CompactKey)>,
+    /// Tracks the smallest known deadline so sweep can skip shards that have
+    /// no expired keys without rebuilding the full sorted structure.
+    pub(crate) ttl_min_deadline: u64,
 }
 
 impl Shard {
@@ -146,25 +147,50 @@ impl Shard {
         Self {
             entries: RehashingMap::new(),
             ttl: HashMap::with_hasher(RandomState::new()),
-            ttl_deadlines: BTreeSet::new(),
+            ttl_min_deadline: u64::MAX,
         }
     }
 
+    /// Fast O(1) amortized TTL set — only a single HashMap insert.
+    /// No heap push, no key clone beyond what the HashMap needs.
+    #[inline]
     pub fn set_ttl(&mut self, key: CompactKey, deadline: u64) {
         let _trace = profiler::scope("engine::lib::set_ttl");
-        if let Some(previous_deadline) = self.ttl.insert(key.clone(), deadline) {
-            let _ = self.ttl_deadlines.remove(&(previous_deadline, key.clone()));
+        let _ = self.ttl.insert(key, deadline);
+        // Maintain the minimum-deadline hint cheaply.
+        if deadline < self.ttl_min_deadline {
+            self.ttl_min_deadline = deadline;
         }
-        let _ = self.ttl_deadlines.insert((deadline, key));
+    }
+
+    /// Variant that avoids allocating a CompactKey when the caller only has a
+    /// byte slice and the key is already present in the TTL map.
+    #[inline]
+    pub fn set_ttl_existing(&mut self, key: &[u8], deadline: u64) {
+        let _trace = profiler::scope("engine::lib::set_ttl_existing");
+        // RawEntryMut lets us look up by &[u8] and only allocate a CompactKey
+        // on the (rare) insert-new path.
+        use hashbrown::hash_map::RawEntryMut;
+        let hash = self.ttl.hasher().hash_one(key);
+        match self.ttl.raw_entry_mut().from_key_hashed_nocheck(hash, key) {
+            RawEntryMut::Occupied(mut occ) => {
+                *occ.get_mut() = deadline;
+            }
+            RawEntryMut::Vacant(vac) => {
+                vac.insert_hashed_nocheck(hash, CompactKey::from_slice(key), deadline);
+            }
+        }
+        if deadline < self.ttl_min_deadline {
+            self.ttl_min_deadline = deadline;
+        }
     }
 
     pub fn clear_ttl(&mut self, key: &[u8]) -> Option<u64> {
         let _trace = profiler::scope("engine::lib::clear_ttl");
-        let deadline = self.ttl.remove(key)?;
-        let _ = self
-            .ttl_deadlines
-            .remove(&(deadline, CompactKey::from_slice(key)));
-        Some(deadline)
+        self.ttl.remove(key)
+        // Note: we intentionally do NOT update ttl_min_deadline here.
+        // It stays as a lower bound; sweep will simply find nothing to
+        // remove for that timestamp and the hint gets refreshed during sweep.
     }
 
     pub fn remove_key(&mut self, key: &[u8]) -> Option<Entry> {
@@ -206,22 +232,33 @@ impl Store {
         let mut removed = 0;
         for shard in self.shards.iter() {
             let mut guard = shard.write();
-            while let Some((deadline, key)) = guard.ttl_deadlines.first().cloned() {
-                if deadline > now_ms {
-                    break;
-                }
+            // Fast check: if the minimum-deadline hint is in the future, skip.
+            if guard.ttl_min_deadline > now_ms {
+                continue;
+            }
 
-                let _ = guard.ttl_deadlines.pop_first();
-                let current = guard.ttl.get(key.as_slice()).copied();
-                if current != Some(deadline) {
-                    continue;
-                }
+            let mut new_min = u64::MAX;
+            let expired_keys: Vec<CompactKey> = guard
+                .ttl
+                .iter()
+                .filter_map(|(key, &deadline)| {
+                    if deadline <= now_ms {
+                        Some(key.clone())
+                    } else {
+                        new_min = new_min.min(deadline);
+                        None
+                    }
+                })
+                .collect();
 
+            for key in &expired_keys {
                 guard.ttl.remove(key.as_slice());
                 if guard.entries.remove(key.as_slice()).is_some() {
                     removed += 1;
                 }
             }
+
+            guard.ttl_min_deadline = new_min;
         }
         removed
     }

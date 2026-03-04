@@ -1,8 +1,8 @@
 use std::collections::VecDeque;
 
-use super::Store;
 use super::helpers::{is_expired, monotonic_now_ms, purge_if_expired};
 use super::pattern::wildcard_match;
+use super::Store;
 use crate::value::{CompactKey, CompactValue, Entry};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -438,7 +438,7 @@ impl Store {
             removed += guard.entries.len() as i64;
             guard.entries.clear();
             guard.ttl.clear();
-            guard.ttl_deadlines.clear();
+            guard.ttl_min_deadline = u64::MAX;
         }
         removed
     }
