@@ -1,5 +1,5 @@
 use crate::dispatcher;
-use crate::util::{int_error, wrong_args, Args};
+use crate::util::{Args, int_error, wrong_args};
 use engine::store::Store;
 use engine::value::{CompactArg, CompactBytes};
 use mlua::{HookTriggers, Lua, Table, Value, Variadic, VmState};

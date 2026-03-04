@@ -1,5 +1,5 @@
-use bytes::{BytesMut, BufMut};
 use crate::types::RespFrame;
+use bytes::{BufMut, BytesMut};
 
 const CRLF: &[u8] = b"\r\n";
 const NULL_BULK: &[u8] = b"$-1\r\n";
@@ -11,7 +11,9 @@ pub struct Encoder {
 
 impl Default for Encoder {
     fn default() -> Self {
-        Self { itoa: itoa::Buffer::new() }
+        Self {
+            itoa: itoa::Buffer::new(),
+        }
     }
 }
 
