@@ -1,0 +1,19 @@
+{
+  "name": "betterkv-www",
+  "private": true,
+  "workspaces": [
+    "./*"
+  ],
+  "scripts": {
+    "check": "biome check landing docs",
+    "check:fix": "biome check --write landing docs",
+    "format": "biome format --write landing docs",
+    "lint": "biome lint landing docs",
+    "deploy": "bun run deploy:landing && bun run deploy:docs",
+    "deploy:landing": "bun --filter betterkv-landing run deploy",
+    "deploy:docs": "bun --filter betterkv-docs run deploy"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4"
+  }
+}

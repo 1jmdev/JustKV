@@ -6,6 +6,9 @@
   "scripts": {
     "dev": "rspress dev",
     "build": "rspress build",
+    "check": "biome check .",
+    "format": "biome format --write .",
+    "lint": "biome lint .",
     "deploy": "bun run build && bun wrangler deploy"
   },
   "dependencies": {
