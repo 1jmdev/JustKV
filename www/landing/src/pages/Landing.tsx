@@ -72,7 +72,7 @@ export function LandingPage() {
   return (
     <div>
       <section className="relative overflow-hidden border-b border-border/50">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,oklch(0.65_0.2_280_/_0.08),transparent_60%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,oklch(0.65_0.2_280/0.08),transparent_60%)]" />
         <div className="relative mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24 lg:py-36">
           <motion.div {...fadeUp} className="max-w-3xl">
             <Badge variant="secondary" className="mb-5 sm:mb-6">
@@ -334,7 +334,7 @@ export function LandingPage() {
       </section>
 
       <section className="relative overflow-hidden py-24">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,oklch(0.65_0.2_280_/_0.06),transparent_60%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,oklch(0.65_0.2_280/0.06),transparent_60%)]" />
         <div className="relative mx-auto max-w-6xl px-6 text-center">
           <motion.div {...fadeUp}>
             <Badge variant="secondary" className="mb-4">Coming Soon</Badge>
