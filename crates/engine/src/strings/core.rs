@@ -84,20 +84,24 @@ impl Store {
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
         let now_ms = monotonic_now_ms();
-        let old_value = if purge_if_expired(&mut shard, key, now_ms) {
-            None
-        } else {
-            match shard.entries.get::<[u8]>(key) {
-                Some(entry) => match entry.as_string() {
-                    Some(value) => Some(value.to_vec()),
-                    None => return Err(()),
-                },
-                None => None,
-            }
-        };
+        if purge_if_expired(&mut shard, key, now_ms) {
+            write_entry(&mut shard, key, Entry::from_slice(value), None);
+            return Ok(None);
+        }
+
+        if let Some(entry) = shard.entries.get_mut::<[u8]>(key) {
+            let Some(current) = entry.as_string() else {
+                return Err(());
+            };
+
+            let old_value = current.to_vec();
+            *entry = Entry::from_slice(value);
+            let _ = shard.clear_ttl(key);
+            return Ok(Some(old_value));
+        }
 
         write_entry(&mut shard, key, Entry::from_slice(value), None);
-        Ok(old_value)
+        Ok(None)
     }
 
     pub fn getdel(&self, key: &[u8]) -> Result<Option<Vec<u8>>, ()> {
