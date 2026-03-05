@@ -29,7 +29,7 @@ impl Default for Config {
             log_level: "info".to_string(),
             log_file: None,
             data_dir: ".".to_string(),
-            dbfilename: "dump.jkv".to_string(),
+            dbfilename: "dump.bkv".to_string(),
             snapshot_interval_secs: 300,
             snapshot_on_shutdown: true,
             requirepass: None,
