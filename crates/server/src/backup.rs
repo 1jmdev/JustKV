@@ -260,55 +260,78 @@ pub fn write_snapshot(store: &Store, path: &Path) -> Result<SnapshotStats, Strin
         })?;
     }
 
-    let mut out = Vec::with_capacity(64 * 1024);
-    out.extend_from_slice(RDB_MAGIC_PREFIX);
-    out.extend_from_slice(RDB_VERSION.as_bytes());
-
-    out.push(OP_SELECTDB);
-    encode_len(&mut out, 0)?;
-
-    let now_s = now_unix_seconds();
-    let mut written_keys = 0u64;
-    for key in store.keys(b"*") {
-        let Some(payload) = store.dump(&key) else {
-            continue;
-        };
-
-        let ttl_ms = store.pttl(&key);
-        let value = decode_custom_entry(&payload)?;
-        let rdb_value = match value {
-            Value::Geo(_) | Value::Stream(_) => {
-                let mut bytes = EMBEDDED_PREFIX.to_vec();
-                bytes.extend_from_slice(&payload);
-                RdbValue::String(bytes)
-            }
-            Value::String(value) => RdbValue::String(value),
-            Value::Hash(pairs) => RdbValue::Hash(pairs),
-            Value::List(values) => RdbValue::List(values),
-            Value::Set(values) => RdbValue::Set(values),
-            Value::ZSet(values) => RdbValue::ZSet(values),
-        };
-
-        if ttl_ms >= 0 {
-            let expire_at_s = now_s.saturating_add((ttl_ms as u64).div_ceil(1000));
-            let expire_at_s_u32 = u32::try_from(expire_at_s)
-                .map_err(|_| format!("ttl overflow while writing {}", path.display()))?;
-            out.push(OP_EXPIRETIME);
-            out.extend_from_slice(&expire_at_s_u32.to_le_bytes());
-        }
-
-        write_rdb_value(&mut out, &key, rdb_value)?;
-        written_keys += 1;
-    }
-
-    out.push(OP_EOF);
-
     let temp_path = path.with_extension("tmp");
     let file = File::create(&temp_path)
         .map_err(|err| format!("failed to create snapshot {}: {err}", temp_path.display()))?;
-    let mut writer = BufWriter::new(file);
+    let mut writer = CountingWriter::new(BufWriter::new(file));
+
     writer
-        .write_all(&out)
+        .write_all(RDB_MAGIC_PREFIX)
+        .map_err(|err| format!("failed to write snapshot {}: {err}", temp_path.display()))?;
+    writer
+        .write_all(RDB_VERSION.as_bytes())
+        .map_err(|err| format!("failed to write snapshot {}: {err}", temp_path.display()))?;
+
+    writer
+        .write_all(&[OP_SELECTDB])
+        .map_err(|err| format!("failed to write snapshot {}: {err}", temp_path.display()))?;
+    encode_len(&mut writer, 0)
+        .map_err(|err| format!("failed to write snapshot {}: {err}", temp_path.display()))?;
+
+    let now_s = now_unix_seconds();
+    let mut written_keys = 0u64;
+    let mut cursor = 0u64;
+    loop {
+        let (next_cursor, keys) = store.scan(cursor, None, 8_192, None);
+        for key in keys {
+            let key_bytes = key.as_slice();
+            let Some(payload) = store.dump(key_bytes) else {
+                continue;
+            };
+
+            let ttl_ms = store.pttl(key_bytes);
+            let value = decode_custom_entry(&payload)?;
+            let rdb_value = match value {
+                Value::Geo(_) | Value::Stream(_) => {
+                    let mut bytes = EMBEDDED_PREFIX.to_vec();
+                    bytes.extend_from_slice(&payload);
+                    RdbValue::String(bytes)
+                }
+                Value::String(value) => RdbValue::String(value),
+                Value::Hash(pairs) => RdbValue::Hash(pairs),
+                Value::List(values) => RdbValue::List(values),
+                Value::Set(values) => RdbValue::Set(values),
+                Value::ZSet(values) => RdbValue::ZSet(values),
+            };
+
+            if ttl_ms >= 0 {
+                let expire_at_s = now_s.saturating_add((ttl_ms as u64).div_ceil(1000));
+                let expire_at_s_u32 = u32::try_from(expire_at_s)
+                    .map_err(|_| format!("ttl overflow while writing {}", path.display()))?;
+                writer.write_all(&[OP_EXPIRETIME]).map_err(|err| {
+                    format!("failed to write snapshot {}: {err}", temp_path.display())
+                })?;
+                writer
+                    .write_all(&expire_at_s_u32.to_le_bytes())
+                    .map_err(|err| {
+                        format!("failed to write snapshot {}: {err}", temp_path.display())
+                    })?;
+            }
+
+            write_rdb_value(&mut writer, key_bytes, rdb_value).map_err(|err| {
+                format!("failed to write snapshot {}: {err}", temp_path.display())
+            })?;
+            written_keys += 1;
+        }
+
+        if next_cursor == 0 {
+            break;
+        }
+        cursor = next_cursor;
+    }
+
+    writer
+        .write_all(&[OP_EOF])
         .map_err(|err| format!("failed to write snapshot {}: {err}", temp_path.display()))?;
     writer
         .flush()
@@ -323,7 +346,7 @@ pub fn write_snapshot(store: &Store, path: &Path) -> Result<SnapshotStats, Strin
 
     Ok(SnapshotStats {
         keys_written: written_keys,
-        bytes_written: out.len() as u64,
+        bytes_written: writer.bytes_written(),
     })
 }
 
@@ -335,16 +358,17 @@ enum RdbValue {
     Hash(Vec<(Vec<u8>, Vec<u8>)>),
 }
 
-fn write_rdb_value(out: &mut Vec<u8>, key: &[u8], value: RdbValue) -> Result<(), String> {
+fn write_rdb_value<W: Write>(out: &mut W, key: &[u8], value: RdbValue) -> Result<(), String> {
     let _trace = profiler::scope("server::backup::write_rdb_value");
     match value {
         RdbValue::String(v) => {
-            out.push(TYPE_STRING);
+            out.write_all(&[TYPE_STRING])
+                .map_err(|err| err.to_string())?;
             encode_string(out, key)?;
             encode_string(out, &v)?;
         }
         RdbValue::List(values) => {
-            out.push(TYPE_LIST);
+            out.write_all(&[TYPE_LIST]).map_err(|err| err.to_string())?;
             encode_string(out, key)?;
             encode_len(out, values.len())?;
             for value in values {
@@ -352,7 +376,7 @@ fn write_rdb_value(out: &mut Vec<u8>, key: &[u8], value: RdbValue) -> Result<(),
             }
         }
         RdbValue::Set(values) => {
-            out.push(TYPE_SET);
+            out.write_all(&[TYPE_SET]).map_err(|err| err.to_string())?;
             encode_string(out, key)?;
             encode_len(out, values.len())?;
             for value in values {
@@ -360,16 +384,16 @@ fn write_rdb_value(out: &mut Vec<u8>, key: &[u8], value: RdbValue) -> Result<(),
             }
         }
         RdbValue::ZSet(values) => {
-            out.push(TYPE_ZSET);
+            out.write_all(&[TYPE_ZSET]).map_err(|err| err.to_string())?;
             encode_string(out, key)?;
             encode_len(out, values.len())?;
             for (member, score) in values {
                 encode_string(out, &member)?;
-                encode_zset_score(out, score);
+                encode_zset_score(out, score)?;
             }
         }
         RdbValue::Hash(values) => {
-            out.push(TYPE_HASH);
+            out.write_all(&[TYPE_HASH]).map_err(|err| err.to_string())?;
             encode_string(out, key)?;
             encode_len(out, values.len())?;
             for (field, value) in values {
@@ -380,6 +404,36 @@ fn write_rdb_value(out: &mut Vec<u8>, key: &[u8], value: RdbValue) -> Result<(),
     }
 
     Ok(())
+}
+
+struct CountingWriter<W> {
+    inner: W,
+    bytes_written: u64,
+}
+
+impl<W> CountingWriter<W> {
+    fn new(inner: W) -> Self {
+        Self {
+            inner,
+            bytes_written: 0,
+        }
+    }
+
+    fn bytes_written(&self) -> u64 {
+        self.bytes_written
+    }
+}
+
+impl<W: Write> Write for CountingWriter<W> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let written = self.inner.write(buf)?;
+        self.bytes_written = self.bytes_written.saturating_add(written as u64);
+        Ok(written)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.inner.flush()
+    }
 }
 
 fn parse_rdb(input: &[u8]) -> Result<Vec<LoadedEntry>, String> {
@@ -494,21 +548,22 @@ fn parse_rdb(input: &[u8]) -> Result<Vec<LoadedEntry>, String> {
     Ok(entries)
 }
 
-fn encode_len(out: &mut Vec<u8>, len: usize) -> Result<(), String> {
+fn encode_len<W: Write>(out: &mut W, len: usize) -> Result<(), String> {
     let _trace = profiler::scope("server::backup::encode_len");
     if len < (1 << 6) {
-        out.push(len as u8);
+        out.write_all(&[len as u8]).map_err(|err| err.to_string())?;
         return Ok(());
     }
     if len < (1 << 14) {
-        out.push(((len >> 8) as u8 & 0x3F) | 0b0100_0000);
-        out.push((len & 0xFF) as u8);
+        out.write_all(&[((len >> 8) as u8 & 0x3F) | 0b0100_0000, (len & 0xFF) as u8])
+            .map_err(|err| err.to_string())?;
         return Ok(());
     }
 
     let len_u32 = u32::try_from(len).map_err(|_| "RDB length over u32 is unsupported")?;
-    out.push(0b1000_0000);
-    out.extend_from_slice(&len_u32.to_be_bytes());
+    out.write_all(&[0b1000_0000])
+        .and_then(|_| out.write_all(&len_u32.to_be_bytes()))
+        .map_err(|err| err.to_string())?;
     Ok(())
 }
 
@@ -518,10 +573,10 @@ fn decode_len(input: &[u8], cursor: &mut usize) -> Result<usize, String> {
     decode_len_with_first(input, cursor, first)
 }
 
-fn encode_string(out: &mut Vec<u8>, value: &[u8]) -> Result<(), String> {
+fn encode_string<W: Write>(out: &mut W, value: &[u8]) -> Result<(), String> {
     let _trace = profiler::scope("server::backup::encode_string");
     encode_len(out, value.len())?;
-    out.extend_from_slice(value);
+    out.write_all(value).map_err(|err| err.to_string())?;
     Ok(())
 }
 
@@ -647,24 +702,26 @@ fn lzf_decompress(input: &[u8], expected_len: usize) -> Result<Vec<u8>, String> 
     Ok(out)
 }
 
-fn encode_zset_score(out: &mut Vec<u8>, score: f64) {
+fn encode_zset_score<W: Write>(out: &mut W, score: f64) -> Result<(), String> {
     let _trace = profiler::scope("server::backup::encode_zset_score");
     if score.is_nan() {
-        out.push(253);
-        return;
+        out.write_all(&[253]).map_err(|err| err.to_string())?;
+        return Ok(());
     }
     if score == f64::INFINITY {
-        out.push(254);
-        return;
+        out.write_all(&[254]).map_err(|err| err.to_string())?;
+        return Ok(());
     }
     if score == f64::NEG_INFINITY {
-        out.push(255);
-        return;
+        out.write_all(&[255]).map_err(|err| err.to_string())?;
+        return Ok(());
     }
 
     let encoded = score.to_string();
-    out.push(encoded.len() as u8);
-    out.extend_from_slice(encoded.as_bytes());
+    out.write_all(&[encoded.len() as u8])
+        .and_then(|_| out.write_all(encoded.as_bytes()))
+        .map_err(|err| err.to_string())?;
+    Ok(())
 }
 
 fn decode_zset_score(input: &[u8], cursor: &mut usize) -> Result<f64, String> {

@@ -1,7 +1,7 @@
 use crate::util::{cmd, pack_runtime};
 use crate::{connection, geo, hash, keyspace, list, scripting, set, stream, string, ttl, zset};
 use engine::store::Store;
-use engine::value::{CompactArg, CompactBytes};
+use engine::value::CompactArg;
 use protocol::types::{BulkData, RespFrame};
 
 pub fn dispatch(store: &Store, frame: RespFrame) -> RespFrame {
@@ -330,8 +330,5 @@ fn parse_arg(item: RespFrame) -> Result<CompactArg, &'static str> {
 
 #[inline]
 fn uppercase_compact_arg_in_place(arg: &mut CompactArg) {
-    match arg {
-        CompactBytes::Inline { len, data } => data[..*len as usize].make_ascii_uppercase(),
-        CompactBytes::Heap(value) => value.make_ascii_uppercase(),
-    }
+    arg.make_ascii_uppercase();
 }

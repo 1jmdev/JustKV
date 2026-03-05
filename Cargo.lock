@@ -352,6 +352,7 @@ dependencies = [
  "ryu",
  "sha1",
  "thiserror",
+ "types",
 ]
 
 [[package]]
@@ -1276,6 +1277,7 @@ version = "0.1.0"
 dependencies = [
  "ahash",
  "hashbrown",
+ "indexmap",
  "profiler",
 ]
 

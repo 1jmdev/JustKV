@@ -19,17 +19,13 @@ where
             let heads_ptr = self.table.heads.as_mut_ptr();
             let metas_ptr = self.metas.as_mut_ptr();
             let keys_ptr = self.keys.as_ptr();
-            let key_len = key_bytes.len() as u32;
 
             let mut cur = *heads_ptr.add(bucket);
             let mut prev = NIL;
 
             while cur != NIL {
                 let meta = &*metas_ptr.add(cur as usize);
-                if meta.hash == hash
-                    && meta.key_len == key_len
-                    && (*keys_ptr.add(cur as usize)).as_ref() == key_bytes
-                {
+                if meta.hash == hash && (*keys_ptr.add(cur as usize)).as_ref() == key_bytes {
                     let next = meta.next;
 
                     if prev == NIL {

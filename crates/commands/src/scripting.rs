@@ -1,7 +1,7 @@
 use crate::dispatcher;
 use crate::util::{Args, int_error, wrong_args};
 use engine::store::Store;
-use engine::value::{CompactArg, CompactBytes};
+use engine::value::CompactArg;
 use mlua::{HookTriggers, Lua, Table, Value, Variadic, VmState};
 use parking_lot::Mutex;
 use protocol::types::{BulkData, RespFrame};
@@ -642,10 +642,7 @@ fn execute_redis_call(
     }
 
     if let Some(first) = args.first_mut() {
-        match first {
-            CompactBytes::Inline { len, data } => data[..*len as usize].make_ascii_uppercase(),
-            CompactBytes::Heap(value) => value.make_ascii_uppercase(),
-        }
+        first.make_ascii_uppercase();
     }
 
     let command = args[0].as_slice();

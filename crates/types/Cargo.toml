@@ -9,4 +9,5 @@ profiling = ["profiler/enabled"]
 [dependencies]
 ahash.workspace = true
 hashbrown.workspace = true
+indexmap.workspace = true
 profiler.workspace = true

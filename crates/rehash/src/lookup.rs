@@ -60,8 +60,7 @@ where
         Q: AsRef<[u8]> + ?Sized,
     {
         let _trace = profiler::scope("rehash::lookup::get_batch");
-        let mut hashes = [0u64; P];
-        let mut key_lens = [0u32; P];
+        let mut hashes = [0u32; P];
         let key_bytes = keys.map(|key| key.as_ref());
         let mut heads = [NIL; P];
 
@@ -72,7 +71,6 @@ where
             for i in 0..P {
                 let key = key_bytes[i];
                 hashes[i] = hash_key(self.seed, key);
-                key_lens[i] = key.len() as u32;
                 let bucket = (hashes[i] as usize) & self.table.mask;
                 heads[i] = *heads_ptr.add(bucket);
                 if heads[i] != NIL {
@@ -102,7 +100,7 @@ where
                         prefetch_read(metas_ptr.add(next as usize));
                     }
 
-                    if meta.hash == hashes[i] && meta.key_len == key_lens[i] {
+                    if meta.hash == hashes[i] {
                         let key_ptr = keys_ptr.add(idx as usize);
                         prefetch_read(key_ptr);
                         let stored_key = &*key_ptr;
@@ -137,13 +135,12 @@ where
     }
 
     #[inline(always)]
-    pub fn find_index_hashed<Q>(&self, key: &Q, hash: u64) -> Option<u32>
+    pub fn find_index_hashed<Q>(&self, key: &Q, hash: u32) -> Option<u32>
     where
         Q: AsRef<[u8]> + ?Sized,
     {
         let _trace = profiler::scope("rehash::lookup::find_index_hashed");
         let key_bytes = key.as_ref();
-        let key_len = key_bytes.len() as u32;
         let bucket = (hash as usize) & self.table.mask;
 
         unsafe {
@@ -155,7 +152,7 @@ where
                 let meta = &*metas_ptr.add(idx as usize);
                 let next = meta.next;
 
-                if meta.hash == hash && meta.key_len == key_len {
+                if meta.hash == hash {
                     let k = &*keys_ptr.add(idx as usize);
                     if k.as_ref() == key_bytes {
                         return Some(idx);

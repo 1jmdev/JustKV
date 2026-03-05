@@ -32,7 +32,7 @@ fn read_u64_le(bytes: &[u8], off: usize) -> u64 {
 }
 
 #[inline(always)]
-pub(super) fn hash_key(seed: u64, key: &[u8]) -> u64 {
+pub(super) fn hash_key(seed: u64, key: &[u8]) -> u32 {
     let _trace = profiler::scope("rehash::index::hash_key");
     let len = key.len();
 
@@ -52,9 +52,9 @@ pub(super) fn hash_key(seed: u64, key: &[u8]) -> u64 {
             a = key[0] as u64 | ((key[len >> 1] as u64) << 8) | ((key[len - 1] as u64) << 16);
             b = len as u64;
         } else {
-            return wymix(seed ^ WY_SECRET_0, WY_SECRET_1);
+            return wymix(seed ^ WY_SECRET_0, WY_SECRET_1) as u32;
         }
-        return wymix(WY_SECRET_1 ^ (len as u64), wymix(a ^ WY_SECRET_1, b ^ seed));
+        return wymix(WY_SECRET_1 ^ (len as u64), wymix(a ^ WY_SECRET_1, b ^ seed)) as u32;
     }
 
     let mut off = 0usize;
@@ -72,5 +72,5 @@ pub(super) fn hash_key(seed: u64, key: &[u8]) -> u64 {
 
     let a = read_u64_le(key, len - 16);
     let b = read_u64_le(key, len - 8);
-    wymix(WY_SECRET_2 ^ (len as u64), wymix(a ^ WY_SECRET_1, b ^ s))
+    wymix(WY_SECRET_2 ^ (len as u64), wymix(a ^ WY_SECRET_1, b ^ s)) as u32
 }
