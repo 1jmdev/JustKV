@@ -72,27 +72,30 @@ export default defineConfig({
             ],
             "/commands/": [
                 {
-                    text: "String Commands",
+                    text: "Command Reference",
                     items: [
                         { text: "Overview", link: "/commands/" },
-                        { text: "GET / SET", link: "/commands/string" },
-                        { text: "INCR / DECR", link: "/commands/numeric" },
+                        { text: "Connection & Server", link: "/commands/server" },
+                        { text: "Keys & Expiry", link: "/commands/keys" },
+                        { text: "Scripting", link: "/commands/scripting" },
                     ],
                 },
                 {
-                    text: "Data Structure Commands",
+                    text: "String & Numeric",
+                    items: [
+                        { text: "Strings", link: "/commands/string" },
+                        { text: "Numeric", link: "/commands/numeric" },
+                    ],
+                },
+                {
+                    text: "Data Structures",
                     items: [
                         { text: "Lists", link: "/commands/list" },
                         { text: "Hashes", link: "/commands/hash" },
                         { text: "Sets", link: "/commands/set" },
                         { text: "Sorted Sets", link: "/commands/sorted-set" },
-                    ],
-                },
-                {
-                    text: "Server Commands",
-                    items: [
-                        { text: "Keys & Expiry", link: "/commands/keys" },
-                        { text: "Server Info", link: "/commands/server" },
+                        { text: "GEO", link: "/commands/geo" },
+                        { text: "Streams", link: "/commands/stream" },
                     ],
                 },
             ],

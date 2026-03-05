@@ -1,5 +1,6 @@
 [
     "index",
+    "server",
     "string",
     "numeric",
     "list",
@@ -7,5 +8,7 @@
     "set",
     "sorted-set",
     "keys",
-    "server"
+    "geo",
+    "stream",
+    "scripting"
 ]

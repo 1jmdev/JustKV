@@ -1,6 +1,6 @@
 # Commands Reference
 
-Complete reference for all BetterKV commands. BetterKV is fully compatible with the Redis command set.
+Complete reference for all BetterKV commands. BetterKV is compatible with the Redis command set.
 
 ## Command Notation
 
@@ -28,14 +28,17 @@ Time complexity uses Big O notation over the number of elements:
 
 | Category | Commands |
 |----------|---------|
-| [Strings](/commands/string) | GET, SET, MGET, MSET, INCR, APPEND, STRLEN, ... |
-| [Numeric](/commands/numeric) | INCR, INCRBY, DECR, DECRBY, INCRBYFLOAT, ... |
-| [Lists](/commands/list) | RPUSH, LPOP, LRANGE, LLEN, BLPOP, ... |
-| [Hashes](/commands/hash) | HSET, HGET, HGETALL, HDEL, HINCRBY, ... |
-| [Sets](/commands/set) | SADD, SREM, SMEMBERS, SINTER, SUNION, ... |
-| [Sorted Sets](/commands/sorted-set) | ZADD, ZRANGE, ZRANK, ZSCORE, ZCOUNT, ... |
-| [Keys & Expiry](/commands/keys) | DEL, EXISTS, EXPIRE, TTL, RENAME, TYPE, ... |
-| [Server](/commands/server) | INFO, DBSIZE, CONFIG, FLUSHDB, DEBUG, ... |
+| [Connection & Server](/commands/server) | AUTH, HELLO, CLIENT, COMMAND, SELECT, QUIT, ECHO, PING |
+| [Strings](/commands/string) | GET, SET, SETNX, GETSET, GETDEL, GETEX, APPEND, BITFIELD, PFADD, ... |
+| [Numeric](/commands/numeric) | INCR, INCRBY, DECR, DECRBY |
+| [Lists](/commands/list) | LPUSH, RPUSH, LPOP, RPOP, LRANGE, LMOVE, LMPOP, BLPOP, BRPOPLPUSH, ... |
+| [Hashes](/commands/hash) | HSET, HMSET, HSETNX, HGET, HMGET, HGETALL, HINCRBY, HINCRBYFLOAT, ... |
+| [Sets](/commands/set) | SADD, SREM, SISMEMBER, SMEMBERS, SINTER, SUNIONSTORE, SDIFFSTORE, ... |
+| [Sorted Sets](/commands/sorted-set) | ZADD, ZREM, ZRANGE, ZRANGEBYSCORE, ZREVRANGE, ZMPOP, BZMPOP, ... |
+| [GEO](/commands/geo) | GEOADD, GEOPOS, GEODIST, GEOHASH, GEORADIUS, GEOSEARCH, ... |
+| [Streams](/commands/stream) | XADD, XLEN, XDEL, XRANGE, XREVRANGE, XREAD, XREADGROUP, XGROUP, ... |
+| [Keys & Expiry](/commands/keys) | DEL, EXISTS, TOUCH, UNLINK, TYPE, RENAME, DBSIZE, KEYS, SCAN, MOVE, ... |
+| [Scripting](/commands/scripting) | EVAL, EVAL_RO, EVALSHA, EVALSHA_RO, SCRIPT |
 
 ## Global Options
 

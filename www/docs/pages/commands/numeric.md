@@ -1,6 +1,6 @@
 # Numeric Commands
 
-BetterKV stores numbers as strings but provides atomic integer and float arithmetic.
+BetterKV stores numbers as strings but provides atomic integer arithmetic.
 
 ## INCR / DECR
 
@@ -42,27 +42,6 @@ INCRBY score -100    # 1400
 DECRBY score 200     # 1200
 ```
 
-## INCRBYFLOAT
-
-```
-INCRBYFLOAT key increment
-```
-
-Increment by a floating-point number. Supports scientific notation. Result is stored with up to 17 significant digits.
-
-**Complexity:** O(1)
-
-```bash
-SET price 10.50
-INCRBYFLOAT price 0.25    # "10.75"
-INCRBYFLOAT price -1.50   # "9.25"
-INCRBYFLOAT price 1e2     # "109.25"
-```
-
-:::tip
-Results are stored as strings. `INCRBYFLOAT` uses IEEE 754 double precision. For financial calculations requiring exact decimal arithmetic, store values as integers (e.g., cents instead of dollars).
-:::
-
 ## Pattern: Rate Limiting
 
 Use `INCR` with `EXPIRE` for atomic rate limiting:
@@ -101,6 +80,5 @@ GETSET counter 0
 | Type | Min | Max |
 |------|-----|-----|
 | Integer | -9,223,372,036,854,775,808 | 9,223,372,036,854,775,807 |
-| Float | ±5×10⁻³²⁴ | ±1.8×10³⁰⁸ |
 
 Attempting to exceed these limits returns an overflow error.

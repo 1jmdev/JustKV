@@ -2,152 +2,107 @@
 
 String commands operate on string values (up to 512 MB).
 
-## GET
+## Core Strings
 
 ```
 GET key
+SET key value [NX | XX] [GET] [EX seconds | PX milliseconds | EXAT timestamp | PXAT ms-timestamp | KEEPTTL]
+SETNX key value
+GETSET key value
+GETDEL key
+GETEX key [EX seconds | PX milliseconds | EXAT timestamp | PERSIST]
+SETEX key seconds value
+PSETEX key milliseconds value
 ```
 
-Returns the value of `key`. Returns `nil` if the key does not exist.
+Read, write, and atomically update string values.
 
 **Complexity:** O(1)
 
 ```bash
 SET greeting "Hello"
-GET greeting    # "Hello"
-GET missing     # (nil)
+GET greeting
+SET greeting "Hi" GET
+GETSET greeting "Hello again"
+GETDEL greeting
 ```
 
-## SET
-
-```
-SET key value [NX | XX] [GET] [EX seconds | PX milliseconds | EXAT timestamp | PXAT ms-timestamp | KEEPTTL]
-```
-
-Sets `key` to `value`. Replaces any existing value, including a different type.
-
-**Complexity:** O(1)
-
-```bash
-SET name "Alice"
-SET counter 0
-SET session:x "token" EX 3600   # expires in 1 hour
-SET lock "1" NX                  # only if not exists
-SET flag "on" XX                 # only if exists
-
-# GET option: return old value
-SET name "Bob" GET               # returns "Alice"
-```
-
-## MGET / MSET
+## Multi-Key Strings
 
 ```
 MGET key [key ...]
 MSET key value [key value ...]
+MSETNX key value [key value ...]
 ```
 
-Get or set multiple keys in a single round trip.
+Get or set multiple string keys in a single round trip.
 
-**Complexity:** O(N) where N is the number of keys
+**Complexity:** O(N) where N is number of keys
 
 ```bash
-MSET user:1:name "Alice" user:2:name "Bob" user:3:name "Charlie"
-MGET user:1:name user:2:name user:3:name
-# 1) "Alice"
-# 2) "Bob"
-# 3) "Charlie"
+MSET user:1:name "Alice" user:2:name "Bob"
+MGET user:1:name user:2:name
+MSETNX lock:a "1" lock:b "1"
 ```
 
-`MSETNX` — set multiple keys only if none of them exist:
-
-```bash
-MSETNX key1 "val1" key2 "val2"
-```
-
-## APPEND
+## String Mutation
 
 ```
 APPEND key value
-```
-
-Appends `value` to the string stored at `key`. Returns the length of the resulting string.
-
-**Complexity:** O(1) amortized
-
-```bash
-SET log ""
-APPEND log "2026-03-04 "    # 11
-APPEND log "INFO server "   # 23
-APPEND log "started\n"      # 31
-```
-
-## STRLEN
-
-```
 STRLEN key
-```
-
-Returns the length of the string stored at `key`.
-
-**Complexity:** O(1)
-
-```bash
-SET greeting "Hello, World!"
-STRLEN greeting    # 13
-STRLEN missing     # 0
-```
-
-## GETRANGE / SETRANGE
-
-```
-GETRANGE key start end
 SETRANGE key offset value
+GETRANGE key start end
 ```
 
-Get or overwrite a substring. Ranges are inclusive, 0-indexed. Negative indices count from end.
+Append, measure, and edit substrings.
 
-**Complexity:** O(N) where N is the length of the returned/modified string
+**Complexity:** O(1) to O(N) depending on command and range size
 
 ```bash
-SET greeting "Hello, World!"
-GETRANGE greeting 0 4     # "Hello"
-GETRANGE greeting 7 11    # "World"
-GETRANGE greeting -6 -1   # "World!"
-
-SETRANGE greeting 7 "BetterKV"
-GET greeting              # "Hello, BetterKV"
+SET msg "hello"
+APPEND msg " world"
+STRLEN msg
+GETRANGE msg 0 4
+SETRANGE msg 6 "BetterKV"
 ```
 
-## GETDEL / GETEX
+## Bit Operations
 
 ```
-GETDEL key
-GETEX key [EX seconds | PX milliseconds | EXAT timestamp | PERSIST]
+SETBIT key offset value
+GETBIT key offset
+BITCOUNT key [start end [BYTE | BIT]]
+BITPOS key bit [start [end [BYTE | BIT]]]
+BITOP operation destkey key [key ...]
+BITFIELD key [GET type offset] [SET type offset value] [INCRBY type offset increment] [OVERFLOW WRAP | SAT | FAIL]
+BITFIELD_RO key [GET type offset] ...
 ```
 
-`GETDEL` — get and atomically delete.  
-`GETEX` — get and optionally update the expiry.
+Manipulate packed bits inside string values.
 
-**Complexity:** O(1)
+**Complexity:** O(1) for single bit access, O(N) for range operations
 
 ```bash
-SET token "abc123"
-
-GETDEL token          # "abc123", key deleted
-GETEX session "abc" EX 3600   # refresh TTL to 1 hour
-GETEX session "abc" PERSIST   # remove TTL (persist forever)
+SETBIT bits 7 1
+GETBIT bits 7
+BITCOUNT bits
+BITFIELD bits INCRBY u8 0 1 GET u8 0
 ```
 
-## SETNX / SETEX / PSETEX
+## HyperLogLog
 
-Legacy commands (prefer `SET` with options):
+```
+PFADD key element [element ...]
+PFCOUNT key [key ...]
+PFMERGE destkey sourcekey [sourcekey ...]
+```
+
+Approximate cardinality operations.
+
+**Complexity:** O(1) per element (amortized)
 
 ```bash
-SETNX key value       # SET key value NX
-SETEX key seconds value  # SET key value EX seconds
-PSETEX key ms value   # SET key value PX ms
+PFADD uv:2026-03-05 user:1 user:2 user:3
+PFCOUNT uv:2026-03-05
+PFMERGE uv:week uv:2026-03-01 uv:2026-03-02
 ```
-
-## SUBSTR (deprecated)
-
-Use `GETRANGE` instead. `SUBSTR` is kept for compatibility.
