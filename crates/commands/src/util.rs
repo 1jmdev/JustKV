@@ -1,3 +1,4 @@
+use bytes::{BufMut, BytesMut};
 use protocol::types::RespFrame;
 use types::value::CompactArg;
 
@@ -281,4 +282,54 @@ pub fn f64_to_bytes(value: f64) -> Vec<u8> {
     let _trace = profiler::scope("commands::util::f64_to_bytes");
     let mut buffer = ryu::Buffer::new();
     buffer.format(value).as_bytes().to_vec()
+}
+
+pub fn parse_i64_bytes(raw: &[u8]) -> Option<i64> {
+    let _trace = profiler::scope("commands::util::parse_i64_bytes");
+    if raw.is_empty() {
+        return None;
+    }
+
+    let mut index = 0;
+    let mut negative = false;
+    match raw[0] {
+        b'-' => {
+            negative = true;
+            index = 1;
+        }
+        b'+' => index = 1,
+        _ => {}
+    }
+
+    if index == raw.len() {
+        return None;
+    }
+
+    let mut value: i64 = 0;
+    while index < raw.len() {
+        let digit = raw[index].wrapping_sub(b'0');
+        if digit > 9 {
+            return None;
+        }
+        value = value.checked_mul(10)?.checked_add(i64::from(digit))?;
+        index += 1;
+    }
+
+    if negative {
+        value.checked_neg()
+    } else {
+        Some(value)
+    }
+}
+
+pub fn preencode_bulk_str(value: &str) -> bytes::Bytes {
+    let _trace = profiler::scope("commands::util::preencode_bulk_str");
+    let mut len_buf = itoa::Buffer::new();
+    let mut out = BytesMut::with_capacity(1 + 20 + 2 + value.len() + 2);
+    out.put_u8(b'$');
+    out.put_slice(len_buf.format(value.len()).as_bytes());
+    out.put_slice(b"\r\n");
+    out.put_slice(value.as_bytes());
+    out.put_slice(b"\r\n");
+    out.freeze()
 }

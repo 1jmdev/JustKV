@@ -14,8 +14,8 @@ fn read_u32_le(bytes: &[u8], off: usize) -> u32 {
     let _trace = profiler::scope("rehash::index::read_u32_le");
     // Safety: Caller logic guarantees `off + 4 <= bytes.len()`
     unsafe {
-        u32::from_le_bytes(std::ptr::read_unaligned(
-            bytes.as_ptr().add(off) as *const [u8; 4]
+        u32::from_le(std::ptr::read_unaligned(
+            bytes.as_ptr().add(off) as *const u32
         ))
     }
 }
@@ -25,8 +25,8 @@ fn read_u64_le(bytes: &[u8], off: usize) -> u64 {
     let _trace = profiler::scope("rehash::index::read_u64_le");
     // Safety: Caller logic guarantees `off + 8 <= bytes.len()`
     unsafe {
-        u64::from_le_bytes(std::ptr::read_unaligned(
-            bytes.as_ptr().add(off) as *const [u8; 8]
+        u64::from_le(std::ptr::read_unaligned(
+            bytes.as_ptr().add(off) as *const u64
         ))
     }
 }

@@ -4,13 +4,52 @@ use types::value::{CompactKey, CompactValue, Entry};
 use super::super::helpers::{monotonic_now_ms, purge_if_expired};
 use super::get_hash_map_mut;
 
+#[inline(always)]
+fn parse_i64_bytes(raw: &[u8]) -> Option<i64> {
+    if raw.is_empty() {
+        return None;
+    }
+
+    let mut index = 0;
+    let mut negative = false;
+    match raw[0] {
+        b'-' => {
+            negative = true;
+            index = 1;
+        }
+        b'+' => index = 1,
+        _ => {}
+    }
+
+    if index == raw.len() {
+        return None;
+    }
+
+    let mut value: i64 = 0;
+    while index < raw.len() {
+        let digit = raw[index].wrapping_sub(b'0');
+        if digit > 9 {
+            return None;
+        }
+        value = value.checked_mul(10)?.checked_add(i64::from(digit))?;
+        index += 1;
+    }
+
+    if negative {
+        value.checked_neg()
+    } else {
+        Some(value)
+    }
+}
+
 impl Store {
     pub fn hincrby(&self, key: &[u8], field: &[u8], delta: i64) -> Result<i64, HashIntOpError> {
         let _trace = profiler::scope("engine::hash::counter::hincrby");
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
-        let now_ms = monotonic_now_ms();
-        let _ = purge_if_expired(&mut shard, key, now_ms);
+        if !shard.ttl.is_empty() {
+            let _ = purge_if_expired(&mut shard, key, monotonic_now_ms());
+        }
 
         let entry = shard
             .entries
@@ -19,10 +58,7 @@ impl Store {
 
         let current = match map.get(field) {
             Some(value) => {
-                let text = std::str::from_utf8(value.as_slice())
-                    .map_err(|_| HashIntOpError::InvalidInteger)?;
-                text.parse::<i64>()
-                    .map_err(|_| HashIntOpError::InvalidInteger)?
+                parse_i64_bytes(value.as_slice()).ok_or(HashIntOpError::InvalidInteger)?
             }
             None => 0,
         };
@@ -46,8 +82,9 @@ impl Store {
         let _trace = profiler::scope("engine::hash::counter::hincrbyfloat");
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
-        let now_ms = monotonic_now_ms();
-        let _ = purge_if_expired(&mut shard, key, now_ms);
+        if !shard.ttl.is_empty() {
+            let _ = purge_if_expired(&mut shard, key, monotonic_now_ms());
+        }
 
         let entry = shard
             .entries

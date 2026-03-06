@@ -135,8 +135,7 @@ impl Store {
         let _trace = profiler::scope("engine::hash::core::hgetall_encode");
         let idx = self.shard_index(key);
         let shard = self.shards[idx].read();
-        let now_ms = monotonic_now_ms();
-        if is_expired(&shard, key, now_ms) {
+        if !shard.ttl.is_empty() && is_expired(&shard, key, monotonic_now_ms()) {
             return Ok(bytes::Bytes::from_static(b"*0\r\n"));
         }
 

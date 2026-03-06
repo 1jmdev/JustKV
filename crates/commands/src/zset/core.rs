@@ -1,4 +1,6 @@
-use crate::util::{f64_to_bytes, wrong_args, wrong_type, Args};
+use crate::util::{
+    f64_to_bytes, parse_i64_bytes, preencode_bulk_str, wrong_args, wrong_type, Args,
+};
 use engine::store::Store;
 use protocol::types::{BulkData, RespFrame};
 
@@ -70,7 +72,10 @@ pub(crate) fn zscore(store: &Store, args: &Args) -> RespFrame {
         return wrong_args("ZSCORE");
     }
     match store.zscore(&args[1], &args[2]) {
-        Ok(Some(score)) => RespFrame::Bulk(Some(BulkData::from_vec(f64_to_bytes(score)))),
+        Ok(Some(score)) => {
+            let mut buffer = ryu::Buffer::new();
+            RespFrame::PreEncoded(preencode_bulk_str(buffer.format(score)))
+        }
         Ok(None) => RespFrame::Bulk(None),
         Err(_) => wrong_type(),
     }
@@ -156,8 +161,5 @@ fn parse_f64(raw: &[u8]) -> Result<f64, RespFrame> {
 
 fn parse_i64(raw: &[u8]) -> Result<i64, RespFrame> {
     let _trace = profiler::scope("commands::zset::core::parse_i64");
-    match std::str::from_utf8(raw) {
-        Ok(value) => value.parse::<i64>().map_err(|_| crate::util::int_error()),
-        Err(_) => Err(crate::util::int_error()),
-    }
+    parse_i64_bytes(raw).ok_or_else(crate::util::int_error)
 }

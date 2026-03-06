@@ -6,6 +6,21 @@ use types::value::{CompactArg, CompactKey, CompactValue, Entry};
 use super::super::helpers::{is_expired, monotonic_now_ms, purge_if_expired};
 use super::{get_list, get_list_mut};
 
+#[inline(always)]
+fn bulk_entry_len(len: usize) -> usize {
+    1 + decimal_len(len) + 2 + len + 2
+}
+
+#[inline(always)]
+fn decimal_len(mut value: usize) -> usize {
+    let mut digits = 1;
+    while value >= 10 {
+        value /= 10;
+        digits += 1;
+    }
+    digits
+}
+
 impl Store {
     pub fn lpush(&self, key: &[u8], values: &[CompactArg]) -> Result<i64, ()> {
         let _trace = profiler::scope("engine::list::core::lpush");
@@ -107,9 +122,7 @@ impl Store {
         let _trace = profiler::scope("engine::list::core::lrange_encode");
         let idx = self.shard_index(key);
         let shard = self.shards[idx].read();
-        let now_ms = monotonic_now_ms();
-
-        if is_expired(&shard, key, now_ms) {
+        if !shard.ttl.is_empty() && is_expired(&shard, key, monotonic_now_ms()) {
             // Empty array: *0\r\n
             return Ok(bytes::Bytes::from_static(b"*0\r\n"));
         }
@@ -123,18 +136,37 @@ impl Store {
         };
 
         let count = to_exclusive - from;
-        // Pre-allocate: header + count * (avg element overhead).
-        // Each element costs "$N\r\n<data>\r\n" – estimate 8 bytes overhead.
-        let mut buf = BytesMut::with_capacity(16 + count * 10);
         let mut header_buf = itoa::Buffer::new();
         let mut len_buf = itoa::Buffer::new();
+
+        let (a, b) = list.as_slices();
+        let mut total_len = 1 + decimal_len(count) + 2;
+
+        let measure_slice = |slice: &[CompactValue], total_len: &mut usize| {
+            for value in slice {
+                *total_len += bulk_entry_len(value.slice().len());
+            }
+        };
+
+        if from < a.len() {
+            let end_in_a = to_exclusive.min(a.len());
+            measure_slice(&a[from..end_in_a], &mut total_len);
+            if to_exclusive > a.len() {
+                let b_end = to_exclusive - a.len();
+                measure_slice(&b[..b_end], &mut total_len);
+            }
+        } else {
+            let b_from = from - a.len();
+            let b_end = to_exclusive - a.len();
+            measure_slice(&b[b_from..b_end], &mut total_len);
+        }
+
+        let mut buf = BytesMut::with_capacity(total_len);
 
         // Write array header.
         buf.put_u8(b'*');
         buf.put_slice(header_buf.format(count).as_bytes());
         buf.put_slice(b"\r\n");
-
-        let (a, b) = list.as_slices();
 
         let encode_slice =
             |buf: &mut BytesMut, slice: &[CompactValue], len_buf: &mut itoa::Buffer| {

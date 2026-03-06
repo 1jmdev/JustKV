@@ -9,8 +9,9 @@ impl Store {
         let _trace = profiler::scope("engine::zset::core::zadd_args");
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
-        let now_ms = monotonic_now_ms();
-        let _ = purge_if_expired(&mut shard, key, now_ms);
+        if !shard.ttl.is_empty() {
+            let _ = purge_if_expired(&mut shard, key, monotonic_now_ms());
+        }
 
         let pair_count = args.len() / 2;
         let entry = shard
@@ -129,8 +130,7 @@ impl Store {
         let _trace = profiler::scope("engine::zset::core::zscore");
         let idx = self.shard_index(key);
         let shard = self.shards[idx].read();
-        let now_ms = monotonic_now_ms();
-        if is_expired(&shard, key, now_ms) {
+        if !shard.ttl.is_empty() && is_expired(&shard, key, monotonic_now_ms()) {
             return Ok(None);
         }
 
