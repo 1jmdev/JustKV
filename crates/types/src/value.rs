@@ -312,6 +312,14 @@ impl ZSetValue {
         }
     }
 
+    pub fn with_capacity(capacity: usize) -> Self {
+        let _trace = profiler::scope("crates::types::src::value::with_capacity");
+        Self {
+            member_scores: HashMap::with_capacity_and_hasher(capacity, RandomState::new()),
+            ordered: BTreeSet::new(),
+        }
+    }
+
     pub fn len(&self) -> usize {
         let _trace = profiler::scope("crates::types::src::value::len");
         self.member_scores.len()
@@ -332,17 +340,38 @@ impl ZSetValue {
         self.member_scores.contains_key(member)
     }
 
+    pub fn reserve(&mut self, additional: usize) {
+        let _trace = profiler::scope("crates::types::src::value::reserve");
+        self.member_scores.reserve(additional);
+    }
+
     pub fn insert(&mut self, member: CompactKey, score: f64) -> Option<f64> {
         let _trace = profiler::scope("crates::types::src::value::insert");
-        if let Some(old_score) = self.member_scores.insert(member.clone(), score) {
-            let _ = self
-                .ordered
-                .remove(&ZSetOrderEntry::new(old_score, member.clone()));
-            let _ = self.ordered.insert(ZSetOrderEntry::new(score, member));
-            Some(old_score)
-        } else {
-            let _ = self.ordered.insert(ZSetOrderEntry::new(score, member));
-            None
+        match self.member_scores.entry(member) {
+            hashbrown::hash_map::Entry::Occupied(mut occ) => {
+                let old_score = *occ.get();
+                if old_score != score {
+                    let _ = self.ordered.remove(&ZSetOrderEntry {
+                        score: old_score,
+                        member: occ.key().clone(),
+                    });
+                    *occ.get_mut() = score;
+                    let _ = self.ordered.insert(ZSetOrderEntry {
+                        score,
+                        member: occ.key().clone(),
+                    });
+                }
+                Some(old_score)
+            }
+            hashbrown::hash_map::Entry::Vacant(vac) => {
+                let member_clone = vac.key().clone();
+                vac.insert(score);
+                let _ = self.ordered.insert(ZSetOrderEntry {
+                    score,
+                    member: member_clone,
+                });
+                None
+            }
         }
     }
 

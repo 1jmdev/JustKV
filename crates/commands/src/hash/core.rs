@@ -69,15 +69,8 @@ pub(crate) fn hgetall(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 2 {
         return wrong_args("HGETALL");
     }
-    match store.hgetall(&args[1]) {
-        Ok(pairs) => {
-            let mut out = Vec::with_capacity(pairs.len() * 2);
-            for (field, value) in pairs {
-                out.push(RespFrame::Bulk(Some(BulkData::Arg(field))));
-                out.push(RespFrame::Bulk(Some(BulkData::Value(value))));
-            }
-            RespFrame::Array(Some(out))
-        }
+    match store.hgetall_encode(args[1].slice()) {
+        Ok(bytes) => RespFrame::PreEncoded(bytes),
         Err(_) => wrong_type(),
     }
 }

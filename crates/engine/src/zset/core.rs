@@ -5,6 +5,34 @@ use super::super::helpers::{is_expired, monotonic_now_ms, purge_if_expired};
 use super::{get_zset, get_zset_mut, sorted_by_score};
 
 impl Store {
+    pub fn zadd_args(&self, key: &[u8], args: &[CompactArg], scores: &[f64]) -> Result<i64, ()> {
+        let _trace = profiler::scope("engine::zset::core::zadd_args");
+        let idx = self.shard_index(key);
+        let mut shard = self.shards[idx].write();
+        let now_ms = monotonic_now_ms();
+        let _ = purge_if_expired(&mut shard, key, now_ms);
+
+        let pair_count = args.len() / 2;
+        let entry = shard
+            .entries
+            .get_or_insert_with(CompactKey::from_slice(key), || {
+                Entry::ZSet(Box::new(ZSetValueMap::with_capacity(pair_count)))
+            });
+        let zset = get_zset_mut(entry).ok_or(())?;
+        if zset.is_empty() {
+            zset.reserve(pair_count);
+        }
+
+        let mut added = 0;
+        for (chunk, score) in args.chunks_exact(2).zip(scores.iter().copied()) {
+            let member_key = CompactKey::from_slice(chunk[1].slice());
+            if zset.insert(member_key, score).is_none() {
+                added += 1;
+            }
+        }
+        Ok(added)
+    }
+
     pub fn zadd(&self, key: &[u8], pairs: &[(f64, CompactArg)]) -> Result<i64, ()> {
         let _trace = profiler::scope("engine::zset::core::zadd");
         let idx = self.shard_index(key);
@@ -12,12 +40,16 @@ impl Store {
         let now_ms = monotonic_now_ms();
         let _ = purge_if_expired(&mut shard, key, now_ms);
 
+        let pair_count = pairs.len();
         let entry = shard
             .entries
             .get_or_insert_with(CompactKey::from_slice(key), || {
-                Entry::ZSet(Box::new(new_zset()))
+                Entry::ZSet(Box::new(ZSetValueMap::with_capacity(pair_count)))
             });
         let zset = get_zset_mut(entry).ok_or(())?;
+        if zset.is_empty() {
+            zset.reserve(pair_count);
+        }
 
         let mut added = 0;
         for (score, member) in pairs {

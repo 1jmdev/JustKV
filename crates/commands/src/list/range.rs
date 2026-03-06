@@ -1,4 +1,4 @@
-use crate::util::{Args, eq_ascii, int_error, wrong_args, wrong_type};
+use crate::util::{eq_ascii, int_error, wrong_args, wrong_type, Args};
 use engine::store::{ListInsertPosition, ListSetError, Store};
 use protocol::types::{BulkData, RespFrame};
 
@@ -22,15 +22,15 @@ pub(crate) fn lrange(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 4 {
         return wrong_args("LRANGE");
     }
-    let start = match parse_i64(&args[2]) {
+    let start = match parse_i64(args[2].slice()) {
         Ok(value) => value,
         Err(response) => return response,
     };
-    let stop = match parse_i64(&args[3]) {
+    let stop = match parse_i64(args[3].slice()) {
         Ok(value) => value,
         Err(response) => return response,
     };
-    match store.lrange_encode(&args[1], start, stop) {
+    match store.lrange_encode(args[1].slice(), start, stop) {
         Ok(bytes) => RespFrame::PreEncoded(bytes),
         Err(_) => wrong_type(),
     }
@@ -149,9 +149,42 @@ pub(crate) fn lpos(store: &Store, args: &Args) -> RespFrame {
 
 fn parse_i64(raw: &[u8]) -> Result<i64, RespFrame> {
     let _trace = profiler::scope("commands::list::range::parse_i64");
-    match std::str::from_utf8(raw) {
-        Ok(value) => value.parse::<i64>().map_err(|_| int_error()),
-        Err(_) => Err(int_error()),
+    if raw.is_empty() {
+        return Err(int_error());
+    }
+
+    let mut index = 0;
+    let mut negative = false;
+    match raw[0] {
+        b'-' => {
+            negative = true;
+            index = 1;
+        }
+        b'+' => index = 1,
+        _ => {}
+    }
+
+    if index == raw.len() {
+        return Err(int_error());
+    }
+
+    let mut value: i64 = 0;
+    while index < raw.len() {
+        let digit = raw[index].wrapping_sub(b'0');
+        if digit > 9 {
+            return Err(int_error());
+        }
+        value = value
+            .checked_mul(10)
+            .and_then(|n| n.checked_add(i64::from(digit)))
+            .ok_or_else(int_error)?;
+        index += 1;
+    }
+
+    if negative {
+        value.checked_neg().ok_or_else(int_error)
+    } else {
+        Ok(value)
     }
 }
 

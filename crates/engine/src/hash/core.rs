@@ -1,3 +1,5 @@
+use bytes::{BufMut, BytesMut};
+
 use crate::store::Store;
 use ahash::RandomState;
 use types::value::{CompactArg, CompactKey, CompactValue, Entry, HashValueMap};
@@ -127,6 +129,48 @@ impl Store {
         };
         let map = get_hash_map(entry).ok_or(())?;
         Ok(collect_pairs(map))
+    }
+
+    pub fn hgetall_encode(&self, key: &[u8]) -> Result<bytes::Bytes, ()> {
+        let _trace = profiler::scope("engine::hash::core::hgetall_encode");
+        let idx = self.shard_index(key);
+        let shard = self.shards[idx].read();
+        let now_ms = monotonic_now_ms();
+        if is_expired(&shard, key, now_ms) {
+            return Ok(bytes::Bytes::from_static(b"*0\r\n"));
+        }
+
+        let Some(entry) = shard.entries.get(key) else {
+            return Ok(bytes::Bytes::from_static(b"*0\r\n"));
+        };
+        let map = get_hash_map(entry).ok_or(())?;
+
+        let count = map.len() * 2;
+        let mut buf = BytesMut::with_capacity(16 + count * 16);
+        let mut header_buf = itoa::Buffer::new();
+        let mut len_buf = itoa::Buffer::new();
+
+        buf.put_u8(b'*');
+        buf.put_slice(header_buf.format(count).as_bytes());
+        buf.put_slice(b"\r\n");
+
+        for (field, value) in map.iter() {
+            let field_bytes = field.slice();
+            buf.put_u8(b'$');
+            buf.put_slice(len_buf.format(field_bytes.len()).as_bytes());
+            buf.put_slice(b"\r\n");
+            buf.put_slice(field_bytes);
+            buf.put_slice(b"\r\n");
+
+            let value_bytes = value.slice();
+            buf.put_u8(b'$');
+            buf.put_slice(len_buf.format(value_bytes.len()).as_bytes());
+            buf.put_slice(b"\r\n");
+            buf.put_slice(value_bytes);
+            buf.put_slice(b"\r\n");
+        }
+
+        Ok(buf.freeze())
     }
 
     pub fn hdel(&self, key: &[u8], fields: &[CompactArg]) -> Result<i64, ()> {

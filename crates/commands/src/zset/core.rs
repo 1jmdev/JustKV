@@ -1,4 +1,4 @@
-use crate::util::{Args, f64_to_bytes, wrong_args, wrong_type};
+use crate::util::{f64_to_bytes, wrong_args, wrong_type, Args};
 use engine::store::Store;
 use protocol::types::{BulkData, RespFrame};
 
@@ -8,16 +8,16 @@ pub(crate) fn zadd(store: &Store, args: &Args) -> RespFrame {
         return wrong_args("ZADD");
     }
 
-    let mut pairs = Vec::with_capacity((args.len() - 2) / 2);
+    let mut scores = Vec::with_capacity((args.len() - 2) / 2);
     for chunk in args[2..].chunks(2) {
-        let score = match parse_f64(&chunk[0]) {
+        let score = match parse_f64(chunk[0].slice()) {
             Ok(value) => value,
             Err(response) => return response,
         };
-        pairs.push((score, chunk[1].clone()));
+        scores.push(score);
     }
 
-    match store.zadd(&args[1], &pairs) {
+    match store.zadd_args(args[1].slice(), &args[2..], &scores) {
         Ok(added) => RespFrame::Integer(added),
         Err(_) => wrong_type(),
     }
