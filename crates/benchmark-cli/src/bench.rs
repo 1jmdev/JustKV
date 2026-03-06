@@ -10,7 +10,9 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 
 use crate::args::Args;
-use crate::resp::{encode_resp_parts, make_key, read_n_responses, repeat_payload};
+use crate::resp::{
+    encode_resp_parts, make_key, read_n_fixed_mget_responses, read_n_responses, repeat_payload,
+};
 use crate::spec::{BenchKind, BenchSpec};
 
 const SCRIPT_SET_BODY: &[u8] = b"redis.call('SET', KEYS[1], ARGV[1]); return ARGV[1]";
@@ -226,7 +228,12 @@ async fn run_worker(client_id: u64, quota: u64, cfg: Arc<Shared>) -> Result<Work
                     .await
                     .map_err(|err| format!("write failed: {err}"))?;
             }
-            read_n_responses(&mut stream, &mut parse_buf, batch).await?;
+            if cfg.spec.kind == BenchKind::Mget {
+                read_n_fixed_mget_responses(&mut stream, &mut parse_buf, batch, cfg.data_size)
+                    .await?;
+            } else {
+                read_n_responses(&mut stream, &mut parse_buf, batch).await?;
+            }
 
             let per_req_ns =
                 (started.elapsed().as_nanos() / batch as u128).min(u128::from(u64::MAX));
@@ -258,7 +265,11 @@ async fn run_worker(client_id: u64, quota: u64, cfg: Arc<Shared>) -> Result<Work
             .write_all(&payload)
             .await
             .map_err(|err| format!("write failed: {err}"))?;
-        read_n_responses(&mut stream, &mut parse_buf, batch).await?;
+        if cfg.spec.kind == BenchKind::Mget && !cfg.random_keys {
+            read_n_fixed_mget_responses(&mut stream, &mut parse_buf, batch, cfg.data_size).await?;
+        } else {
+            read_n_responses(&mut stream, &mut parse_buf, batch).await?;
+        }
 
         let per_req_ns = (started.elapsed().as_nanos() / batch as u128).min(u128::from(u64::MAX));
         stats.lat_samples_ns.push(per_req_ns as u64);

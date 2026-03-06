@@ -1,4 +1,4 @@
-use bytes::BytesMut;
+use bytes::{Buf, BytesMut};
 use protocol::parser::{self, ParseError};
 use protocol::types::RespFrame;
 use tokio::io::AsyncReadExt;
@@ -80,7 +80,60 @@ pub async fn read_n_responses(
     Ok(())
 }
 
+pub async fn read_n_fixed_mget_responses(
+    stream: &mut TcpStream,
+    parse_buf: &mut BytesMut,
+    expected: usize,
+    value_len: usize,
+) -> Result<(), String> {
+    let mut remaining = expected;
+    let mut chunk = [0u8; 8192];
+    let digits = decimal_len(value_len);
+    let frame_len = 4 + 2 * (1 + digits + 2 + value_len + 2);
+
+    while remaining > 0 {
+        let available = parse_buf.len() / frame_len;
+        if available > 0 {
+            let consumed = available.min(remaining) * frame_len;
+            parse_buf.advance(consumed);
+            remaining -= available.min(remaining);
+            continue;
+        }
+
+        let read = stream
+            .read(&mut chunk)
+            .await
+            .map_err(|err| format!("read failed: {err}"))?;
+        if read == 0 {
+            return Err("connection closed by server".to_string());
+        }
+        parse_buf.extend_from_slice(&chunk[..read]);
+    }
+
+    Ok(())
+}
+
 fn append_u64(out: &mut Vec<u8>, value: u64) {
     let mut tmp = itoa::Buffer::new();
     out.extend_from_slice(tmp.format(value).as_bytes());
+}
+
+fn decimal_len(value: usize) -> usize {
+    if value < 10 {
+        1
+    } else if value < 100 {
+        2
+    } else if value < 1_000 {
+        3
+    } else if value < 10_000 {
+        4
+    } else {
+        let mut n = value;
+        let mut digits = 0;
+        while n != 0 {
+            digits += 1;
+            n /= 10;
+        }
+        digits
+    }
 }
