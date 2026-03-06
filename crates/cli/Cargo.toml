@@ -4,10 +4,6 @@ version.workspace = true
 edition.workspace = true
 
 [[bin]]
-name = "betterkv"
-path = "src/main.rs"
-
-[[bin]]
 name = "betterkv-cli"
 path = "src/main.rs"
 
