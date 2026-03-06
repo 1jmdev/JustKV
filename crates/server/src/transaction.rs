@@ -32,10 +32,10 @@ impl TransactionState {
             match cmd.first().copied() {
                 Some(b'M') if cmd == b"MULTI" => return self.multi(args.as_slice()),
                 Some(b'E') if cmd == b"EXEC" => {
-                    return RespFrame::error_static("ERR EXEC without MULTI")
+                    return RespFrame::error_static("ERR EXEC without MULTI");
                 }
                 Some(b'D') if cmd == b"DISCARD" => {
-                    return RespFrame::error_static("ERR DISCARD without MULTI")
+                    return RespFrame::error_static("ERR DISCARD without MULTI");
                 }
                 Some(b'W') if cmd == b"WATCH" => return self.watch(store, args.as_slice()),
                 Some(b'U') if cmd == b"UNWATCH" => return self.unwatch(args.as_slice()),
