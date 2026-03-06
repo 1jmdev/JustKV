@@ -1,6 +1,7 @@
 use crate::auth::AuthService;
 use crate::config::Config;
 use crate::connection::handle_connection;
+use crate::profile::ProfileHub;
 use crate::pubsub::PubSubHub;
 use crate::{backup, backup::SnapshotStats};
 use engine::store::Store;
@@ -14,11 +15,19 @@ use tokio::task::block_in_place;
 use tokio::time::{Duration, sleep};
 
 pub async fn run_listener(config: Config) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    run_listener_with_profile(config, None).await
+}
+
+pub async fn run_listener_with_profile(
+    config: Config,
+    profile_hub: Option<ProfileHub>,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let _trace = profiler::scope("server::listener::run_listener");
     let bind_addr = config.addr();
     let listeners = bind_reuse_port_listeners(bind_addr.clone(), config.io_threads).await?;
     let store = Store::new(config.shards);
     let pubsub = PubSubHub::new();
+    let profiler = profile_hub.unwrap_or_else(ProfileHub::disabled);
     let auth = AuthService::from_config(&config).map_err(io::Error::other)?;
     let snapshot_path = config.snapshot_path();
 
@@ -66,8 +75,16 @@ pub async fn run_listener(config: Config) -> Result<(), Box<dyn std::error::Erro
         let shared_store = store.clone();
         let shared_pubsub = pubsub.clone();
         let shared_auth = auth.clone();
+        let shared_profiler = profiler.clone();
         accept_tasks.spawn(async move {
-            run_accept_loop(listener, shared_store, shared_pubsub, shared_auth).await
+            run_accept_loop(
+                listener,
+                shared_store,
+                shared_pubsub,
+                shared_auth,
+                shared_profiler,
+            )
+            .await
         });
     }
 
@@ -103,6 +120,7 @@ async fn run_accept_loop(
     store: Store,
     pubsub: PubSubHub,
     auth: AuthService,
+    profiler: ProfileHub,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let _trace = profiler::scope("server::listener::run_accept_loop");
     loop {
@@ -112,9 +130,16 @@ async fn run_accept_loop(
         let shared_store = store.clone();
         let shared_pubsub = pubsub.clone();
         let shared_auth = auth.clone();
+        let shared_profiler = profiler.clone();
         tokio::spawn(async move {
-            if let Err(err) =
-                handle_connection(socket, shared_store, shared_pubsub, shared_auth).await
+            if let Err(err) = handle_connection(
+                socket,
+                shared_store,
+                shared_pubsub,
+                shared_auth,
+                shared_profiler,
+            )
+            .await
             {
                 tracing::debug!(error = %err, "connection closed with error");
             }

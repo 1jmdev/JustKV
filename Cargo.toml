@@ -36,6 +36,7 @@ types    = { path = "crates/types" }
 profiler = { path = "crates/profiler" }
 engine   = { path = "crates/engine" }
 commands = { path = "crates/commands" }
+betterkv-server = { path = "crates/server" }
 
 ahash = "0.8.12"
 bytes = "1.11.1"

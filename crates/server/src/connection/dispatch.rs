@@ -9,6 +9,7 @@ use super::super::pubsub::{ConnectionPubSub, PubSubHub};
 use super::notifications::emit_command_notifications;
 use super::util::{collapse_pubsub_responses, wrong_args};
 use crate::auth::{self, AuthError, AuthService, SessionAuth};
+use crate::profile::ProfileHub;
 
 #[inline]
 fn bulk_static(value: &'static [u8]) -> RespFrame {
@@ -22,6 +23,7 @@ pub(super) fn execute_regular_command(
     pubsub_state: &mut ConnectionPubSub,
     auth: &AuthService,
     auth_state: &mut SessionAuth,
+    profiler: &ProfileHub,
     args: &[CompactArg],
 ) -> RespFrame {
     let _trace = profiler::scope("server::connection::dispatch::execute_regular_command");
@@ -55,14 +57,14 @@ pub(super) fn execute_regular_command(
         return response;
     }
 
-    if args.len() > 1 {
-        profiler::bind_request_key(args[1].as_slice());
-    }
-    let response = dispatch_args(store, args);
-    if hub.keyspace_notifications_enabled() {
-        emit_command_notifications(hub, command, args, &response);
-    }
-    response
+    let key = args.get(1).map(CompactArg::as_slice);
+    profiler.run_command(key, || {
+        let response = dispatch_args(store, args);
+        if hub.keyspace_notifications_enabled() {
+            emit_command_notifications(hub, command, args, &response);
+        }
+        response
+    })
 }
 
 fn auth_command(

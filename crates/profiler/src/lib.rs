@@ -39,6 +39,18 @@ pub fn begin_request(command_hint: &[u8]) -> Option<RequestGuard> {
     Some(RequestGuard { active: true })
 }
 
+/// Like `begin_request` but bypasses env-var config entirely.  Used by the
+/// embedded profiling hub so that every request is traced regardless of whether
+/// `BETTERKV_TRACE` is set in the environment.
+#[cfg(feature = "enabled")]
+pub fn begin_request_unconditional(command_hint: &[u8]) -> RequestGuard {
+    let command = uppercased(command_hint);
+    ACTIVE_TRACE.with(|slot| {
+        *slot.borrow_mut() = Some(ActiveTrace::new(command, false));
+    });
+    RequestGuard { active: true }
+}
+
 #[cfg(feature = "enabled")]
 pub fn bind_request_key(key: &[u8]) {
     ACTIVE_TRACE.with(|slot| {
@@ -95,6 +107,45 @@ where
     (ret, result)
 }
 
+/// Finalise the currently-active thread-local trace and return it, without
+/// installing a new one.  Call this *after* running the user's closure so that
+/// every `scope()` call made during the request is part of the result.
+#[cfg(feature = "enabled")]
+pub fn capture_active_trace() -> Option<TraceResult> {
+    ACTIVE_TRACE.with(|slot| {
+        let mut guard = slot.borrow_mut();
+        let mut active = guard.take()?;
+        active.close_all_scopes();
+        Some(TraceResult::from_active(&active))
+    })
+}
+
+#[cfg(feature = "enabled")]
+pub fn run_captured<F, R>(command_hint: &[u8], key: Option<&[u8]>, f: F) -> (R, Option<TraceResult>)
+where
+    F: FnOnce() -> R,
+{
+    let command = uppercased(command_hint);
+    ACTIVE_TRACE.with(|slot| {
+        *slot.borrow_mut() = Some(ActiveTrace::new(command, false));
+    });
+
+    if let Some(key) = key {
+        bind_request_key(key);
+    }
+
+    let ret = f();
+
+    let trace = ACTIVE_TRACE.with(|slot| {
+        let mut guard = slot.borrow_mut();
+        let mut active = guard.take()?;
+        active.close_all_scopes();
+        Some(TraceResult::from_active(&active))
+    });
+
+    (ret, trace)
+}
+
 // ── Disabled stubs (default)
 
 #[cfg(not(feature = "enabled"))]
@@ -107,6 +158,14 @@ impl Drop for RequestGuard {
 
 #[cfg(not(feature = "enabled"))]
 pub struct ScopeGuard;
+
+#[cfg(not(feature = "enabled"))]
+#[derive(Clone)]
+pub struct TraceResult;
+
+#[cfg(not(feature = "enabled"))]
+#[derive(Clone)]
+pub struct CapturedNode;
 
 #[cfg(not(feature = "enabled"))]
 impl Drop for ScopeGuard {
@@ -127,4 +186,25 @@ pub fn bind_request_key(_key: &[u8]) {}
 #[inline(always)]
 pub fn scope(_name: &'static str) -> ScopeGuard {
     ScopeGuard
+}
+
+#[cfg(not(feature = "enabled"))]
+#[inline(always)]
+pub fn capture_active_trace() -> Option<TraceResult> {
+    None
+}
+
+#[cfg(not(feature = "enabled"))]
+#[inline(always)]
+pub fn begin_request_unconditional(_command_hint: &[u8]) -> RequestGuard {
+    RequestGuard
+}
+
+#[cfg(not(feature = "enabled"))]
+#[inline(always)]
+pub fn run_captured<F, R>(_command_hint: &[u8], _key: Option<&[u8]>, f: F) -> (R, Option<()>)
+where
+    F: FnOnce() -> R,
+{
+    (f(), None)
 }

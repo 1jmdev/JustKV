@@ -5,6 +5,7 @@ use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::mpsc::unbounded_channel;
 
 use crate::auth::AuthService;
+use crate::profile::ProfileHub;
 use crate::pubsub::{ConnectionPubSub, PubSubHub};
 use crate::transaction::TransactionState;
 use engine::store::Store;
@@ -25,6 +26,7 @@ pub async fn handle_connection(
     store: Store,
     pubsub_hub: PubSubHub,
     auth: AuthService,
+    profiler: ProfileHub,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let _trace = profiler::scope("server::connection::handle_connection");
     let mut read_buf = BytesMut::with_capacity(READ_BUFFER_INITIAL);
@@ -73,7 +75,17 @@ pub async fn handle_connection(
                 }
 
                 while parse_command_into(&mut read_buf, &mut command_args_buf)?.is_some() {
-
+                    #[cfg(feature = "profiling")]
+                    let _trace = if profiler.is_enabled() {
+                        command_args_buf
+                            .first()
+                            .map(|command| profiler::begin_request_unconditional(command.as_slice()))
+                    } else {
+                        command_args_buf
+                            .first()
+                            .and_then(|command| profiler::begin_request(command.as_slice()))
+                    };
+                    #[cfg(not(feature = "profiling"))]
                     let _trace = command_args_buf
                         .first()
                         .and_then(|command| profiler::begin_request(command.as_slice()));
@@ -86,6 +98,7 @@ pub async fn handle_connection(
                             &mut pubsub_state,
                             &auth,
                             &mut auth_state,
+                            &profiler,
                             args,
                         )
                     });

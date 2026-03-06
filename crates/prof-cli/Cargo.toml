@@ -1,18 +1,18 @@
 [package]
-name = "prof-cli"
+name = "betterkv-prof"
 version.workspace = true
 edition.workspace = true
 
 [[bin]]
-name = "prof-cli"
+name = "betterkv-prof"
 path = "src/main.rs"
 
 [dependencies]
-profiler.workspace = true
 protocol.workspace = true
+betterkv-server.workspace = true
 bytes.workspace = true
 clap.workspace = true
 tokio.workspace = true
 
 [features]
-profiling = ["profiler/enabled"]
+profiling = ["betterkv-server/profiling"]
