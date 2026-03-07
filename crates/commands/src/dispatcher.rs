@@ -195,88 +195,106 @@ pub fn dispatch_args(store: &Store, args: &[CompactArg]) -> RespFrame {
     dispatch_long(store, raw, args)
 }
 
-/// Slow path for commands longer than 8 bytes.
-/// These are rare so a simple eq_ignore_ascii_case chain is fine.
 #[cold]
 fn dispatch_long(store: &Store, raw: &[u8], args: &[CompactArg]) -> RespFrame {
-    let _trace = profiler::scope("commands::dispatcher::dispatch_long");
-    if raw.eq_ignore_ascii_case(b"PEXPIREAT") {
-        return ttl::pexpireat(store, args);
-    }
-    if raw.eq_ignore_ascii_case(b"BITFIELD_RO") {
-        return string::bitfield_ro(store, args);
-    }
-    if raw.eq_ignore_ascii_case(b"HINCRBYFLOAT") {
-        return hash::hincrbyfloat(store, args);
-    }
-    if raw.eq_ignore_ascii_case(b"HRANDFIELD") {
-        return hash::hrandfield(store, args);
-    }
-    if raw.eq_ignore_ascii_case(b"BRPOPLPUSH") {
-        return list::brpoplpush(store, args);
-    }
-    if raw.eq_ignore_ascii_case(b"SISMEMBER") {
-        return set::sismember(store, args);
-    }
-    if raw.eq_ignore_ascii_case(b"SDIFFSTORE") {
-        return set::sdiffstore(store, args);
-    }
-    if raw.eq_ignore_ascii_case(b"SINTERCARD") {
-        return set::sintercard(store, args);
-    }
-    if raw.eq_ignore_ascii_case(b"SINTERSTORE") {
-        return set::sinterstore(store, args);
-    }
-    if raw.eq_ignore_ascii_case(b"SUNIONSTORE") {
-        return set::sunionstore(store, args);
-    }
-    if raw.eq_ignore_ascii_case(b"SRANDMEMBER") {
-        return set::srandmember(store, args);
-    }
-    if raw.eq_ignore_ascii_case(b"ZREVRANGE") {
-        return zset::zrange(store, args, true);
-    }
-    if raw.eq_ignore_ascii_case(b"ZRANGEBYSCORE") {
-        return zset::zrange_by_score(store, args, false);
-    }
-    if raw.eq_ignore_ascii_case(b"ZREVRANGEBYSCORE") {
-        return zset::zrange_by_score(store, args, true);
-    }
-    if raw.eq_ignore_ascii_case(b"ZRANDMEMBER") {
-        return zset::zrandmember(store, args);
-    }
-    if raw.eq_ignore_ascii_case(b"ZREMRANGEBYRANK") {
-        return zset::zremrangebyrank(store, args);
-    }
-    if raw.eq_ignore_ascii_case(b"GEORADIUS") {
-        return geo::georadius(store, args);
-    }
-    if raw.eq_ignore_ascii_case(b"GEORADIUS_RO") {
-        return geo::georadius_ro(store, args);
-    }
-    if raw.eq_ignore_ascii_case(b"GEORADIUSBYMEMBER") {
-        return geo::georadiusbymember(store, args);
-    }
-    if raw.eq_ignore_ascii_case(b"GEORADIUSBYMEMBER_RO") {
-        return geo::georadiusbymember_ro(store, args);
-    }
-    if raw.eq_ignore_ascii_case(b"GEOSEARCH") {
-        return geo::geosearch(store, args);
-    }
-    if raw.eq_ignore_ascii_case(b"GEOSEARCHSTORE") {
-        return geo::geosearchstore(store, args);
-    }
-    if raw.eq_ignore_ascii_case(b"XREVRANGE") {
-        return stream::xrevrange(store, args);
-    }
-    if raw.eq_ignore_ascii_case(b"XREADGROUP") {
-        return stream::xreadgroup(store, args);
-    }
-    if raw.eq_ignore_ascii_case(b"XAUTOCLAIM") {
-        return stream::xautoclaim(store, args);
-    }
-    if raw.eq_ignore_ascii_case(b"EVALSHA_RO") {
-        return scripting::evalsha_ro(store, args);
+    match raw.len() {
+        9 => {
+            if raw.eq_ignore_ascii_case(b"PEXPIREAT") {
+                return ttl::pexpireat(store, args);
+            }
+            if raw.eq_ignore_ascii_case(b"SISMEMBER") {
+                return set::sismember(store, args);
+            }
+            if raw.eq_ignore_ascii_case(b"ZREVRANGE") {
+                return zset::zrange(store, args, true);
+            }
+            if raw.eq_ignore_ascii_case(b"GEORADIUS") {
+                return geo::georadius(store, args);
+            }
+            if raw.eq_ignore_ascii_case(b"GEOSEARCH") {
+                return geo::geosearch(store, args);
+            }
+            if raw.eq_ignore_ascii_case(b"XREVRANGE") {
+                return stream::xrevrange(store, args);
+            }
+            if raw.eq_ignore_ascii_case(b"XREADGROUP") {
+                return stream::xreadgroup(store, args);
+            }
+            if raw.eq_ignore_ascii_case(b"XAUTOCLAIM") {
+                return stream::xautoclaim(store, args);
+            }
+        }
+        10 => {
+            if raw.eq_ignore_ascii_case(b"HRANDFIELD") {
+                return hash::hrandfield(store, args);
+            }
+            if raw.eq_ignore_ascii_case(b"BRPOPLPUSH") {
+                return list::brpoplpush(store, args);
+            }
+            if raw.eq_ignore_ascii_case(b"SDIFFSTORE") {
+                return set::sdiffstore(store, args);
+            }
+            if raw.eq_ignore_ascii_case(b"SINTERCARD") {
+                return set::sintercard(store, args);
+            }
+            if raw.eq_ignore_ascii_case(b"EVALSHA_RO") {
+                return scripting::evalsha_ro(store, args);
+            }
+        }
+        11 => {
+            if raw.eq_ignore_ascii_case(b"BITFIELD_RO") {
+                return string::bitfield_ro(store, args);
+            }
+            if raw.eq_ignore_ascii_case(b"SINTERSTORE") {
+                return set::sinterstore(store, args);
+            }
+            if raw.eq_ignore_ascii_case(b"SUNIONSTORE") {
+                return set::sunionstore(store, args);
+            }
+            if raw.eq_ignore_ascii_case(b"SRANDMEMBER") {
+                return set::srandmember(store, args);
+            }
+            if raw.eq_ignore_ascii_case(b"ZRANDMEMBER") {
+                return zset::zrandmember(store, args);
+            }
+        }
+        12 => {
+            if raw.eq_ignore_ascii_case(b"HINCRBYFLOAT") {
+                return hash::hincrbyfloat(store, args);
+            }
+            if raw.eq_ignore_ascii_case(b"GEORADIUS_RO") {
+                return geo::georadius_ro(store, args);
+            }
+        }
+        13 => {
+            if raw.eq_ignore_ascii_case(b"ZRANGEBYSCORE") {
+                return zset::zrange_by_score(store, args, false);
+            }
+            if raw.eq_ignore_ascii_case(b"GEOSEARCHSTORE") {
+                return geo::geosearchstore(store, args);
+            }
+        }
+        14 => {
+            if raw.eq_ignore_ascii_case(b"ZREMRANGEBYRANK") {
+                return zset::zremrangebyrank(store, args);
+            }
+        }
+        16 => {
+            if raw.eq_ignore_ascii_case(b"ZREVRANGEBYSCORE") {
+                return zset::zrange_by_score(store, args, true);
+            }
+        }
+        17 => {
+            if raw.eq_ignore_ascii_case(b"GEORADIUSBYMEMBER") {
+                return geo::georadiusbymember(store, args);
+            }
+        }
+        20 => {
+            if raw.eq_ignore_ascii_case(b"GEORADIUSBYMEMBER_RO") {
+                return geo::georadiusbymember_ro(store, args);
+            }
+        }
+        _ => {}
     }
 
     RespFrame::error_static("ERR unknown command")

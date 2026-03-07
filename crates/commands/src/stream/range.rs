@@ -35,7 +35,7 @@ fn range_common(store: &Store, args: &Args, reverse: bool) -> RespFrame {
             Err(response) => return response,
         };
     } else if args.len() != 4 {
-        return RespFrame::Error("ERR syntax error".to_string());
+        return crate::util::syntax_error();
     }
 
     match store.xrange(&args[1], start, end, reverse, count) {
@@ -54,7 +54,7 @@ pub(crate) fn xread(store: &Store, args: &Args) -> RespFrame {
     let mut count = None;
     if args[index].eq_ignore_ascii_case(b"COUNT") {
         if index + 1 >= args.len() {
-            return RespFrame::Error("ERR syntax error".to_string());
+            return crate::util::syntax_error();
         }
         count = match parse_count(&args[index + 1]) {
             Ok(value) => Some(value),
@@ -64,13 +64,13 @@ pub(crate) fn xread(store: &Store, args: &Args) -> RespFrame {
     }
     if index < args.len() && args[index].eq_ignore_ascii_case(b"BLOCK") {
         if index + 1 >= args.len() {
-            return RespFrame::Error("ERR syntax error".to_string());
+            return crate::util::syntax_error();
         }
         index += 2;
     }
 
     if index >= args.len() || !args[index].eq_ignore_ascii_case(b"STREAMS") {
-        return RespFrame::Error("ERR syntax error".to_string());
+        return crate::util::syntax_error();
     }
     index += 1;
 

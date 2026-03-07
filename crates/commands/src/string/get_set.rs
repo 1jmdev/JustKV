@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::util::{Args, eq_ascii, wrong_args, wrong_type};
+use crate::util::{eq_ascii, parse_u64_bytes, wrong_args, wrong_type, Args};
 use engine::store::Store;
 use protocol::types::{BulkData, RespFrame};
 use types::value::CompactArg;
@@ -57,13 +57,13 @@ pub(crate) fn set(store: &Store, args: &Args) -> RespFrame {
             };
             ttl = Some(Duration::from_millis(millis));
         } else {
-            return RespFrame::Error("ERR syntax error".to_string());
+            return crate::util::syntax_error();
         }
         index += 1;
     }
 
     if nx && xx {
-        return RespFrame::Error("ERR syntax error".to_string());
+        return crate::util::syntax_error();
     }
 
     let key = args[1].as_slice();
@@ -128,13 +128,6 @@ pub(crate) fn getdel(store: &Store, args: &Args) -> RespFrame {
 }
 
 fn parse_u64(raw: &[u8]) -> Result<u64, RespFrame> {
-    let _trace = profiler::scope("commands::string::get_set::parse_u64");
-    match std::str::from_utf8(raw) {
-        Ok(value) => value.parse::<u64>().map_err(|_| {
-            RespFrame::Error("ERR value is not an integer or out of range".to_string())
-        }),
-        Err(_) => Err(RespFrame::Error(
-            "ERR value is not an integer or out of range".to_string(),
-        )),
-    }
+    parse_u64_bytes(raw)
+        .ok_or_else(|| RespFrame::error_static("ERR value is not an integer or out of range"))
 }

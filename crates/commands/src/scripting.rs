@@ -1,5 +1,5 @@
 use crate::dispatcher;
-use crate::util::{int_error, wrong_args, Args};
+use crate::util::{int_error, parse_i64_bytes, wrong_args, Args};
 use engine::store::Store;
 use mlua::{HookTriggers, Lua, Table, Value, Variadic, VmState};
 use parking_lot::Mutex;
@@ -259,7 +259,7 @@ pub(crate) fn script(store: &Store, args: &Args) -> RespFrame {
             && !args[2].as_slice().eq_ignore_ascii_case(b"SYNC")
             && !args[2].as_slice().eq_ignore_ascii_case(b"ASYNC")
         {
-            return RespFrame::Error("ERR syntax error".to_string());
+            return crate::util::syntax_error();
         }
         let _ = store.script_flush();
         clear_lua_cache_current_thread();
@@ -285,7 +285,7 @@ pub(crate) fn script(store: &Store, args: &Args) -> RespFrame {
         } else if args[2].as_slice().eq_ignore_ascii_case(b"SYNC") {
             ScriptDebugMode::Sync
         } else {
-            return RespFrame::Error("ERR syntax error".to_string());
+            return crate::util::syntax_error();
         };
 
         let runtime = script_runtime();
@@ -322,11 +322,7 @@ pub(crate) fn script(store: &Store, args: &Args) -> RespFrame {
 }
 
 fn parse_numkeys(raw: &[u8]) -> Result<usize, RespFrame> {
-    let _trace = profiler::scope("commands::scripting::parse_numkeys");
-    let value = std::str::from_utf8(raw)
-        .ok()
-        .and_then(|raw| raw.parse::<i64>().ok())
-        .ok_or_else(int_error)?;
+    let value = parse_i64_bytes(raw).ok_or_else(int_error)?;
 
     if value < 0 {
         return Err(RespFrame::Error(

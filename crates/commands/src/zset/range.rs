@@ -1,4 +1,7 @@
-use crate::util::{Args, eq_ascii, f64_to_bytes, int_error, wrong_args, wrong_type};
+use crate::util::{
+    eq_ascii, f64_to_bytes, int_error, parse_i64_bytes, parse_u64_bytes, wrong_args, wrong_type,
+    Args,
+};
 use engine::store::Store;
 use protocol::types::{BulkData, RespFrame};
 use types::value::CompactKey;
@@ -20,7 +23,7 @@ pub(crate) fn zrange(store: &Store, args: &Args, reverse: bool) -> RespFrame {
             rev_option = true;
             continue;
         }
-        return RespFrame::Error("ERR syntax error".to_string());
+        return crate::util::syntax_error();
     }
 
     let start = match parse_i64(&args[2]) {
@@ -74,7 +77,7 @@ pub(crate) fn zrange_by_score(store: &Store, args: &Args, reverse: bool) -> Resp
         }
         if eq_ascii(&args[index], b"LIMIT") {
             if index + 2 >= args.len() {
-                return RespFrame::Error("ERR syntax error".to_string());
+                return crate::util::syntax_error();
             }
             offset = match parse_usize(&args[index + 1]) {
                 Ok(value) => value,
@@ -87,7 +90,7 @@ pub(crate) fn zrange_by_score(store: &Store, args: &Args, reverse: bool) -> Resp
             index += 3;
             continue;
         }
-        return RespFrame::Error("ERR syntax error".to_string());
+        return crate::util::syntax_error();
     }
 
     match store.zrange_by_score(&args[1], min, max, reverse, offset, count) {
@@ -116,22 +119,12 @@ fn format_items(items: Vec<(CompactKey, f64)>, withscores: bool) -> Vec<RespFram
 }
 
 fn parse_i64(raw: &[u8]) -> Result<i64, RespFrame> {
-    let _trace = profiler::scope("commands::zset::range::parse_i64");
-    match std::str::from_utf8(raw) {
-        Ok(value) => value.parse::<i64>().map_err(|_| int_error()),
-        Err(_) => Err(int_error()),
-    }
+    parse_i64_bytes(raw).ok_or_else(int_error)
 }
 
 fn parse_usize(raw: &[u8]) -> Result<usize, RespFrame> {
-    let _trace = profiler::scope("commands::zset::range::parse_usize");
-    match std::str::from_utf8(raw) {
-        Ok(value) => value
-            .parse::<u64>()
-            .map_err(|_| int_error())
-            .and_then(|value| usize::try_from(value).map_err(|_| int_error())),
-        Err(_) => Err(int_error()),
-    }
+    let v = parse_u64_bytes(raw).ok_or_else(int_error)?;
+    usize::try_from(v).map_err(|_| int_error())
 }
 
 fn parse_f64(raw: &[u8]) -> Result<f64, RespFrame> {

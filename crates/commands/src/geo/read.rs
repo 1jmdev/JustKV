@@ -151,7 +151,7 @@ fn geosearch_like_radius(
     };
 
     if read_only && (options.store.is_some() || options.storedist.is_some()) {
-        return RespFrame::Error("ERR syntax error".to_string());
+        return crate::util::syntax_error();
     }
 
     super::search::run_radius_search(store, &args[1], center, radius * unit, options)

@@ -52,5 +52,5 @@ pub(crate) fn xgroup(store: &Store, args: &Args) -> RespFrame {
         };
     }
 
-    RespFrame::Error("ERR syntax error".to_string())
+    crate::util::syntax_error()
 }

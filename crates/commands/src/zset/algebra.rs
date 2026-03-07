@@ -1,4 +1,6 @@
-use crate::util::{Args, eq_ascii, f64_to_bytes, int_error, wrong_args, wrong_type};
+use crate::util::{
+    eq_ascii, f64_to_bytes, int_error, parse_u64_bytes, wrong_args, wrong_type, Args,
+};
 use engine::store::Store;
 use protocol::types::{BulkData, RespFrame};
 
@@ -15,7 +17,7 @@ pub(crate) fn zop(store: &Store, args: &Args, command: &str) -> RespFrame {
         return RespFrame::Error("ERR numkeys should be greater than 0".to_string());
     }
     if args.len() < 2 + num_keys {
-        return RespFrame::Error("ERR syntax error".to_string());
+        return crate::util::syntax_error();
     }
 
     let keys_end = 2 + num_keys;
@@ -24,7 +26,7 @@ pub(crate) fn zop(store: &Store, args: &Args, command: &str) -> RespFrame {
     } else if args.len() == keys_end + 1 && eq_ascii(&args[keys_end], b"WITHSCORES") {
         true
     } else {
-        return RespFrame::Error("ERR syntax error".to_string());
+        return crate::util::syntax_error();
     };
 
     let result = match command {
@@ -62,12 +64,6 @@ pub(crate) fn zop(store: &Store, args: &Args, command: &str) -> RespFrame {
 }
 
 fn parse_usize(raw: &[u8]) -> Result<usize, RespFrame> {
-    let _trace = profiler::scope("commands::zset::algebra::parse_usize");
-    match std::str::from_utf8(raw) {
-        Ok(value) => value
-            .parse::<u64>()
-            .map_err(|_| int_error())
-            .and_then(|value| usize::try_from(value).map_err(|_| int_error())),
-        Err(_) => Err(int_error()),
-    }
+    let v = parse_u64_bytes(raw).ok_or_else(int_error)?;
+    usize::try_from(v).map_err(|_| int_error())
 }

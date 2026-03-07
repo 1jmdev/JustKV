@@ -1,4 +1,4 @@
-use crate::util::{Args, int_error, wrong_args, wrong_type};
+use crate::util::{int_error, parse_i64_bytes, parse_u64_bytes, wrong_args, wrong_type, Args};
 use engine::store::{BitFieldEncoding, BitFieldOp, BitFieldOverflow, BitOp, Store};
 use protocol::types::RespFrame;
 
@@ -128,7 +128,7 @@ pub(crate) fn bitop(store: &Store, args: &Args) -> RespFrame {
     } else if args[1].eq_ignore_ascii_case(b"NOT") {
         BitOp::Not
     } else {
-        return RespFrame::Error("ERR syntax error".to_string());
+        return crate::util::syntax_error();
     };
 
     let sources = &args[3..];
@@ -168,11 +168,11 @@ fn bitfield_impl(store: &Store, args: &Args, read_only: bool) -> RespFrame {
         let token = args[index].as_slice();
         if token.eq_ignore_ascii_case(b"OVERFLOW") {
             if read_only {
-                return RespFrame::Error("ERR syntax error".to_string());
+                return crate::util::syntax_error();
             }
             index += 1;
             if index >= args.len() {
-                return RespFrame::Error("ERR syntax error".to_string());
+                return crate::util::syntax_error();
             }
             overflow = if args[index].eq_ignore_ascii_case(b"WRAP") {
                 BitFieldOverflow::Wrap
@@ -181,7 +181,7 @@ fn bitfield_impl(store: &Store, args: &Args, read_only: bool) -> RespFrame {
             } else if args[index].eq_ignore_ascii_case(b"FAIL") {
                 BitFieldOverflow::Fail
             } else {
-                return RespFrame::Error("ERR syntax error".to_string());
+                return crate::util::syntax_error();
             };
             index += 1;
             continue;
@@ -189,7 +189,7 @@ fn bitfield_impl(store: &Store, args: &Args, read_only: bool) -> RespFrame {
 
         if token.eq_ignore_ascii_case(b"GET") {
             if index + 2 >= args.len() {
-                return RespFrame::Error("ERR syntax error".to_string());
+                return crate::util::syntax_error();
             }
             let encoding = match parse_bitfield_encoding(&args[index + 1]) {
                 Ok(value) => value,
@@ -206,10 +206,10 @@ fn bitfield_impl(store: &Store, args: &Args, read_only: bool) -> RespFrame {
 
         if token.eq_ignore_ascii_case(b"SET") {
             if read_only {
-                return RespFrame::Error("ERR syntax error".to_string());
+                return crate::util::syntax_error();
             }
             if index + 3 >= args.len() {
-                return RespFrame::Error("ERR syntax error".to_string());
+                return crate::util::syntax_error();
             }
             let encoding = match parse_bitfield_encoding(&args[index + 1]) {
                 Ok(value) => value,
@@ -234,10 +234,10 @@ fn bitfield_impl(store: &Store, args: &Args, read_only: bool) -> RespFrame {
 
         if token.eq_ignore_ascii_case(b"INCRBY") {
             if read_only {
-                return RespFrame::Error("ERR syntax error".to_string());
+                return crate::util::syntax_error();
             }
             if index + 3 >= args.len() {
-                return RespFrame::Error("ERR syntax error".to_string());
+                return crate::util::syntax_error();
             }
             let encoding = match parse_bitfield_encoding(&args[index + 1]) {
                 Ok(value) => value,
@@ -261,11 +261,11 @@ fn bitfield_impl(store: &Store, args: &Args, read_only: bool) -> RespFrame {
             continue;
         }
 
-        return RespFrame::Error("ERR syntax error".to_string());
+        return crate::util::syntax_error();
     }
 
     if operations.is_empty() {
-        return RespFrame::Error("ERR syntax error".to_string());
+        return crate::util::syntax_error();
     }
 
     match store.bitfield(&args[1], &operations) {
@@ -283,19 +283,11 @@ fn bitfield_impl(store: &Store, args: &Args, read_only: bool) -> RespFrame {
 }
 
 fn parse_i64(raw: &[u8]) -> Result<i64, RespFrame> {
-    let _trace = profiler::scope("commands::string::bitmap::parse_i64");
-    match std::str::from_utf8(raw) {
-        Ok(value) => value.parse::<i64>().map_err(|_| int_error()),
-        Err(_) => Err(int_error()),
-    }
+    parse_i64_bytes(raw).ok_or_else(int_error)
 }
 
 fn parse_non_negative_usize(raw: &[u8], err: RespFrame) -> Result<usize, RespFrame> {
-    let _trace = profiler::scope("commands::string::bitmap::parse_non_negative_usize");
-    let value = match std::str::from_utf8(raw) {
-        Ok(value) => value.parse::<u64>().map_err(|_| err.clone())?,
-        Err(_) => return Err(err),
-    };
+    let value = parse_u64_bytes(raw).ok_or(err)?;
     usize::try_from(value).map_err(|_| int_error())
 }
 
@@ -317,7 +309,7 @@ fn parse_index_unit(raw: &[u8]) -> Result<bool, RespFrame> {
     } else if raw.eq_ignore_ascii_case(b"BIT") {
         Ok(true)
     } else {
-        Err(RespFrame::Error("ERR syntax error".to_string()))
+        Err(crate::util::syntax_error())
     }
 }
 

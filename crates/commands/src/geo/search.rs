@@ -29,7 +29,7 @@ pub(crate) fn geosearch(store: &Store, args: &Args) -> RespFrame {
         };
         (center, 4)
     } else {
-        return RespFrame::Error("ERR syntax error".to_string());
+        return crate::util::syntax_error();
     };
 
     let (radius, box_size, index) = match parse_shape(args, shape_index) {
@@ -68,7 +68,7 @@ pub(crate) fn geosearchstore(store: &Store, args: &Args) -> RespFrame {
         };
         (center, 5)
     } else {
-        return RespFrame::Error("ERR syntax error".to_string());
+        return crate::util::syntax_error();
     };
 
     let (radius, box_size, mut index) = match parse_shape(args, shape_index) {
@@ -88,7 +88,7 @@ pub(crate) fn geosearchstore(store: &Store, args: &Args) -> RespFrame {
             index += 1;
         } else if token.eq_ignore_ascii_case(b"COUNT") {
             if index + 1 >= args.len() {
-                return RespFrame::Error("ERR syntax error".to_string());
+                return crate::util::syntax_error();
             }
             options.count = match super::parse::parse_usize(&args[index + 1]) {
                 Ok(value) => Some(value),
@@ -103,7 +103,7 @@ pub(crate) fn geosearchstore(store: &Store, args: &Args) -> RespFrame {
             store_dist = true;
             index += 1;
         } else {
-            return RespFrame::Error("ERR syntax error".to_string());
+            return crate::util::syntax_error();
         }
     }
 
@@ -189,11 +189,11 @@ fn parse_shape(
 ) -> Result<(Option<f64>, Option<(f64, f64)>, usize), RespFrame> {
     let _trace = profiler::scope("commands::geo::search::parse_shape");
     if index >= args.len() {
-        return Err(RespFrame::Error("ERR syntax error".to_string()));
+        return Err(crate::util::syntax_error());
     }
     if args[index].eq_ignore_ascii_case(b"BYRADIUS") {
         if index + 2 >= args.len() {
-            return Err(RespFrame::Error("ERR syntax error".to_string()));
+            return Err(crate::util::syntax_error());
         }
         let value = parse_f64(&args[index + 1])?;
         let unit = parse_distance_unit(&args[index + 2])?;
@@ -201,14 +201,14 @@ fn parse_shape(
     }
     if args[index].eq_ignore_ascii_case(b"BYBOX") {
         if index + 3 >= args.len() {
-            return Err(RespFrame::Error("ERR syntax error".to_string()));
+            return Err(crate::util::syntax_error());
         }
         let width = parse_f64(&args[index + 1])?;
         let height = parse_f64(&args[index + 2])?;
         let unit = parse_distance_unit(&args[index + 3])?;
         return Ok((None, Some((width * unit, height * unit)), index + 4));
     }
-    Err(RespFrame::Error("ERR syntax error".to_string()))
+    Err(crate::util::syntax_error())
 }
 
 fn format_matches(matches: Vec<GeoSearchMatch>, options: SearchOptions) -> RespFrame {

@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::util::{Args, eq_ascii, int_error, wrong_args, wrong_type};
+use crate::util::{eq_ascii, parse_u64_bytes, wrong_args, wrong_type, Args};
 use engine::store::{GetExMode, Store};
 use protocol::types::{BulkData, RespFrame};
 use types::value::CompactArg;
@@ -63,7 +63,7 @@ fn parse_getex_mode(args: &Args) -> Result<GetExMode, RespFrame> {
     }
 
     if args.len() != 4 {
-        return Err(RespFrame::Error("ERR syntax error".to_string()));
+        return Err(crate::util::syntax_error());
     }
 
     let option = args[2].as_slice();
@@ -80,15 +80,12 @@ fn parse_getex_mode(args: &Args) -> Result<GetExMode, RespFrame> {
         return parse_positive_u64(&args[3], "getex").map(GetExMode::PxAt);
     }
 
-    Err(RespFrame::Error("ERR syntax error".to_string()))
+    Err(crate::util::syntax_error())
 }
 
 fn parse_positive_u64(raw: &[u8], command: &str) -> Result<u64, RespFrame> {
-    let _trace = profiler::scope("commands::string::expiry::parse_positive_u64");
-    let value = match std::str::from_utf8(raw) {
-        Ok(value) => value.parse::<u64>().map_err(|_| int_error())?,
-        Err(_) => return Err(int_error()),
-    };
+    let value = parse_u64_bytes(raw)
+        .ok_or_else(|| RespFrame::error_static("ERR value is not an integer or out of range"))?;
 
     if value == 0 {
         return Err(RespFrame::Error(format!(

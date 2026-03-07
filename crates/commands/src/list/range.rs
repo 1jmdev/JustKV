@@ -1,4 +1,4 @@
-use crate::util::{eq_ascii, int_error, wrong_args, wrong_type, Args};
+use crate::util::{eq_ascii, int_error, parse_u64_bytes, wrong_args, wrong_type, Args};
 use engine::store::{ListInsertPosition, ListSetError, Store};
 use protocol::types::{BulkData, RespFrame};
 
@@ -82,7 +82,7 @@ pub(crate) fn linsert(store: &Store, args: &Args) -> RespFrame {
     } else if eq_ascii(&args[2], b"AFTER") {
         ListInsertPosition::After
     } else {
-        return RespFrame::Error("ERR syntax error".to_string());
+        return crate::util::syntax_error();
     };
     match store.linsert(&args[1], position, &args[3], &args[4]) {
         Ok(result) => RespFrame::Integer(result),
@@ -104,7 +104,7 @@ pub(crate) fn lpos(store: &Store, args: &Args) -> RespFrame {
         if eq_ascii(&args[index], b"RANK") {
             index += 1;
             if index >= args.len() {
-                return RespFrame::Error("ERR syntax error".to_string());
+                return crate::util::syntax_error();
             }
             rank = match parse_i64(&args[index]) {
                 Ok(value) => value,
@@ -116,7 +116,7 @@ pub(crate) fn lpos(store: &Store, args: &Args) -> RespFrame {
         } else if eq_ascii(&args[index], b"COUNT") {
             index += 1;
             if index >= args.len() {
-                return RespFrame::Error("ERR syntax error".to_string());
+                return crate::util::syntax_error();
             }
             count = Some(match parse_usize(&args[index]) {
                 Ok(value) => value,
@@ -125,14 +125,14 @@ pub(crate) fn lpos(store: &Store, args: &Args) -> RespFrame {
         } else if eq_ascii(&args[index], b"MAXLEN") {
             index += 1;
             if index >= args.len() {
-                return RespFrame::Error("ERR syntax error".to_string());
+                return crate::util::syntax_error();
             }
             maxlen = Some(match parse_usize(&args[index]) {
                 Ok(value) => value,
                 Err(response) => return response,
             });
         } else {
-            return RespFrame::Error("ERR syntax error".to_string());
+            return crate::util::syntax_error();
         }
         index += 1;
     }
@@ -189,12 +189,6 @@ fn parse_i64(raw: &[u8]) -> Result<i64, RespFrame> {
 }
 
 fn parse_usize(raw: &[u8]) -> Result<usize, RespFrame> {
-    let _trace = profiler::scope("commands::list::range::parse_usize");
-    match std::str::from_utf8(raw) {
-        Ok(value) => value
-            .parse::<u64>()
-            .map_err(|_| int_error())
-            .and_then(|value| usize::try_from(value).map_err(|_| int_error())),
-        Err(_) => Err(int_error()),
-    }
+    let v = parse_u64_bytes(raw).ok_or_else(int_error)?;
+    usize::try_from(v).map_err(|_| int_error())
 }

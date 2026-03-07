@@ -22,42 +22,49 @@ pub const fn pack8(bytes: &[u8]) -> u64 {
     result
 }
 
+/// Precomputed keep-masks for each valid command length 1–8.
+/// Index `i` keeps the low `i*8` bits and zeros the rest.
+const LEN_MASK: [u64; 9] = [
+    0x0000_0000_0000_0000,
+    0x0000_0000_0000_00FF,
+    0x0000_0000_0000_FFFF,
+    0x0000_0000_00FF_FFFF,
+    0x0000_0000_FFFF_FFFF,
+    0x0000_00FF_FFFF_FFFF,
+    0x0000_FFFF_FFFF_FFFF,
+    0x00FF_FFFF_FFFF_FFFF,
+    0xFFFF_FFFF_FFFF_FFFF,
+];
+
 /// Pack incoming command bytes into a u64 for matching.
 /// Uses branchless SWAR uppercasing — all 8 bytes at once.
 /// Returns 0 for empty or >8-byte commands (handled separately).
 #[inline(always)]
 pub fn pack_runtime(cmd: &[u8]) -> u64 {
     let _trace = profiler::scope("commands::util::pack_runtime");
-    if cmd.len() > 8 || cmd.is_empty() {
+    let len = cmd.len();
+    if len > 8 || len == 0 {
         return 0;
     }
 
     let mut buf = [0u8; 8];
-    // SAFETY: we checked len <= 8
     unsafe {
-        std::ptr::copy_nonoverlapping(cmd.as_ptr(), buf.as_mut_ptr(), cmd.len());
+        std::ptr::copy_nonoverlapping(cmd.as_ptr(), buf.as_mut_ptr(), len);
     }
 
     let mut val = u64::from_le_bytes(buf);
 
-    // Branchless ASCII uppercase via SWAR (SIMD Within A Register):
-    // For each byte, if it is in a-z, subtract 32.
-    const A: u64 = 0x6161_6161_6161_6161; // b'a' repeated
+    const A: u64 = 0x6161_6161_6161_6161;
     const ONES: u64 = 0x0101_0101_0101_0101;
-    const Z_BOUND: u64 = ONES.wrapping_mul(256 - 26); // (256-26) repeated
-    const CASE_BIT: u64 = 0x2020_2020_2020_2020; // bit 5 of each byte
+    const Z_BOUND: u64 = ONES.wrapping_mul(256 - 26);
+    const CASE_BIT: u64 = 0x2020_2020_2020_2020;
 
     let lower_dist = val.wrapping_sub(A);
-    // A byte is lowercase iff (lower_dist + (256-26)) does NOT overflow into the
-    // high bit of that byte, AND the high bit of lower_dist itself is also 0.
     let is_lower = !lower_dist.wrapping_add(Z_BOUND) & !lower_dist & (ONES << 7);
-    // Shift the per-byte high bit down to bit 5 to get the case-flip mask.
     let mask = (is_lower >> 2) & CASE_BIT;
     val ^= mask;
 
-    // Zero out bytes beyond cmd.len(), then encode length in the top byte.
-    val &= u64::MAX >> ((8 - cmd.len()) * 8);
-    val | ((cmd.len() as u64) << 56)
+    (val & LEN_MASK[len]) | ((len as u64) << 56)
 }
 
 /// All ≤8-byte command constants computed at compile time.
@@ -250,25 +257,30 @@ pub mod cmd {
     // XAUTOCLAIM is 10 bytes — handled in dispatch_long
 }
 
+#[inline]
 pub fn eq_ascii(command: &[u8], expected: &[u8]) -> bool {
-    let _trace = profiler::scope("commands::util::eq_ascii");
     command == expected || command.eq_ignore_ascii_case(expected)
 }
 
+#[cold]
 pub fn wrong_args(command: &str) -> RespFrame {
-    let _trace = profiler::scope("commands::util::wrong_args");
     RespFrame::Error(format!(
         "ERR wrong number of arguments for '{command}' command"
     ))
 }
 
+#[inline(always)]
+pub fn syntax_error() -> RespFrame {
+    RespFrame::error_static("ERR syntax error")
+}
+
+#[inline(always)]
 pub fn int_error() -> RespFrame {
-    let _trace = profiler::scope("commands::util::int_error");
     RespFrame::error_static("ERR value is not an integer or out of range")
 }
 
+#[inline(always)]
 pub fn wrong_type() -> RespFrame {
-    let _trace = profiler::scope("commands::util::wrong_type");
     RespFrame::error_static("WRONGTYPE Operation against a key holding the wrong kind of value")
 }
 
@@ -291,33 +303,89 @@ pub fn parse_i64_bytes(raw: &[u8]) -> Option<i64> {
     }
 
     let mut index = 0;
-    let mut negative = false;
+    let negative;
     match raw[0] {
         b'-' => {
             negative = true;
             index = 1;
         }
-        b'+' => index = 1,
-        _ => {}
+        b'+' => {
+            negative = false;
+            index = 1;
+        }
+        _ => {
+            negative = false;
+        }
     }
 
-    if index == raw.len() {
+    let digits = &raw[index..];
+    let n = digits.len();
+    if n == 0 || n > 19 {
         return None;
     }
 
-    let mut value: i64 = 0;
-    while index < raw.len() {
-        let digit = raw[index].wrapping_sub(b'0');
-        if digit > 9 {
-            return None;
+    // For ≤18 digits the value fits in u64 unconditionally (max 10^18-1 < u64::MAX),
+    // so we skip checked arithmetic entirely.
+    if n <= 18 {
+        let mut value: u64 = 0;
+        for &b in digits {
+            let d = b.wrapping_sub(b'0');
+            if d > 9 {
+                return None;
+            }
+            value = value * 10 + u64::from(d);
         }
-        value = value.checked_mul(10)?.checked_add(i64::from(digit))?;
-        index += 1;
-    }
-
-    if negative {
-        value.checked_neg()
+        let v = value as i64;
+        if negative {
+            Some(v.wrapping_neg())
+        } else {
+            Some(v)
+        }
     } else {
+        // 19-digit path: checked arithmetic to catch overflow.
+        let mut value: i64 = 0;
+        for &b in digits {
+            let d = b.wrapping_sub(b'0');
+            if d > 9 {
+                return None;
+            }
+            value = value.checked_mul(10)?.checked_add(i64::from(d))?;
+        }
+        if negative {
+            value.checked_neg()
+        } else {
+            Some(value)
+        }
+    }
+}
+
+#[inline]
+pub fn parse_u64_bytes(raw: &[u8]) -> Option<u64> {
+    let n = raw.len();
+    if n == 0 || n > 20 {
+        return None;
+    }
+    // ≤19 digits always fit in u64 (max 10^19-1 < u64::MAX = 1.8×10^19).
+    if n <= 19 {
+        let mut value: u64 = 0;
+        for &b in raw {
+            let d = b.wrapping_sub(b'0');
+            if d > 9 {
+                return None;
+            }
+            value = value * 10 + u64::from(d);
+        }
+        Some(value)
+    } else {
+        // 20-digit path: need overflow check (u64::MAX is 20 digits).
+        let mut value: u64 = 0;
+        for &b in raw {
+            let d = b.wrapping_sub(b'0');
+            if d > 9 {
+                return None;
+            }
+            value = value.checked_mul(10)?.checked_add(u64::from(d))?;
+        }
         Some(value)
     }
 }

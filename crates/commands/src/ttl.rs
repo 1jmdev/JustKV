@@ -1,4 +1,4 @@
-use crate::util::{Args, int_error, wrong_args};
+use crate::util::{int_error, parse_u64_bytes, wrong_args, Args};
 use engine::store::Store;
 use protocol::types::RespFrame;
 
@@ -77,9 +77,5 @@ pub(crate) fn pttl(store: &Store, args: &Args) -> RespFrame {
 }
 
 fn parse_u64(raw: &[u8]) -> Result<u64, RespFrame> {
-    let _trace = profiler::scope("commands::ttl::parse_u64");
-    match std::str::from_utf8(raw) {
-        Ok(value) => value.parse::<u64>().map_err(|_| int_error()),
-        Err(_) => Err(int_error()),
-    }
+    parse_u64_bytes(raw).ok_or_else(int_error)
 }

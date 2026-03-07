@@ -24,7 +24,7 @@ pub(crate) fn xadd(store: &Store, args: &Args) -> RespFrame {
     index = next_index;
 
     if index >= args.len() {
-        return RespFrame::Error("ERR syntax error".to_string());
+        return crate::util::syntax_error();
     }
     let id = match parse_xadd_id(&args[index]) {
         Ok(value) => value,
@@ -86,7 +86,7 @@ pub(crate) fn xtrim(store: &Store, args: &Args) -> RespFrame {
     } else if args[2].eq_ignore_ascii_case(b"MINID") {
         XTrimMode::MinId
     } else {
-        return RespFrame::Error("ERR syntax error".to_string());
+        return crate::util::syntax_error();
     };
 
     let mut index = 3;
@@ -94,7 +94,7 @@ pub(crate) fn xtrim(store: &Store, args: &Args) -> RespFrame {
         index += 1;
     }
     if index >= args.len() {
-        return RespFrame::Error("ERR syntax error".to_string());
+        return crate::util::syntax_error();
     }
 
     let threshold = if matches!(mode, XTrimMode::MaxLen) {

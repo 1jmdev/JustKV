@@ -1,4 +1,6 @@
-use crate::util::{Args, eq_ascii, f64_to_bytes, int_error, wrong_args, wrong_type};
+use crate::util::{
+    eq_ascii, f64_to_bytes, int_error, parse_i64_bytes, wrong_args, wrong_type, Args,
+};
 use engine::store::Store;
 use protocol::types::{BulkData, RespFrame};
 
@@ -16,7 +18,7 @@ pub(crate) fn zrandmember(store: &Store, args: &Args) -> RespFrame {
         };
         if args.len() == 4 {
             if !eq_ascii(&args[3], b"WITHSCORES") {
-                return RespFrame::Error("ERR syntax error".to_string());
+                return crate::util::syntax_error();
             }
             withscores = true;
         }
@@ -57,9 +59,5 @@ pub(crate) fn zrandmember(store: &Store, args: &Args) -> RespFrame {
 }
 
 fn parse_i64(raw: &[u8]) -> Result<i64, RespFrame> {
-    let _trace = profiler::scope("commands::zset::random::parse_i64");
-    match std::str::from_utf8(raw) {
-        Ok(value) => value.parse::<i64>().map_err(|_| int_error()),
-        Err(_) => Err(int_error()),
-    }
+    parse_i64_bytes(raw).ok_or_else(int_error)
 }

@@ -1,10 +1,11 @@
-use crate::util::{Args, int_error};
+use crate::util::{int_error, parse_u64_bytes, Args};
 use engine::store::{XAddId, XTrimMode};
 use protocol::types::RespFrame;
 use types::value::StreamId;
 
+const ERR_STREAM_ID: &str = "ERR Invalid stream ID specified";
+
 pub(super) fn parse_stream_id(raw: &[u8]) -> Result<StreamId, RespFrame> {
-    let _trace = profiler::scope("commands::stream::parse::parse_stream_id");
     if raw == b"-" {
         return Ok(StreamId { ms: 0, seq: 0 });
     }
@@ -14,55 +15,30 @@ pub(super) fn parse_stream_id(raw: &[u8]) -> Result<StreamId, RespFrame> {
             seq: u64::MAX,
         });
     }
-    let text = std::str::from_utf8(raw)
-        .map_err(|_| RespFrame::Error("ERR Invalid stream ID specified".to_string()))?;
-    let Some((ms, seq)) = text.split_once('-') else {
-        return Err(RespFrame::Error(
-            "ERR Invalid stream ID specified".to_string(),
-        ));
-    };
-    let ms = ms
-        .parse::<u64>()
-        .map_err(|_| RespFrame::Error("ERR Invalid stream ID specified".to_string()))?;
-    let seq = seq
-        .parse::<u64>()
-        .map_err(|_| RespFrame::Error("ERR Invalid stream ID specified".to_string()))?;
+    let dash = memchr::memchr(b'-', raw).ok_or_else(|| RespFrame::error_static(ERR_STREAM_ID))?;
+    let ms = parse_u64_bytes(&raw[..dash]).ok_or_else(|| RespFrame::error_static(ERR_STREAM_ID))?;
+    let seq =
+        parse_u64_bytes(&raw[dash + 1..]).ok_or_else(|| RespFrame::error_static(ERR_STREAM_ID))?;
     Ok(StreamId { ms, seq })
 }
 
 pub(super) fn parse_xadd_id(raw: &[u8]) -> Result<XAddId, RespFrame> {
-    let _trace = profiler::scope("commands::stream::parse::parse_xadd_id");
     if raw == b"*" {
         return Ok(XAddId::Auto);
     }
-    let text = std::str::from_utf8(raw)
-        .map_err(|_| RespFrame::Error("ERR Invalid stream ID specified".to_string()))?;
-    let Some((ms, seq)) = text.split_once('-') else {
-        return Err(RespFrame::Error(
-            "ERR Invalid stream ID specified".to_string(),
-        ));
-    };
-    let ms = ms
-        .parse::<u64>()
-        .map_err(|_| RespFrame::Error("ERR Invalid stream ID specified".to_string()))?;
-    if seq == "*" {
+    let dash = memchr::memchr(b'-', raw).ok_or_else(|| RespFrame::error_static(ERR_STREAM_ID))?;
+    let ms = parse_u64_bytes(&raw[..dash]).ok_or_else(|| RespFrame::error_static(ERR_STREAM_ID))?;
+    let seq_bytes = &raw[dash + 1..];
+    if seq_bytes == b"*" {
         return Ok(XAddId::AutoSeqAtMs { ms });
     }
-    let seq = seq
-        .parse::<u64>()
-        .map_err(|_| RespFrame::Error("ERR Invalid stream ID specified".to_string()))?;
+    let seq = parse_u64_bytes(seq_bytes).ok_or_else(|| RespFrame::error_static(ERR_STREAM_ID))?;
     Ok(XAddId::Explicit { ms, seq })
 }
 
 pub(super) fn parse_count(raw: &[u8]) -> Result<usize, RespFrame> {
-    let _trace = profiler::scope("commands::stream::parse::parse_count");
-    match std::str::from_utf8(raw) {
-        Ok(value) => value
-            .parse::<u64>()
-            .map_err(|_| int_error())
-            .and_then(|value| usize::try_from(value).map_err(|_| int_error())),
-        Err(_) => Err(int_error()),
-    }
+    let v = parse_u64_bytes(raw).ok_or_else(int_error)?;
+    usize::try_from(v).map_err(|_| int_error())
 }
 
 pub(super) fn parse_xtrim_args(
@@ -75,13 +51,13 @@ pub(super) fn parse_xtrim_args(
     }
     index += 1;
     if index >= args.len() {
-        return Err(RespFrame::Error("ERR syntax error".to_string()));
+        return Err(crate::util::syntax_error());
     }
     if args[index].as_slice() == b"~" || args[index].as_slice() == b"=" {
         index += 1;
     }
     if index >= args.len() {
-        return Err(RespFrame::Error("ERR syntax error".to_string()));
+        return Err(crate::util::syntax_error());
     }
     let max_len = parse_count(&args[index])?;
     index += 1;

@@ -1,4 +1,4 @@
-use crate::util::{Args, eq_ascii, wrong_args};
+use crate::util::{eq_ascii, parse_u64_bytes, wrong_args, Args};
 use protocol::types::{BulkData, RespFrame};
 
 pub(crate) fn auth(args: &Args) -> RespFrame {
@@ -15,10 +15,8 @@ pub(crate) fn hello(args: &Args) -> RespFrame {
         return hello_response(2);
     }
 
-    let version = match std::str::from_utf8(&args[1]) {
-        Ok(raw) => raw.parse::<u8>().ok(),
-        Err(_) => None,
-    };
+    let version =
+        parse_u64_bytes(&args[1]).and_then(|v| if v <= 255 { Some(v as u8) } else { None });
 
     match version {
         Some(proto) if proto == 2 || proto == 3 => hello_response(proto),
@@ -107,12 +105,7 @@ pub(crate) fn select_db(args: &Args) -> RespFrame {
         return wrong_args("SELECT");
     }
 
-    let index = match std::str::from_utf8(&args[1]) {
-        Ok(raw) => raw.parse::<u32>().ok(),
-        Err(_) => None,
-    };
-
-    match index {
+    match parse_u64_bytes(&args[1]) {
         Some(0) => RespFrame::ok(),
         Some(_) => RespFrame::error_static("ERR DB index is out of range"),
         None => RespFrame::error_static("ERR value is not an integer or out of range"),

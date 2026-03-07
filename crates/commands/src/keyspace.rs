@@ -1,4 +1,7 @@
-use crate::util::{Args, eq_ascii, int_error, u64_to_bytes, wrong_args, wrong_type};
+use crate::util::{
+    eq_ascii, int_error, parse_i64_bytes, parse_u64_bytes, u64_to_bytes, wrong_args, wrong_type,
+    Args,
+};
 use engine::store::{RestoreError, SortError, SortOptions, SortOrder, SortResult, Store};
 use protocol::types::{BulkData, RespFrame};
 
@@ -107,13 +110,13 @@ pub(crate) fn scan(store: &Store, args: &Args) -> RespFrame {
         if eq_ascii(&args[index], b"MATCH") {
             index += 1;
             if index >= args.len() {
-                return RespFrame::Error("ERR syntax error".to_string());
+                return crate::util::syntax_error();
             }
             pattern = Some(args[index].as_slice());
         } else if eq_ascii(&args[index], b"COUNT") {
             index += 1;
             if index >= args.len() {
-                return RespFrame::Error("ERR syntax error".to_string());
+                return crate::util::syntax_error();
             }
             count = match parse_usize(&args[index]) {
                 Ok(value) => value,
@@ -122,11 +125,11 @@ pub(crate) fn scan(store: &Store, args: &Args) -> RespFrame {
         } else if eq_ascii(&args[index], b"TYPE") {
             index += 1;
             if index >= args.len() {
-                return RespFrame::Error("ERR syntax error".to_string());
+                return crate::util::syntax_error();
             }
             value_type = Some(args[index].as_slice());
         } else {
-            return RespFrame::Error("ERR syntax error".to_string());
+            return crate::util::syntax_error();
         }
         index += 1;
     }
@@ -184,7 +187,7 @@ pub(crate) fn restore(store: &Store, args: &Args) -> RespFrame {
         if eq_ascii(&args[index], b"REPLACE") {
             replace = true;
         } else {
-            return RespFrame::Error("ERR syntax error".to_string());
+            return crate::util::syntax_error();
         }
         index += 1;
     }
@@ -223,7 +226,7 @@ pub(crate) fn sort(store: &Store, args: &Args) -> RespFrame {
             options.alpha = true;
         } else if eq_ascii(&args[index], b"LIMIT") {
             if index + 2 >= args.len() {
-                return RespFrame::Error("ERR syntax error".to_string());
+                return crate::util::syntax_error();
             }
             let offset = match parse_usize(&args[index + 1]) {
                 Ok(value) => value,
@@ -237,12 +240,12 @@ pub(crate) fn sort(store: &Store, args: &Args) -> RespFrame {
             index += 2;
         } else if eq_ascii(&args[index], b"STORE") {
             if index + 1 >= args.len() {
-                return RespFrame::Error("ERR syntax error".to_string());
+                return crate::util::syntax_error();
             }
             options.store = Some(args[index + 1].to_vec());
             index += 1;
         } else {
-            return RespFrame::Error("ERR syntax error".to_string());
+            return crate::util::syntax_error();
         }
         index += 1;
     }
@@ -279,7 +282,7 @@ pub(crate) fn copy(store: &Store, args: &Args) -> RespFrame {
             replace = true;
         } else if eq_ascii(&args[index], b"DB") {
             if index + 1 >= args.len() {
-                return RespFrame::Error("ERR syntax error".to_string());
+                return crate::util::syntax_error();
             }
             db = match parse_i64(&args[index + 1]) {
                 Ok(value) => value,
@@ -287,7 +290,7 @@ pub(crate) fn copy(store: &Store, args: &Args) -> RespFrame {
             };
             index += 1;
         } else {
-            return RespFrame::Error("ERR syntax error".to_string());
+            return crate::util::syntax_error();
         }
         index += 1;
     }
@@ -318,23 +321,14 @@ pub(crate) fn flushall(store: &Store, args: &Args) -> RespFrame {
 }
 
 fn parse_u64(raw: &[u8]) -> Result<u64, RespFrame> {
-    let _trace = profiler::scope("commands::keyspace::parse_u64");
-    match std::str::from_utf8(raw) {
-        Ok(value) => value.parse::<u64>().map_err(|_| int_error()),
-        Err(_) => Err(int_error()),
-    }
+    parse_u64_bytes(raw).ok_or_else(int_error)
 }
 
 fn parse_i64(raw: &[u8]) -> Result<i64, RespFrame> {
-    let _trace = profiler::scope("commands::keyspace::parse_i64");
-    match std::str::from_utf8(raw) {
-        Ok(value) => value.parse::<i64>().map_err(|_| int_error()),
-        Err(_) => Err(int_error()),
-    }
+    parse_i64_bytes(raw).ok_or_else(int_error)
 }
 
 fn parse_usize(raw: &[u8]) -> Result<usize, RespFrame> {
-    let _trace = profiler::scope("commands::keyspace::parse_usize");
     let value = parse_u64(raw)?;
     usize::try_from(value).map_err(|_| int_error())
 }

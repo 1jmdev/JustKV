@@ -10,7 +10,7 @@ pub(crate) fn xreadgroup(store: &Store, args: &Args) -> RespFrame {
         return wrong_args("XREADGROUP");
     }
     if !args[1].eq_ignore_ascii_case(b"GROUP") {
-        return RespFrame::Error("ERR syntax error".to_string());
+        return crate::util::syntax_error();
     }
     let group = &args[2];
     let consumer = &args[3];
@@ -33,7 +33,7 @@ pub(crate) fn xreadgroup(store: &Store, args: &Args) -> RespFrame {
         index += 1;
     }
     if index >= args.len() || !args[index].eq_ignore_ascii_case(b"STREAMS") {
-        return RespFrame::Error("ERR syntax error".to_string());
+        return crate::util::syntax_error();
     }
     index += 1;
 

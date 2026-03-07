@@ -1,4 +1,4 @@
-use crate::util::{Args, int_error};
+use crate::util::{int_error, parse_u64_bytes, Args};
 use engine::store::Store;
 use protocol::types::RespFrame;
 use types::value::CompactArg;
@@ -51,14 +51,8 @@ pub(super) fn parse_f64(raw: &[u8]) -> Result<f64, RespFrame> {
 }
 
 pub(super) fn parse_usize(raw: &[u8]) -> Result<usize, RespFrame> {
-    let _trace = profiler::scope("commands::geo::parse::parse_usize");
-    match std::str::from_utf8(raw) {
-        Ok(value) => value
-            .parse::<u64>()
-            .map_err(|_| int_error())
-            .and_then(|value| usize::try_from(value).map_err(|_| int_error())),
-        Err(_) => Err(int_error()),
-    }
+    let v = parse_u64_bytes(raw).ok_or_else(int_error)?;
+    usize::try_from(v).map_err(|_| int_error())
 }
 
 pub(super) fn parse_distance_unit(raw: &[u8]) -> Result<f64, RespFrame> {
@@ -103,7 +97,7 @@ pub(super) fn parse_search_options(
             index += 1;
         } else if token.eq_ignore_ascii_case(b"COUNT") {
             if index + 1 >= args.len() {
-                return Err(RespFrame::Error("ERR syntax error".to_string()));
+                return Err(crate::util::syntax_error());
             }
             options.count = Some(parse_usize(&args[index + 1])?);
             index += 2;
@@ -113,18 +107,18 @@ pub(super) fn parse_search_options(
             }
         } else if token.eq_ignore_ascii_case(b"STORE") {
             if index + 1 >= args.len() {
-                return Err(RespFrame::Error("ERR syntax error".to_string()));
+                return Err(crate::util::syntax_error());
             }
             options.store = Some(args[index + 1].to_vec());
             index += 2;
         } else if token.eq_ignore_ascii_case(b"STOREDIST") {
             if index + 1 >= args.len() {
-                return Err(RespFrame::Error("ERR syntax error".to_string()));
+                return Err(crate::util::syntax_error());
             }
             options.storedist = Some(args[index + 1].to_vec());
             index += 2;
         } else {
-            return Err(RespFrame::Error("ERR syntax error".to_string()));
+            return Err(crate::util::syntax_error());
         }
     }
     Ok(options)
