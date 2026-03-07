@@ -11,7 +11,7 @@ profiler.workspace = true
 getrandom = "0.3"
 
 [dev-dependencies]
-criterion = { version = "0.5", features = ["html_reports"] }
+criterion.workspace = true
 
 [[bench]]
 name = "map"

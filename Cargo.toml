@@ -39,6 +39,7 @@ commands = { path = "crates/commands" }
 betterkv-server = { path = "crates/server" }
 
 ahash = "0.8.12"
+criterion = { version = "0.8.2", features = ["html_reports"] }
 bytes = "1.11.1"
 clap = { version = "4.5.60", features = ["derive"] }
 hashbrown = "0.16.1"
