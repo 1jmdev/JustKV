@@ -67,3 +67,30 @@ fn remove_keeps_remaining_chain_reachable() {
         assert_eq!(map.get(key.as_bytes()), Some(&value));
     }
 }
+
+#[test]
+fn growth_uses_incremental_rehashing() {
+    let mut map = RehashingMap::new();
+
+    for i in 0..65u32 {
+        map.insert(i.to_le_bytes().to_vec(), i);
+    }
+
+    assert!(map.old_table.is_some());
+    assert_eq!(map.rehash_cursor, 0);
+
+    for i in 0..65u32 {
+        assert_eq!(map.get(&i.to_le_bytes()), Some(&i));
+    }
+
+    while map.old_table.is_some() {
+        map.insert(
+            format!("extra-{i}", i = map.len()).into_bytes(),
+            map.len() as u32,
+        );
+    }
+
+    for i in 0..65u32 {
+        assert_eq!(map.get(&i.to_le_bytes()), Some(&i));
+    }
+}

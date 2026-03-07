@@ -20,4 +20,9 @@ impl Table {
         let _trace = profiler::scope("rehash::table::len");
         self.mask + 1
     }
+
+    #[inline(always)]
+    pub(super) fn bucket(&self, hash: u32) -> usize {
+        (hash as usize) & self.mask
+    }
 }
