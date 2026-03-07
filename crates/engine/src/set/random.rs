@@ -39,7 +39,7 @@ impl Store {
         let Some(entry) = shard.entries.get_mut::<[u8]>(key) else {
             return Ok(None);
         };
-        let Entry::Set(set) = entry else {
+        let Entry::Set(set) = &mut entry.entry else {
             return Err(());
         };
         if set.is_empty() {

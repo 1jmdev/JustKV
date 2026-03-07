@@ -1,7 +1,7 @@
 use ahash::RandomState;
 use hashbrown::HashMap;
 
-use crate::store::Store;
+use crate::Store;
 use types::value::{CompactKey, Entry, StreamGroup, StreamId, StreamValue};
 
 use super::super::helpers::{monotonic_now_ms, purge_if_expired};
@@ -25,9 +25,10 @@ impl Store {
             if !mkstream {
                 return Ok(false);
             }
-            shard.entries.insert(
+            shard.insert_entry(
                 CompactKey::from_slice(key),
                 Entry::Stream(Box::new(StreamValue::new())),
+                None,
             );
         }
 

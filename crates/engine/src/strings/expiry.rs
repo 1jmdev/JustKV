@@ -2,7 +2,6 @@ use std::time::Duration;
 
 use super::super::helpers::{deadline_from_ttl, monotonic_now_ms, purge_if_expired, unix_time_ms};
 use crate::store::{GetExMode, Store};
-use types::value::CompactKey;
 
 impl Store {
     pub fn getex(&self, key: &[u8], mode: GetExMode) -> Result<Option<Vec<u8>>, ()> {
@@ -28,16 +27,10 @@ impl Store {
                 let _ = shard.clear_ttl(key);
             }
             GetExMode::Ex(seconds) => {
-                shard.set_ttl(
-                    CompactKey::from_slice(key),
-                    deadline_from_ttl(Duration::from_secs(seconds)),
-                );
+                let _ = shard.set_ttl(key, deadline_from_ttl(Duration::from_secs(seconds)));
             }
             GetExMode::Px(milliseconds) => {
-                shard.set_ttl(
-                    CompactKey::from_slice(key),
-                    deadline_from_ttl(Duration::from_millis(milliseconds)),
-                );
+                let _ = shard.set_ttl(key, deadline_from_ttl(Duration::from_millis(milliseconds)));
             }
             GetExMode::ExAt(timestamp_sec) => {
                 apply_getex_absolute_deadline(&mut shard, key, timestamp_sec.saturating_mul(1000));
@@ -60,8 +53,5 @@ fn apply_getex_absolute_deadline(shard: &mut super::super::Shard, key: &[u8], ti
     }
 
     let ttl_ms = timestamp_ms - now_unix_ms;
-    shard.set_ttl(
-        CompactKey::from_slice(key),
-        deadline_from_ttl(Duration::from_millis(ttl_ms)),
-    );
+    let _ = shard.set_ttl(key, deadline_from_ttl(Duration::from_millis(ttl_ms)));
 }

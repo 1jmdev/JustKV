@@ -155,11 +155,11 @@ impl Store {
 
         let mut out = new_set();
         out.extend(values);
-        shard.entries.insert(
+        shard.insert_entry(
             CompactKey::from_slice(destination),
             Entry::Set(Box::new(out)),
+            None,
         );
-        let _ = shard.clear_ttl(destination);
         Ok(shard
             .entries
             .get::<[u8]>(destination)

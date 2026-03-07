@@ -13,12 +13,7 @@ impl Store {
         let Some(entry) = shard.entries.get::<[u8]>(key) else {
             return Ok(0);
         };
-        if shard
-            .ttl
-            .get(key)
-            .copied()
-            .is_some_and(|deadline| now_ms >= deadline)
-        {
+        if entry.is_expired(now_ms) {
             return Ok(0);
         }
         let value = entry.as_string().ok_or(())?;
@@ -39,7 +34,7 @@ impl Store {
                 None => Vec::new(),
             }
         };
-        let ttl_deadline = shard.ttl.get(key).copied();
+        let ttl_deadline = shard.ttl_deadline(key);
 
         let previous = read_single_bit(&data, offset);
         write_single_bit(&mut data, offset, bit);
@@ -223,7 +218,7 @@ impl Store {
                 None => Vec::new(),
             }
         };
-        let ttl_deadline = shard.ttl.get(key).copied();
+        let ttl_deadline = shard.ttl_deadline(key);
         let mut mutated = false;
         let mut out = Vec::with_capacity(ops.len());
 

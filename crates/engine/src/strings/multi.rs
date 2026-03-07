@@ -23,13 +23,7 @@ impl Store {
                 let Some(entry) = shard.entries.get::<[u8]>(key) else {
                     continue;
                 };
-                if !shard.ttl.is_empty()
-                    && shard
-                        .ttl
-                        .get(key)
-                        .copied()
-                        .is_some_and(|deadline| now_ms >= deadline)
-                {
+                if entry.is_expired(now_ms) {
                     continue;
                 }
                 match entry.as_string() {
@@ -56,7 +50,7 @@ impl Store {
         for idx in touched {
             let positions = std::mem::take(&mut grouped[idx]);
             let shard = self.shards[idx].read();
-            let has_ttl = !shard.ttl.is_empty();
+            let has_ttl = shard.has_ttls();
 
             if has_ttl {
                 let mut chunks = positions.chunks_exact(8);
@@ -68,14 +62,8 @@ impl Store {
                         let Some(entry) = entry_batch[i] else {
                             continue;
                         };
-                        let key = key_batch[i];
                         let pos = batch[i];
-                        if shard
-                            .ttl
-                            .get(key)
-                            .copied()
-                            .is_some_and(|deadline| now_ms >= deadline)
-                        {
+                        if entry.is_expired(now_ms) {
                             continue;
                         }
                         match entry.as_string() {
@@ -90,12 +78,7 @@ impl Store {
                     let Some(entry) = shard.entries.get::<[u8]>(key) else {
                         continue;
                     };
-                    if shard
-                        .ttl
-                        .get(key)
-                        .copied()
-                        .is_some_and(|deadline| now_ms >= deadline)
-                    {
+                    if entry.is_expired(now_ms) {
                         continue;
                     }
                     match entry.as_string() {
@@ -172,12 +155,7 @@ impl Store {
                 let key = chunk[0].as_slice();
                 let idx = self.shard_index(key);
                 let mut shard = self.shards[idx].write();
-                if !shard.ttl.is_empty() {
-                    let _ = shard.clear_ttl(key);
-                }
-                shard
-                    .entries
-                    .insert(chunk[0].clone(), Entry::String(chunk[1].clone()));
+                shard.insert_entry(chunk[0].clone(), Entry::String(chunk[1].clone()), None);
             }
             return;
         }
@@ -199,15 +177,9 @@ impl Store {
             let entries = std::mem::take(&mut grouped[idx]);
 
             let mut shard = self.shards[idx].write();
-            let has_ttl = !shard.ttl.is_empty();
-
-            if has_ttl {
-                for (key, _) in &entries {
-                    let _ = shard.clear_ttl(key.as_slice());
-                }
+            for (key, entry) in entries {
+                shard.insert_entry(key, entry, None);
             }
-
-            shard.entries.insert_batch(entries);
         }
     }
 
@@ -227,15 +199,9 @@ impl Store {
             }
 
             let mut shard = self.shards[idx].write();
-            let has_ttl = !shard.ttl.is_empty();
-
-            if has_ttl {
-                for (key, _) in &entries {
-                    let _ = shard.clear_ttl(key.as_slice());
-                }
+            for (key, entry) in entries {
+                shard.insert_entry(key, entry, None);
             }
-
-            shard.entries.insert_batch(entries);
         }
     }
 

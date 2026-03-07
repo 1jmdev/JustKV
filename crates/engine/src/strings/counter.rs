@@ -31,14 +31,12 @@ impl Store {
                 let current = text.parse::<i64>().map_err(|_| ())?;
                 let next = current.checked_add(delta).ok_or(())?;
                 let encoded = buffer.format(next);
-                // Replace string value in-place — no re-hash needed.
-                *entry = Entry::from_slice(encoded.as_bytes());
+                entry.entry = Entry::from_slice(encoded.as_bytes());
                 return Ok(next);
             }
         }
 
-        // Slow path: key absent or just expired — insert new entry.
-        let ttl_deadline = shard.ttl.get(key).copied();
+        let ttl_deadline = shard.ttl_deadline(key);
         let next = 0i64.checked_add(delta).ok_or(())?;
         let encoded = buffer.format(next);
         write_entry(

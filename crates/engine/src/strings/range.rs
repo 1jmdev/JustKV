@@ -26,7 +26,7 @@ impl Store {
             return Ok(base.len());
         }
 
-        let ttl_deadline = shard.ttl.get(key).copied();
+        let ttl_deadline = shard.ttl_deadline(key);
         let required_len = offset.saturating_add(value.len());
         if base.len() < required_len {
             base.resize(required_len, 0);

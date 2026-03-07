@@ -1,8 +1,8 @@
 use std::collections::VecDeque;
 
-use super::Store;
 use super::helpers::{is_expired, monotonic_now_ms, purge_if_expired};
-use super::pattern::{CompiledPattern, wildcard_match};
+use super::pattern::{wildcard_match, CompiledPattern};
+use super::Store;
 use types::value::{CompactKey, CompactValue, Entry, StreamId, StreamValue, ZSetValueMap};
 
 #[derive(Clone, Debug)]
@@ -67,13 +67,11 @@ impl Store {
             let key = key.as_ref();
             let idx = self.shard_index(key);
             let shard = self.shards[idx].read();
-            if shard.entries.get(key).is_some_and(|_| {
-                shard
-                    .ttl
-                    .get(key)
-                    .copied()
-                    .is_none_or(|deadline| now_ms < deadline)
-            }) {
+            if shard
+                .entries
+                .get(key)
+                .is_some_and(|entry| !entry.is_expired(now_ms))
+            {
                 count += 1;
             }
         }
@@ -102,18 +100,13 @@ impl Store {
         let Some(entry) = source.entries.remove(from) else {
             return false;
         };
-        let deadline = source.clear_ttl(from);
         drop(source);
 
         let to_idx = self.shard_index(to);
         let mut destination = self.shards[to_idx].write();
         let key = CompactKey::from_slice(to);
-        destination.entries.insert(key.clone(), entry);
-        if let Some(deadline) = deadline {
-            destination.set_ttl(key, deadline);
-        } else {
-            let _ = destination.clear_ttl(key.as_slice());
-        }
+        let (entry, deadline) = entry.into_parts();
+        destination.insert_entry(key, entry, deadline);
         true
     }
 
@@ -129,7 +122,6 @@ impl Store {
         let Some(entry) = source.entries.get(from).cloned() else {
             return Err(());
         };
-        let deadline = source.ttl.get(from).copied();
         drop(source);
 
         let to_idx = self.shard_index(to);
@@ -138,12 +130,8 @@ impl Store {
             return Ok(0);
         }
         let key = CompactKey::from_slice(to);
-        destination.entries.insert(key.clone(), entry);
-        if let Some(deadline) = deadline {
-            destination.set_ttl(key, deadline);
-        } else {
-            let _ = destination.clear_ttl(key.as_slice());
-        }
+        let (entry, deadline) = entry.into_parts();
+        destination.insert_entry(key, entry, deadline);
         drop(destination);
 
         let mut source = self.shards[from_idx].write();
@@ -163,7 +151,6 @@ impl Store {
         let Some(entry) = source.entries.get(from).cloned() else {
             return 0;
         };
-        let deadline = source.ttl.get(from).copied();
         drop(source);
 
         let to_idx = self.shard_index(to);
@@ -175,12 +162,8 @@ impl Store {
         }
 
         let key = CompactKey::from_slice(to);
-        destination.entries.insert(key.clone(), entry);
-        if let Some(deadline) = deadline {
-            destination.set_ttl(key, deadline);
-        } else {
-            let _ = destination.clear_ttl(key.as_slice());
-        }
+        let (entry, deadline) = entry.into_parts();
+        destination.insert_entry(key, entry, deadline);
         1
     }
 
@@ -203,12 +186,7 @@ impl Store {
         let now_ms = monotonic_now_ms();
         let shard = self.shards[idx].read();
         let entry = shard.entries.get(key)?;
-        if shard
-            .ttl
-            .get(key)
-            .copied()
-            .is_some_and(|deadline| now_ms >= deadline)
-        {
+        if entry.is_expired(now_ms) {
             return None;
         }
         Some(entry.kind())
@@ -220,19 +198,10 @@ impl Store {
         let mut total = 0;
         for shard in self.shards.iter() {
             let guard = shard.read();
-            let has_ttl = !guard.ttl.is_empty();
             total += guard
                 .entries
                 .iter()
-                .filter(|(key, _entry): &(&CompactKey, &Entry)| {
-                    let key_bytes = key.slice();
-                    !has_ttl
-                        || guard
-                            .ttl
-                            .get(key_bytes)
-                            .copied()
-                            .is_none_or(|deadline| now_ms < deadline)
-                })
+                .filter(|(_key, entry)| !entry.is_expired(now_ms))
                 .count() as i64;
         }
         total
@@ -245,8 +214,7 @@ impl Store {
         let mut out = Vec::new();
         for shard in self.shards.iter() {
             let guard = shard.read();
-            let has_ttl = !guard.ttl.is_empty();
-            for (key, _) in guard.entries.iter() {
+            for (key, entry) in guard.entries.iter() {
                 let key_bytes = key.slice();
                 let pattern_matches = match &pattern {
                     CompiledPattern::Any => true,
@@ -266,14 +234,7 @@ impl Store {
                     }
                     CompiledPattern::Wildcard(pattern) => wildcard_match(pattern, key_bytes),
                 };
-                if (!has_ttl
-                    || guard
-                        .ttl
-                        .get::<[u8]>(key_bytes)
-                        .copied()
-                        .is_none_or(|deadline| now_ms < deadline))
-                    && pattern_matches
-                {
+                if !entry.is_expired(now_ms) && pattern_matches {
                     out.push(key.to_vec());
                 }
             }
@@ -298,11 +259,11 @@ impl Store {
 
         for shard in self.shards.iter() {
             let guard = shard.read();
-            let has_ttl = !guard.ttl.is_empty();
             let (keys, entries) = guard.entries.slices();
 
             // Fast path: no per-entry filters, so the cursor can skip entire shards.
-            if !has_ttl && matches!(pattern, CompiledPattern::Any) && value_type.is_none() {
+            if !guard.has_ttls() && matches!(pattern, CompiledPattern::Any) && value_type.is_none()
+            {
                 if cursor >= seen + keys.len() {
                     seen += keys.len();
                     continue;
@@ -346,13 +307,7 @@ impl Store {
                     CompiledPattern::Wildcard(pattern) => wildcard_match(pattern, key_bytes),
                 };
 
-                if has_ttl
-                    && !guard
-                        .ttl
-                        .get::<[u8]>(key_bytes)
-                        .copied()
-                        .is_none_or(|deadline| now_ms < deadline)
-                {
+                if entry.is_expired(now_ms) {
                     continue;
                 }
                 if !pattern_matches {
@@ -450,13 +405,8 @@ impl Store {
             let mut shard = self.shards[idx].write();
             for entry in shard_entries {
                 let compact_key = CompactKey::from_vec(entry.key);
-                shard.entries.insert(compact_key.clone(), entry.entry);
-                if entry.ttl_ms > 0 {
-                    let deadline = now_ms.saturating_add(entry.ttl_ms);
-                    shard.set_ttl(compact_key, deadline);
-                } else {
-                    let _ = shard.clear_ttl(compact_key.as_slice());
-                }
+                let deadline = (entry.ttl_ms > 0).then(|| now_ms.saturating_add(entry.ttl_ms));
+                shard.insert_entry(compact_key, entry.entry, deadline);
             }
         }
     }
@@ -479,12 +429,7 @@ impl Store {
         }
 
         let compact_key = CompactKey::from_slice(key);
-        shard.entries.insert(compact_key.clone(), entry);
-        if let Some(value) = deadline {
-            shard.set_ttl(compact_key, value);
-        } else {
-            let _ = shard.clear_ttl(compact_key.as_slice());
-        }
+        shard.insert_entry(compact_key, entry, deadline);
         Ok(())
     }
 
@@ -511,7 +456,7 @@ impl Store {
             return Ok(SortResult::Values(Vec::new()));
         };
 
-        let mut values = match entry {
+        let mut values = match &entry.entry {
             Entry::List(list) => list.iter().map(CompactValue::to_vec).collect::<Vec<_>>(),
             Entry::Set(set) => set.iter().map(CompactKey::to_vec).collect::<Vec<_>>(),
             Entry::ZSet(zset) => zset
@@ -565,10 +510,7 @@ impl Store {
         let len = values.len() as i64;
         let list: VecDeque<CompactValue> = values.into_iter().map(CompactValue::from_vec).collect();
         let key = CompactKey::from_slice(destination);
-        shard
-            .entries
-            .insert(key.clone(), Entry::List(Box::new(list)));
-        let _ = shard.clear_ttl(key.as_slice());
+        shard.insert_entry(key, Entry::List(Box::new(list)), None);
         len
     }
 
@@ -579,8 +521,8 @@ impl Store {
             let mut guard = shard.write();
             removed += guard.entries.len() as i64;
             guard.entries.clear();
-            guard.ttl.clear();
             guard.ttl_min_deadline = u64::MAX;
+            guard.ttl_count = 0;
         }
         removed
     }

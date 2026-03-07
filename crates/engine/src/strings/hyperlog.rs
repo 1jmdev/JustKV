@@ -30,7 +30,7 @@ impl Store {
                 None => HashSet::with_hasher(RandomState::new()),
             }
         };
-        let ttl_deadline = shard.ttl.get(key).copied();
+        let ttl_deadline = shard.ttl_deadline(key);
 
         let mut changed = false;
         for element in elements {

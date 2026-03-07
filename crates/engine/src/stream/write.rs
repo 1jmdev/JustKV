@@ -1,4 +1,5 @@
-use crate::store::{Store, XAddId, XTrimMode};
+use crate::store::{XAddId, XTrimMode};
+use crate::Store;
 use types::value::{CompactArg, CompactKey, Entry, StreamId, StreamValue};
 
 use super::super::helpers::{is_expired, monotonic_now_ms, purge_if_expired};
@@ -28,9 +29,10 @@ impl Store {
             if nomkstream {
                 return Ok(None);
             }
-            shard.entries.insert(
+            shard.insert_entry(
                 CompactKey::from_slice(key),
                 Entry::Stream(Box::new(StreamValue::new())),
+                None,
             );
             let created = shard.entries.get_mut(key).expect("stream created");
             let stream = get_stream_mut(created).ok_or(())?;

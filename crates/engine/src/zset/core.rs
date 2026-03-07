@@ -1,4 +1,4 @@
-use crate::store::Store;
+use crate::{Store, StoredEntry};
 use types::value::{CompactArg, CompactKey, Entry, ZSetValueMap};
 
 use super::super::helpers::{is_expired, monotonic_now_ms, purge_if_expired};
@@ -9,7 +9,7 @@ impl Store {
         let _trace = profiler::scope("engine::zset::core::zadd_args");
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
-        if !shard.ttl.is_empty() {
+        if shard.has_ttls() {
             let _ = purge_if_expired(&mut shard, key, monotonic_now_ms());
         }
 
@@ -17,7 +17,10 @@ impl Store {
         let entry = shard
             .entries
             .get_or_insert_with(CompactKey::from_slice(key), || {
-                Entry::ZSet(Box::new(ZSetValueMap::with_capacity(pair_count)))
+                StoredEntry::new(
+                    Entry::ZSet(Box::new(ZSetValueMap::with_capacity(pair_count))),
+                    None,
+                )
             });
         let zset = get_zset_mut(entry).ok_or(())?;
         if zset.is_empty() {
@@ -45,7 +48,10 @@ impl Store {
         let entry = shard
             .entries
             .get_or_insert_with(CompactKey::from_slice(key), || {
-                Entry::ZSet(Box::new(ZSetValueMap::with_capacity(pair_count)))
+                StoredEntry::new(
+                    Entry::ZSet(Box::new(ZSetValueMap::with_capacity(pair_count))),
+                    None,
+                )
             });
         let zset = get_zset_mut(entry).ok_or(())?;
         if zset.is_empty() {
@@ -130,7 +136,7 @@ impl Store {
         let _trace = profiler::scope("engine::zset::core::zscore");
         let idx = self.shard_index(key);
         let shard = self.shards[idx].read();
-        if !shard.ttl.is_empty() && is_expired(&shard, key, monotonic_now_ms()) {
+        if shard.has_ttls() && is_expired(&shard, key, monotonic_now_ms()) {
             return Ok(None);
         }
 
@@ -151,7 +157,7 @@ impl Store {
         let entry = shard
             .entries
             .get_or_insert_with(CompactKey::from_slice(key), || {
-                Entry::ZSet(Box::new(new_zset()))
+                StoredEntry::new(Entry::ZSet(Box::new(new_zset())), None)
             });
         let zset = get_zset_mut(entry).ok_or(())?;
 

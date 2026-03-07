@@ -1,4 +1,4 @@
-use crate::store::Store;
+use crate::{Store, StoredEntry};
 use types::value::{CompactArg, CompactKey, Entry};
 
 use super::super::helpers::{monotonic_now_ms, purge_if_expired};
@@ -15,7 +15,7 @@ impl Store {
         let entry = shard
             .entries
             .get_or_insert_with(CompactKey::from_slice(key), || {
-                Entry::Geo(Box::new(new_geo()))
+                StoredEntry::new(Entry::Geo(Box::new(new_geo())), None)
             });
         let geo = get_geo_mut(entry).ok_or(())?;
 

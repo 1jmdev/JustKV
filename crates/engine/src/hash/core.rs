@@ -1,6 +1,6 @@
 use bytes::{BufMut, BytesMut};
 
-use crate::store::Store;
+use crate::{Store, StoredEntry};
 use ahash::RandomState;
 use types::value::{CompactArg, CompactKey, CompactValue, Entry, HashValueMap};
 
@@ -19,10 +19,13 @@ impl Store {
         let entry = shard
             .entries
             .get_or_insert_with(CompactKey::from_slice(key), || {
-                Entry::Hash(Box::new(HashValueMap::with_capacity_and_hasher(
-                    pair_count,
-                    RandomState::new(),
-                )))
+                StoredEntry::new(
+                    Entry::Hash(Box::new(HashValueMap::with_capacity_and_hasher(
+                        pair_count,
+                        RandomState::new(),
+                    ))),
+                    None,
+                )
             });
 
         let map = get_hash_map_mut(entry).ok_or(())?;
@@ -64,7 +67,9 @@ impl Store {
 
         let entry = shard
             .entries
-            .get_or_insert_with(CompactKey::from_slice(key), Entry::empty_hash);
+            .get_or_insert_with(CompactKey::from_slice(key), || {
+                StoredEntry::new(Entry::empty_hash(), None)
+            });
         let map = get_hash_map_mut(entry).ok_or(())?;
 
         let field_key = CompactKey::from_slice(field);
@@ -135,7 +140,7 @@ impl Store {
         let _trace = profiler::scope("engine::hash::core::hgetall_encode");
         let idx = self.shard_index(key);
         let shard = self.shards[idx].read();
-        if !shard.ttl.is_empty() && is_expired(&shard, key, monotonic_now_ms()) {
+        if shard.has_ttls() && is_expired(&shard, key, monotonic_now_ms()) {
             return Ok(bytes::Bytes::from_static(b"*0\r\n"));
         }
 

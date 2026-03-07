@@ -1,4 +1,5 @@
-use crate::store::{HashFloatOpError, HashIntOpError, Store};
+use crate::store::{HashFloatOpError, HashIntOpError};
+use crate::{Store, StoredEntry};
 use types::value::{CompactKey, CompactValue, Entry};
 
 use super::super::helpers::{monotonic_now_ms, purge_if_expired};
@@ -47,13 +48,15 @@ impl Store {
         let _trace = profiler::scope("engine::hash::counter::hincrby");
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
-        if !shard.ttl.is_empty() {
+        if shard.has_ttls() {
             let _ = purge_if_expired(&mut shard, key, monotonic_now_ms());
         }
 
         let entry = shard
             .entries
-            .get_or_insert_with(CompactKey::from_slice(key), Entry::empty_hash);
+            .get_or_insert_with(CompactKey::from_slice(key), || {
+                StoredEntry::new(Entry::empty_hash(), None)
+            });
         let map = get_hash_map_mut(entry).ok_or(HashIntOpError::WrongType)?;
 
         let current = match map.get(field) {
@@ -82,13 +85,15 @@ impl Store {
         let _trace = profiler::scope("engine::hash::counter::hincrbyfloat");
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
-        if !shard.ttl.is_empty() {
+        if shard.has_ttls() {
             let _ = purge_if_expired(&mut shard, key, monotonic_now_ms());
         }
 
         let entry = shard
             .entries
-            .get_or_insert_with(CompactKey::from_slice(key), Entry::empty_hash);
+            .get_or_insert_with(CompactKey::from_slice(key), || {
+                StoredEntry::new(Entry::empty_hash(), None)
+            });
         let map = get_hash_map_mut(entry).ok_or(HashFloatOpError::WrongType)?;
 
         let current = match map.get(field) {

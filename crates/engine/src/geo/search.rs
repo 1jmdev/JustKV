@@ -3,7 +3,7 @@ use types::value::{CompactKey, Entry, ZSetValueMap};
 
 use super::super::helpers::{is_expired, monotonic_now_ms};
 use super::math::{haversine_meters, meters_per_lat, meters_per_lon};
-use super::{GeoSearchMatch, get_geo, new_geo};
+use super::{get_geo, new_geo, GeoSearchMatch};
 
 impl Store {
     pub fn geosearch(
@@ -105,21 +105,22 @@ impl Store {
             for entry in &matches {
                 zset.insert(entry.member.clone(), entry.distance_meters.unwrap_or(0.0));
             }
-            shard.entries.insert(
+            shard.insert_entry(
                 CompactKey::from_slice(destination),
                 Entry::ZSet(Box::new(zset)),
+                None,
             );
         } else {
             let mut geo = new_geo();
             for entry in &matches {
                 geo.insert(entry.member.clone(), (entry.longitude, entry.latitude));
             }
-            shard.entries.insert(
+            shard.insert_entry(
                 CompactKey::from_slice(destination),
                 Entry::Geo(Box::new(geo)),
+                None,
             );
         }
-        let _ = shard.clear_ttl(destination);
         Ok(matches.len() as i64)
     }
 }

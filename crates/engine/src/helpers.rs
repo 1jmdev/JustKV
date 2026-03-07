@@ -1,5 +1,5 @@
-use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::OnceLock;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use super::Shard;
@@ -65,15 +65,13 @@ pub(super) fn purge_if_expired(shard: &mut Shard, key: &[u8], now_ms: u64) -> bo
 
 pub(super) fn is_expired(shard: &Shard, key: &[u8], now_ms: u64) -> bool {
     let _trace = profiler::scope("engine::helpers::is_expired");
-    // Skip the hashmap lookup entirely when no keys in this shard have TTLs.
-    if shard.ttl.is_empty() {
+    if !shard.has_ttls() {
         return false;
     }
     shard
-        .ttl
+        .entries
         .get(key)
-        .copied()
-        .is_some_and(|deadline| now_ms >= deadline)
+        .is_some_and(|entry| entry.is_expired(now_ms))
 }
 
 pub(super) fn unix_time_ms() -> u64 {

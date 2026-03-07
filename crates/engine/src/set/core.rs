@@ -1,4 +1,4 @@
-use crate::store::Store;
+use crate::{Store, StoredEntry};
 use types::value::{CompactArg, CompactKey, Entry};
 
 use super::super::helpers::{is_expired, monotonic_now_ms, purge_if_expired};
@@ -15,7 +15,10 @@ impl Store {
         let entry = shard
             .entries
             .get_or_insert_with(CompactKey::from_slice(key), || {
-                Entry::Set(Box::new(new_set_with_capacity(members.len())))
+                StoredEntry::new(
+                    Entry::Set(Box::new(new_set_with_capacity(members.len()))),
+                    None,
+                )
             });
         let set = get_set_mut(entry).ok_or(())?;
 
@@ -161,7 +164,7 @@ fn smove_inside_shard(
     let destination_entry = shard
         .entries
         .get_or_insert_with(CompactKey::from_slice(destination), || {
-            Entry::Set(Box::new(new_set_with_capacity(1)))
+            StoredEntry::new(Entry::Set(Box::new(new_set_with_capacity(1))), None)
         });
     let destination_set = get_set_mut(destination_entry).ok_or(())?;
     destination_set.insert(CompactKey::from_slice(member));
@@ -191,7 +194,7 @@ fn smove_across_shards(
     let destination_entry = destination_shard
         .entries
         .get_or_insert_with(CompactKey::from_slice(destination), || {
-            Entry::Set(Box::new(new_set_with_capacity(1)))
+            StoredEntry::new(Entry::Set(Box::new(new_set_with_capacity(1))), None)
         });
     let destination_set = get_set_mut(destination_entry).ok_or(())?;
     destination_set.insert(CompactKey::from_slice(member));

@@ -15,14 +15,7 @@ impl Store {
         let Some(entry) = shard.entries.get::<[u8]>(key) else {
             return Ok(None);
         };
-        // Skip TTL lookup when no keys in this shard have TTLs (common case).
-        if !shard.ttl.is_empty()
-            && shard
-                .ttl
-                .get(key)
-                .copied()
-                .is_some_and(|deadline| now_ms >= deadline)
-        {
+        if entry.is_expired(now_ms) {
             return Ok(None);
         }
         match entry.as_string() {
@@ -95,7 +88,7 @@ impl Store {
             };
 
             let old_value = current.to_vec();
-            *entry = Entry::from_slice(value);
+            entry.entry = Entry::from_slice(value);
             let _ = shard.clear_ttl(key);
             return Ok(Some(old_value));
         }
@@ -113,8 +106,7 @@ impl Store {
             return Ok(None);
         }
 
-        let _ = shard.clear_ttl(key);
-        match shard.entries.remove::<[u8]>(key) {
+        match shard.remove_key(key) {
             Some(entry) => match entry.into_string() {
                 Some(value) => Ok(Some(value.into_vec())),
                 None => Err(()),
@@ -140,7 +132,7 @@ impl Store {
                 None => Vec::new(),
             }
         };
-        let ttl_deadline = shard.ttl.get(key).copied();
+        let ttl_deadline = shard.ttl_deadline(key);
 
         base.extend_from_slice(suffix);
         let size = base.len();
@@ -156,13 +148,7 @@ impl Store {
         let Some(entry) = shard.entries.get::<[u8]>(key) else {
             return Ok(0);
         };
-        if !shard.ttl.is_empty()
-            && shard
-                .ttl
-                .get(key)
-                .copied()
-                .is_some_and(|deadline| now_ms >= deadline)
-        {
+        if entry.is_expired(now_ms) {
             return Ok(0);
         }
         match entry.as_string() {

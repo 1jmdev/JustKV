@@ -1,10 +1,10 @@
 use std::time::Duration;
 
-use super::Store;
 use super::helpers::{
     deadline_from_ttl, is_expired, monotonic_now_ms, purge_if_expired, remaining_ttl_ms,
     unix_time_ms,
 };
+use super::Store;
 
 impl Store {
     pub fn expire(&self, key: &[u8], seconds: u64) -> i64 {
@@ -68,7 +68,11 @@ impl Store {
     pub fn ttl(&self, key: &[u8]) -> i64 {
         let _trace = profiler::scope("engine::ttl::ttl");
         let pttl = self.pttl(key);
-        if pttl < 0 { pttl } else { pttl / 1000 }
+        if pttl < 0 {
+            pttl
+        } else {
+            pttl / 1000
+        }
     }
 
     pub fn pttl(&self, key: &[u8]) -> i64 {
@@ -81,10 +85,7 @@ impl Store {
         }
 
         match shard.entries.get(key) {
-            Some(_) => {
-                let deadline = shard.ttl.get(key).copied().unwrap_or(0);
-                remaining_ttl_ms(deadline)
-            }
+            Some(_) => remaining_ttl_ms(shard.ttl_deadline(key).unwrap_or(0)),
             None => -2,
         }
     }

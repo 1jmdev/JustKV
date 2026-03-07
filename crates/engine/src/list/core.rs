@@ -1,6 +1,7 @@
 use bytes::{BufMut, BytesMut};
 
-use crate::store::{ListInsertPosition, ListSetError, ListSide, Store};
+use crate::store::{ListInsertPosition, ListSetError, ListSide};
+use crate::{Store, StoredEntry};
 use types::value::{CompactArg, CompactKey, CompactValue, Entry};
 
 use super::super::helpers::{is_expired, monotonic_now_ms, purge_if_expired};
@@ -122,7 +123,7 @@ impl Store {
         let _trace = profiler::scope("engine::list::core::lrange_encode");
         let idx = self.shard_index(key);
         let shard = self.shards[idx].read();
-        if !shard.ttl.is_empty() && is_expired(&shard, key, monotonic_now_ms()) {
+        if shard.has_ttls() && is_expired(&shard, key, monotonic_now_ms()) {
             // Empty array: *0\r\n
             return Ok(bytes::Bytes::from_static(b"*0\r\n"));
         }
@@ -358,9 +359,12 @@ impl Store {
         let entry = shard
             .entries
             .get_or_insert_with(CompactKey::from_slice(key), || {
-                Entry::List(Box::new(std::collections::VecDeque::with_capacity(
-                    values.len(),
-                )))
+                StoredEntry::new(
+                    Entry::List(Box::new(std::collections::VecDeque::with_capacity(
+                        values.len(),
+                    ))),
+                    None,
+                )
             });
         let list = get_list_mut(entry).ok_or(())?;
 
