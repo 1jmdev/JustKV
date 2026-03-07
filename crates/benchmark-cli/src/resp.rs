@@ -46,7 +46,6 @@ pub async fn read_n_responses(
     expected: usize,
 ) -> Result<(), String> {
     let mut parsed = 0usize;
-    let mut chunk = [0u8; 8192];
 
     while parsed < expected {
         loop {
@@ -68,13 +67,12 @@ pub async fn read_n_responses(
         }
 
         let read = stream
-            .read(&mut chunk)
+            .read_buf(parse_buf)
             .await
             .map_err(|err| format!("read failed: {err}"))?;
         if read == 0 {
             return Err("connection closed by server".to_string());
         }
-        parse_buf.extend_from_slice(&chunk[..read]);
     }
 
     Ok(())
@@ -87,7 +85,6 @@ pub async fn read_n_fixed_mget_responses(
     value_len: usize,
 ) -> Result<(), String> {
     let mut remaining = expected;
-    let mut chunk = [0u8; 8192];
     let digits = decimal_len(value_len);
     let frame_len = 4 + 2 * (1 + digits + 2 + value_len + 2);
 
@@ -101,13 +98,43 @@ pub async fn read_n_fixed_mget_responses(
         }
 
         let read = stream
-            .read(&mut chunk)
+            .read_buf(parse_buf)
             .await
             .map_err(|err| format!("read failed: {err}"))?;
         if read == 0 {
             return Err("connection closed by server".to_string());
         }
-        parse_buf.extend_from_slice(&chunk[..read]);
+    }
+
+    Ok(())
+}
+
+pub async fn read_n_fixed_hgetall_responses(
+    stream: &mut TcpStream,
+    parse_buf: &mut BytesMut,
+    expected: usize,
+    value_len: usize,
+) -> Result<(), String> {
+    let mut remaining = expected;
+    let value_digits = decimal_len(value_len);
+    let frame_len = 4 + (1 + 1 + 2 + 5 + 2) + (1 + value_digits + 2 + value_len + 2);
+
+    while remaining > 0 {
+        let available = parse_buf.len() / frame_len;
+        if available > 0 {
+            let consumed = available.min(remaining) * frame_len;
+            parse_buf.advance(consumed);
+            remaining -= available.min(remaining);
+            continue;
+        }
+
+        let read = stream
+            .read_buf(parse_buf)
+            .await
+            .map_err(|err| format!("read failed: {err}"))?;
+        if read == 0 {
+            return Err("connection closed by server".to_string());
+        }
     }
 
     Ok(())

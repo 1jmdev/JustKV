@@ -11,7 +11,8 @@ use tokio::net::TcpStream;
 
 use crate::args::Args;
 use crate::resp::{
-    encode_resp_parts, make_key, read_n_fixed_mget_responses, read_n_responses, repeat_payload,
+    encode_resp_parts, make_key, read_n_fixed_hgetall_responses, read_n_fixed_mget_responses,
+    read_n_responses, repeat_payload,
 };
 use crate::spec::{BenchKind, BenchRun};
 
@@ -287,10 +288,12 @@ async fn read_batch_responses(
     parse_buf: &mut BytesMut,
     batch: usize,
 ) -> Result<(), String> {
-    if spec.kind == BenchKind::Mget {
-        read_n_fixed_mget_responses(stream, parse_buf, batch, spec.data_size).await
-    } else {
-        read_n_responses(stream, parse_buf, batch).await
+    match spec.kind {
+        BenchKind::Mget => read_n_fixed_mget_responses(stream, parse_buf, batch, spec.data_size).await,
+        BenchKind::Hgetall => {
+            read_n_fixed_hgetall_responses(stream, parse_buf, batch, spec.data_size).await
+        }
+        _ => read_n_responses(stream, parse_buf, batch).await,
     }
 }
 
