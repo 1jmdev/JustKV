@@ -6,6 +6,13 @@ edition.workspace = true
 [features]
 profiling = ["profiler/enabled"]
 
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "commands"
+harness = false
+
 [dependencies]
 engine.workspace = true
 types.workspace = true
@@ -13,6 +20,7 @@ protocol.workspace = true
 profiler.workspace = true
 ahash.workspace = true
 bytes.workspace = true
+memchr.workspace = true
 hashbrown.workspace = true
 itoa.workspace = true
 parking_lot.workspace = true

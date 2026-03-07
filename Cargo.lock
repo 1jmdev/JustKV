@@ -338,6 +338,7 @@ dependencies = [
  "engine",
  "hashbrown",
  "itoa",
+ "memchr",
  "mlua",
  "parking_lot",
  "profiler",
