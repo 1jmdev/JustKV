@@ -29,6 +29,7 @@ use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
 use ahash::RandomState;
+use bytes::Bytes;
 use hashbrown::HashMap;
 use parking_lot::RwLock;
 
@@ -39,6 +40,7 @@ use types::value::{CompactKey, CompactValue, Entry};
 pub(crate) struct StoredEntry {
     pub(crate) entry: Entry,
     deadline_ms: u64,
+    hash_getall_cache: Option<Bytes>,
 }
 
 impl StoredEntry {
@@ -46,7 +48,23 @@ impl StoredEntry {
         Self {
             entry,
             deadline_ms: deadline.unwrap_or(0),
+            hash_getall_cache: None,
         }
+    }
+
+    #[inline]
+    pub(crate) fn hash_getall_cache(&self) -> Option<&Bytes> {
+        self.hash_getall_cache.as_ref()
+    }
+
+    #[inline]
+    pub(crate) fn set_hash_getall_cache(&mut self, encoded: Bytes) {
+        self.hash_getall_cache = Some(encoded);
+    }
+
+    #[inline]
+    pub(crate) fn invalidate_hash_getall_cache(&mut self) {
+        self.hash_getall_cache = None;
     }
 
     pub(crate) fn deadline(&self) -> Option<u64> {

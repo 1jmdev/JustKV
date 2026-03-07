@@ -7,6 +7,56 @@ use types::value::{CompactArg, CompactKey, CompactValue, Entry, HashValueMap};
 use super::super::helpers::{is_expired, monotonic_now_ms, purge_if_expired};
 use super::{collect_pairs, get_hash_map, get_hash_map_mut};
 
+#[inline(always)]
+fn bulk_entry_len(len: usize) -> usize {
+    1 + decimal_len(len) + 2 + len + 2
+}
+
+#[inline(always)]
+fn decimal_len(mut value: usize) -> usize {
+    let mut digits = 1;
+    while value >= 10 {
+        value /= 10;
+        digits += 1;
+    }
+    digits
+}
+
+fn encode_hgetall_map(map: &HashValueMap) -> bytes::Bytes {
+    let count = map.len() * 2;
+    let mut total_len = 1 + decimal_len(count) + 2;
+    for (field, value) in map.iter() {
+        total_len += bulk_entry_len(field.slice().len());
+        total_len += bulk_entry_len(value.slice().len());
+    }
+
+    let mut buf = BytesMut::with_capacity(total_len);
+    let mut header_buf = itoa::Buffer::new();
+    let mut len_buf = itoa::Buffer::new();
+
+    buf.put_u8(b'*');
+    buf.put_slice(header_buf.format(count).as_bytes());
+    buf.put_slice(b"\r\n");
+
+    for (field, value) in map.iter() {
+        let field_bytes = field.slice();
+        buf.put_u8(b'$');
+        buf.put_slice(len_buf.format(field_bytes.len()).as_bytes());
+        buf.put_slice(b"\r\n");
+        buf.put_slice(field_bytes);
+        buf.put_slice(b"\r\n");
+
+        let value_bytes = value.slice();
+        buf.put_u8(b'$');
+        buf.put_slice(len_buf.format(value_bytes.len()).as_bytes());
+        buf.put_slice(b"\r\n");
+        buf.put_slice(value_bytes);
+        buf.put_slice(b"\r\n");
+    }
+
+    buf.freeze()
+}
+
 impl Store {
     pub fn hset_args(&self, key: &[u8], pairs: &[CompactArg]) -> Result<i64, ()> {
         let _trace = profiler::scope("engine::hash::core::hset_args");
@@ -28,6 +78,7 @@ impl Store {
                 )
             });
 
+        entry.invalidate_hash_getall_cache();
         let map = get_hash_map_mut(entry).ok_or(())?;
         if map.is_empty() {
             map.reserve(pair_count);
@@ -70,12 +121,15 @@ impl Store {
             .get_or_insert_with(CompactKey::from_slice(key), || {
                 StoredEntry::new(Entry::empty_hash(), None)
             });
-        let map = get_hash_map_mut(entry).ok_or(())?;
-
         let field_key = CompactKey::from_slice(field);
-        if map.contains_key(field_key.as_slice()) {
+        if get_hash_map(entry)
+            .ok_or(())?
+            .contains_key(field_key.as_slice())
+        {
             return Ok(0);
         }
+        entry.invalidate_hash_getall_cache();
+        let map = get_hash_map_mut(entry).ok_or(())?;
         map.insert(field_key, CompactValue::from_slice(value));
         Ok(1)
     }
@@ -139,42 +193,36 @@ impl Store {
     pub fn hgetall_encode(&self, key: &[u8]) -> Result<bytes::Bytes, ()> {
         let _trace = profiler::scope("engine::hash::core::hgetall_encode");
         let idx = self.shard_index(key);
-        let shard = self.shards[idx].read();
+        {
+            let shard = self.shards[idx].read();
+            if shard.has_ttls() && is_expired(&shard, key, monotonic_now_ms()) {
+                return Ok(bytes::Bytes::from_static(b"*0\r\n"));
+            }
+
+            let Some(entry) = shard.entries.get(key) else {
+                return Ok(bytes::Bytes::from_static(b"*0\r\n"));
+            };
+            if let Some(encoded) = entry.hash_getall_cache() {
+                return Ok(encoded.clone());
+            }
+        }
+
+        let mut shard = self.shards[idx].write();
         if shard.has_ttls() && is_expired(&shard, key, monotonic_now_ms()) {
             return Ok(bytes::Bytes::from_static(b"*0\r\n"));
         }
 
-        let Some(entry) = shard.entries.get(key) else {
+        let Some(entry) = shard.entries.get_mut(key) else {
             return Ok(bytes::Bytes::from_static(b"*0\r\n"));
         };
-        let map = get_hash_map(entry).ok_or(())?;
-
-        let count = map.len() * 2;
-        let mut buf = BytesMut::with_capacity(16 + count * 16);
-        let mut header_buf = itoa::Buffer::new();
-        let mut len_buf = itoa::Buffer::new();
-
-        buf.put_u8(b'*');
-        buf.put_slice(header_buf.format(count).as_bytes());
-        buf.put_slice(b"\r\n");
-
-        for (field, value) in map.iter() {
-            let field_bytes = field.slice();
-            buf.put_u8(b'$');
-            buf.put_slice(len_buf.format(field_bytes.len()).as_bytes());
-            buf.put_slice(b"\r\n");
-            buf.put_slice(field_bytes);
-            buf.put_slice(b"\r\n");
-
-            let value_bytes = value.slice();
-            buf.put_u8(b'$');
-            buf.put_slice(len_buf.format(value_bytes.len()).as_bytes());
-            buf.put_slice(b"\r\n");
-            buf.put_slice(value_bytes);
-            buf.put_slice(b"\r\n");
+        if let Some(encoded) = entry.hash_getall_cache() {
+            return Ok(encoded.clone());
         }
+        let map = get_hash_map(entry).ok_or(())?;
+        let encoded = encode_hgetall_map(map);
+        entry.set_hash_getall_cache(encoded.clone());
 
-        Ok(buf.freeze())
+        Ok(encoded)
     }
 
     pub fn hdel(&self, key: &[u8], fields: &[CompactArg]) -> Result<i64, ()> {
@@ -189,6 +237,7 @@ impl Store {
         let Some(entry) = shard.entries.get_mut(key) else {
             return Ok(0);
         };
+        entry.invalidate_hash_getall_cache();
         let map = get_hash_map_mut(entry).ok_or(())?;
 
         let mut removed = 0;
@@ -239,5 +288,44 @@ impl Store {
     pub fn hstrlen(&self, key: &[u8], field: &[u8]) -> Result<usize, ()> {
         let _trace = profiler::scope("engine::hash::core::hstrlen");
         Ok(self.hget(key, field)?.map(|value| value.len()).unwrap_or(0))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hgetall_cache_is_reused_and_invalidated_on_write() {
+        let store = Store::new(1);
+        let key = b"hash";
+
+        store
+            .hset_args(
+                key,
+                &[
+                    CompactArg::from_slice(b"field"),
+                    CompactArg::from_slice(b"value"),
+                ],
+            )
+            .unwrap();
+
+        let first = store.hgetall_encode(key).unwrap();
+        let second = store.hgetall_encode(key).unwrap();
+        assert_eq!(first, second);
+
+        store
+            .hset_args(
+                key,
+                &[
+                    CompactArg::from_slice(b"field"),
+                    CompactArg::from_slice(b"next"),
+                ],
+            )
+            .unwrap();
+
+        let updated = store.hgetall_encode(key).unwrap();
+        assert_ne!(first, updated);
+        assert_eq!(updated.as_ref(), b"*2\r\n$5\r\nfield\r\n$4\r\nnext\r\n");
     }
 }
