@@ -5,46 +5,35 @@ import { Badge } from "@/components/ui/badge";
 const benchmarks = [
     {
         label: "GET (single key)",
-        betterkv: "2,400,000",
-        redis: "200,000",
-        ratio: "12x",
+        betterkv: "36,200,000",
+        redis: "3,900,000",
     },
     {
         label: "SET (single key)",
-        betterkv: "2,100,000",
-        redis: "190,000",
-        ratio: "11x",
+        betterkv: "27,500,000",
+        redis: "2,190,000",
     },
     {
         label: "HSET (hash)",
-        betterkv: "1,800,000",
-        redis: "170,000",
-        ratio: "10.5x",
+        betterkv: "28,800,000",
+        redis: "1,370,000",
     },
     {
         label: "LPUSH (list)",
-        betterkv: "1,950,000",
-        redis: "180,000",
-        ratio: "10.8x",
+        betterkv: "29,950,000",
+        redis: "1,380,000",
     },
     {
         label: "SADD (set)",
-        betterkv: "2,000,000",
-        redis: "175,000",
-        ratio: "11.4x",
-    },
-    {
-        label: "Pipeline (100 cmds)",
-        betterkv: "15,000,000",
-        redis: "1,200,000",
-        ratio: "12.5x",
+        betterkv: "32,950,000",
+        redis: "1,975,000",
     },
 ];
 
 const latencyData = [
-    { label: "p50 latency", betterkv: "5 \u03BCs", redis: "80 \u03BCs" },
-    { label: "p99 latency", betterkv: "15 \u03BCs", redis: "250 \u03BCs" },
-    { label: "p99.9 latency", betterkv: "30 \u03BCs", redis: "800 \u03BCs" },
+    { label: "p50 latency", betterkv: "4 \u03BCs", redis: "44 \u03BCs" },
+    { label: "p99 latency", betterkv: "9 \u03BCs", redis: "53 \u03BCs" },
+    { label: "p99.9 latency", betterkv: "21 \u03BCs", redis: "132 \u03BCs" },
 ];
 
 const architectureFeatures = [
@@ -92,7 +81,7 @@ export function PerformancePage() {
         <div>
             <PageHeader
                 badge="Performance"
-                title="5-15x faster than Redis."
+                title="5-30x faster than Redis."
                 description="Every layer is engineered for maximum throughput and minimum latency. Here's the data."
             />
 
@@ -103,8 +92,8 @@ export function PerformancePage() {
                             Throughput Benchmarks
                         </h2>
                         <p className="mt-2 text-muted-foreground">
-                            Operations per second, single node, 64 byte values,
-                            50 concurrent connections.
+                            Operations per second, 64 byte values, 50 concurrent connections.
+                            Note: run on laptop Ryzen 5 7535HS 12 cores
                         </p>
                     </motion.div>
 
@@ -130,29 +119,35 @@ export function PerformancePage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {benchmarks.map((row, i) => (
-                                    <tr
-                                        key={row.label}
-                                        className={
-                                            i % 2 === 0 ? "bg-card/50" : ""
-                                        }
-                                    >
-                                        <td className="px-4 py-3.5 font-medium sm:px-6">
-                                            {row.label}
-                                        </td>
-                                        <td className="px-4 py-3.5 text-right font-mono text-sm text-primary sm:px-6">
-                                            {row.betterkv}
-                                        </td>
-                                        <td className="px-4 py-3.5 text-right font-mono text-sm text-muted-foreground sm:px-6">
-                                            {row.redis}
-                                        </td>
-                                        <td className="px-4 py-3.5 text-right sm:px-6">
-                                            <Badge variant="secondary">
-                                                {row.ratio}
-                                            </Badge>
-                                        </td>
-                                    </tr>
-                                ))}
+                                {benchmarks.map((row, i) => {
+                                    const ratio = Math.floor(
+                                        Number.parseInt(row.betterkv.replace(/,/g, "")) /
+                                        Number.parseInt(row.redis.replace(/,/g, ""))
+                                    );
+                                    return (
+                                        <tr
+                                            key={row.label}
+                                            className={
+                                                i % 2 === 0 ? "bg-card/50" : ""
+                                            }
+                                        >
+                                            <td className="px-4 py-3.5 font-medium sm:px-6">
+                                                {row.label}
+                                            </td>
+                                            <td className="px-4 py-3.5 text-right font-mono text-sm text-primary sm:px-6">
+                                                {row.betterkv}
+                                            </td>
+                                            <td className="px-4 py-3.5 text-right font-mono text-sm text-muted-foreground sm:px-6">
+                                                {row.redis}
+                                            </td>
+                                            <td className="px-4 py-3.5 text-right sm:px-6">
+                                                <Badge variant="secondary">
+                                                    {ratio}x
+                                                </Badge>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </motion.div>
