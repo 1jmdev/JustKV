@@ -8,9 +8,4 @@ name = "betterkv-benchmark"
 path = "src/main.rs"
 
 [dependencies]
-bytes.workspace = true
-clap.workspace = true
-itoa.workspace = true
-protocol.workspace = true
 tikv-jemallocator.workspace = true
-tokio.workspace = true
