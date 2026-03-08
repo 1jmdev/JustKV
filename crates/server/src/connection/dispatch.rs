@@ -9,7 +9,7 @@ use types::value::CompactArg;
 use super::super::pubsub::{ConnectionPubSub, PubSubHub};
 use super::notifications::emit_command_notifications;
 use super::util::{collapse_pubsub_responses, wrong_args};
-use crate::auth::{self, no_perm, AuthError, AuthService, SessionAuth};
+use crate::auth::{self, AuthError, AuthService, SessionAuth, no_perm};
 use crate::profile::ProfileHub;
 
 #[derive(Default)]

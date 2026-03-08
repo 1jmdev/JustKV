@@ -1,7 +1,7 @@
 mod cli;
 
 use clap::Parser;
-use cli::{run, Cli};
+use cli::{Cli, run};
 
 fn main() {
     let _trace = profiler::scope("server::main::main");

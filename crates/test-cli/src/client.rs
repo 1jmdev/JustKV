@@ -38,7 +38,10 @@ impl Client {
                 auth.push(user.as_bytes().to_vec());
             }
             auth.push(password.as_bytes().to_vec());
-            client.execute(auth).await.map_err(|err| format!("AUTH failed: {err}"))?;
+            client
+                .execute(auth)
+                .await
+                .map_err(|err| format!("AUTH failed: {err}"))?;
         }
 
         if args.db != 0 {

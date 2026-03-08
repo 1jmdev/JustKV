@@ -6,14 +6,17 @@ use crate::args::Args;
 use crate::client::Client;
 use crate::discovery::discover_rtest_files;
 use crate::model::{ExpectedValue, RunSummary, TestFailure};
-use crate::output::{print_failures, render_frame, render_frame_raw, Ui};
+use crate::output::{Ui, print_failures, render_frame, render_frame_raw};
 use crate::parser::parse_test_file;
 
 pub async fn run(args: Args) -> Result<RunSummary, String> {
     let started = Instant::now();
     let paths = discover_rtest_files(&args.path)?;
     if paths.is_empty() {
-        return Err(format!("no .rtest files found under {}", args.path.display()));
+        return Err(format!(
+            "no .rtest files found under {}",
+            args.path.display()
+        ));
     }
 
     let files = paths
@@ -75,7 +78,10 @@ pub async fn run(args: Args) -> Result<RunSummary, String> {
 
 async fn run_case(args: &Args, case: &crate::model::TestCase) -> Result<(), String> {
     let mut client = Client::connect(args).await?;
-    client.flush_all().await.map_err(|err| format!("FLUSHALL failed: {err}"))?;
+    client
+        .flush_all()
+        .await
+        .map_err(|err| format!("FLUSHALL failed: {err}"))?;
     let mut captures = std::collections::HashMap::<String, String>::new();
 
     for command in &case.setup {
@@ -164,7 +170,9 @@ fn validate_expected(
     match expected {
         ExpectedValue::Any => Ok(()),
         ExpectedValue::NoReply => Ok(()),
-        ExpectedValue::Sequence(_) => Err("internal error: sequence cannot validate a single response".to_string()),
+        ExpectedValue::Sequence(_) => {
+            Err("internal error: sequence cannot validate a single response".to_string())
+        }
         ExpectedValue::Capture(name) => {
             captures.insert(name.clone(), render_frame_raw(actual));
             Ok(())
@@ -179,8 +187,16 @@ fn validate_expected(
             _ => Err(mismatch(expected, actual)),
         },
         ExpectedValue::Bulk(Some(value)) => match actual {
-            RespFrame::Bulk(Some(BulkData::Arg(actual))) if actual.as_slice() == value.as_slice() => Ok(()),
-            RespFrame::Bulk(Some(BulkData::Value(actual))) if actual.as_slice() == value.as_slice() => Ok(()),
+            RespFrame::Bulk(Some(BulkData::Arg(actual)))
+                if actual.as_slice() == value.as_slice() =>
+            {
+                Ok(())
+            }
+            RespFrame::Bulk(Some(BulkData::Value(actual)))
+                if actual.as_slice() == value.as_slice() =>
+            {
+                Ok(())
+            }
             _ => Err(mismatch(expected, actual)),
         },
         ExpectedValue::IntegerAny => match actual {
@@ -218,7 +234,9 @@ fn validate_expected(
                 ))
             }
         }
-        ExpectedValue::Array { items, unordered } => validate_array(items, *unordered, actual, captures),
+        ExpectedValue::Array { items, unordered } => {
+            validate_array(items, *unordered, actual, captures)
+        }
     }
 }
 
@@ -250,7 +268,15 @@ fn validate_array(
                 .collect::<Vec<_>>();
             &normalized
         }
-        _ => return Err(mismatch(&ExpectedValue::Array { items: items.to_vec(), unordered }, actual)),
+        _ => {
+            return Err(mismatch(
+                &ExpectedValue::Array {
+                    items: items.to_vec(),
+                    unordered,
+                },
+                actual,
+            ));
+        }
     };
 
     if actual_items.len() != items.len() {
@@ -348,7 +374,9 @@ fn substitute_captures(
             }
 
             if !closed {
-                return Err(format!("unterminated capture reference in command `{command}`"));
+                return Err(format!(
+                    "unterminated capture reference in command `{command}`"
+                ));
             }
 
             let value = captures

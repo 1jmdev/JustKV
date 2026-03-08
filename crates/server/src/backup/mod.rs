@@ -18,8 +18,7 @@ use types::value::{
 
 use self::rdb::{
     CountingWriter, EMBEDDED_PREFIX, OP_EOF, OP_EXPIRETIME, OP_SELECTDB, RDB_MAGIC_PREFIX,
-    RDB_VERSION, RdbValue, Value, decode_custom_entry, encode_len, parse_rdb,
-    write_rdb_value,
+    RDB_VERSION, RdbValue, Value, decode_custom_entry, encode_len, parse_rdb, write_rdb_value,
 };
 
 #[derive(Debug, Clone, Copy)]

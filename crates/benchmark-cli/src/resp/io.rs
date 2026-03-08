@@ -83,7 +83,9 @@ pub async fn consume_uniform_responses(
         let frame = &parse_buf[offset..offset + frame_len];
         if frame.first().copied() == Some(b'-') {
             let actual = read_one_response(stream, parse_buf).await?;
-            return Err(format!("server returned error while validating: {actual:?}"));
+            return Err(format!(
+                "server returned error while validating: {actual:?}"
+            ));
         }
         if strict && frame != expected {
             let actual = read_one_response(stream, parse_buf).await?;
@@ -104,7 +106,13 @@ pub async fn consume_responses_unchecked(
     request_group: &RequestGroup,
 ) -> Result<(), String> {
     if let Some(encoded) = request_group.uniform_encoded.as_deref() {
-        return skip_uniform_responses(stream, parse_buf, encoded.len(), request_group.encoded.len()).await;
+        return skip_uniform_responses(
+            stream,
+            parse_buf,
+            encoded.len(),
+            request_group.encoded.len(),
+        )
+        .await;
     }
 
     for encoded in &request_group.encoded {

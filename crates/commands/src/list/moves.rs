@@ -1,4 +1,4 @@
-use crate::util::{eq_ascii, int_error, parse_u64_bytes, wrong_args, wrong_type, Args};
+use crate::util::{Args, eq_ascii, int_error, parse_u64_bytes, wrong_args, wrong_type};
 use engine::store::{ListSide, Store};
 use protocol::types::{BulkData, RespFrame};
 

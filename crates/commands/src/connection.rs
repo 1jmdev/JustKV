@@ -1,4 +1,4 @@
-use crate::util::{eq_ascii, parse_i64_bytes, parse_u64_bytes, wrong_args, Args};
+use crate::util::{Args, eq_ascii, parse_i64_bytes, parse_u64_bytes, wrong_args};
 use protocol::types::{BulkData, RespFrame};
 
 pub(crate) fn auth(args: &Args) -> RespFrame {

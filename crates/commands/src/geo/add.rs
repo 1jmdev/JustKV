@@ -1,5 +1,5 @@
 use crate::geo::parse::parse_f64;
-use crate::util::{wrong_args, wrong_type, Args};
+use crate::util::{Args, wrong_args, wrong_type};
 use engine::store::Store;
 use protocol::types::RespFrame;
 

@@ -1,10 +1,10 @@
 use std::hint::black_box;
 
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 
 use betterkv_benchmark::benchmark::{
-    build_cumulative_distribution, build_mset_command, build_request_group, build_setup_command,
-    make_key, RandomSource,
+    RandomSource, build_cumulative_distribution, build_mset_command, build_request_group,
+    build_setup_command, make_key,
 };
 use betterkv_benchmark::workload::{BenchKind, BenchRun};
 

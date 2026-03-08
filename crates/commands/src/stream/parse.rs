@@ -1,4 +1,4 @@
-use crate::util::{int_error, parse_u64_bytes, Args};
+use crate::util::{Args, int_error, parse_u64_bytes};
 use engine::store::{XAddId, XTrimMode};
 use protocol::types::RespFrame;
 use types::value::StreamId;

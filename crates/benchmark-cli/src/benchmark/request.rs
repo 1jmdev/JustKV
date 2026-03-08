@@ -1,4 +1,4 @@
-use crate::resp::{encode_expected_response, encode_resp_parts, ExpectedResponse};
+use crate::resp::{ExpectedResponse, encode_expected_response, encode_resp_parts};
 use crate::workload::{ArgTemplate, BenchKind, BenchRun, CommandTemplate};
 
 use super::model::{RandomSource, RequestGroup};

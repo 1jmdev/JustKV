@@ -1,4 +1,4 @@
-use crate::util::{int_error, parse_i64_bytes, parse_u64_bytes, wrong_args, wrong_type, Args};
+use crate::util::{Args, int_error, parse_i64_bytes, parse_u64_bytes, wrong_args, wrong_type};
 use engine::store::{BitFieldEncoding, BitFieldOp, BitFieldOverflow, BitOp, Store};
 use protocol::types::RespFrame;
 

@@ -1,8 +1,8 @@
 mod connection;
 mod notify;
 
-use std::sync::atomic::{AtomicBool, AtomicU16, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU16, AtomicU64, Ordering};
 
 use ahash::{AHashMap, RandomState};
 use bytes::{Bytes, BytesMut};
@@ -14,9 +14,9 @@ use protocol::types::{BulkData, RespFrame};
 use types::value::CompactArg;
 
 use self::notify::{
-    flags_to_mask, mask_to_flags, notifications_enabled, notifications_enabled_keyevent,
-    notifications_enabled_keyspace, FLAG_A, FLAG_DOLLAR, FLAG_G, FLAG_H, FLAG_KEYEVENT,
-    FLAG_KEYSPACE, FLAG_L, FLAG_S, FLAG_X, FLAG_Z,
+    FLAG_A, FLAG_DOLLAR, FLAG_G, FLAG_H, FLAG_KEYEVENT, FLAG_KEYSPACE, FLAG_L, FLAG_S, FLAG_X,
+    FLAG_Z, flags_to_mask, mask_to_flags, notifications_enabled, notifications_enabled_keyevent,
+    notifications_enabled_keyspace,
 };
 
 pub use self::connection::ConnectionPubSub;

@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Barrier;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -328,13 +328,8 @@ async fn run_worker(
             Some(group) => group,
             None => {
                 let built_at = Instant::now();
-                dynamic_group = build_request_group(
-                    &cfg.run,
-                    &key_base,
-                    &value,
-                    batch,
-                    &mut random,
-                )?;
+                dynamic_group =
+                    build_request_group(&cfg.run, &key_base, &value, batch, &mut random)?;
                 stats.build_ns += built_at.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64;
                 &dynamic_group
             }
@@ -383,7 +378,10 @@ async fn run_worker(
                     .latencies_ns
                     .push(started.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64);
             }
-            stats.response_ns += response_started.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64;
+            stats.response_ns += response_started
+                .elapsed()
+                .as_nanos()
+                .min(u128::from(u64::MAX)) as u64;
             stats.completed += batch as u64;
             progress
                 .completed
@@ -391,19 +389,25 @@ async fn run_worker(
             remaining -= batch as u64;
             continue;
         }
-        stats.response_ns += response_started.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64;
+        stats.response_ns += response_started
+            .elapsed()
+            .as_nanos()
+            .min(u128::from(u64::MAX)) as u64;
 
-        record_batch(&mut stats, &progress, sent_at, batch, !cfg.no_response_check);
+        record_batch(
+            &mut stats,
+            &progress,
+            sent_at,
+            batch,
+            !cfg.no_response_check,
+        );
         remaining -= batch as u64;
     }
 
     Ok(stats)
 }
 
-async fn prepare_worker(
-    plan: ClientPlan,
-    cfg: &Shared,
-) -> Result<PreparedWork, String> {
+async fn prepare_worker(plan: ClientPlan, cfg: &Shared) -> Result<PreparedWork, String> {
     let value = vec![b'x'; cfg.run.data_size];
     let key_base = format!(
         "{}:{}:{}",
@@ -429,7 +433,13 @@ async fn prepare_worker(
     };
     let tail = (plan.quota % cfg.run.pipeline as u64) as usize;
     let reusable_tail_batch = if tail > 0 && can_reuse_request_group(&cfg.run) {
-        Some(build_request_group(&cfg.run, &key_base, &value, tail, &mut random)?)
+        Some(build_request_group(
+            &cfg.run,
+            &key_base,
+            &value,
+            tail,
+            &mut random,
+        )?)
     } else {
         None
     };
@@ -451,15 +461,12 @@ fn can_reuse_request_group(run: &crate::workload::BenchRun) -> bool {
     }
 
     match run.kind {
-        crate::workload::BenchKind::Custom => run
-            .command
-            .as_ref()
-            .is_some_and(|command| {
-                !command
-                    .parts
-                    .iter()
-                    .any(|part| matches!(part, crate::workload::ArgTemplate::RandomInt))
-            }),
+        crate::workload::BenchKind::Custom => run.command.as_ref().is_some_and(|command| {
+            !command
+                .parts
+                .iter()
+                .any(|part| matches!(part, crate::workload::ArgTemplate::RandomInt))
+        }),
         _ => true,
     }
 }
@@ -487,8 +494,14 @@ async fn consume_uniform_responses(
         .uniform_encoded
         .as_deref()
         .expect("uniform response bytes");
-    crate::resp::consume_uniform_responses(stream, parse_buf, encoded, request_group.encoded.len(), strict)
-        .await
+    crate::resp::consume_uniform_responses(
+        stream,
+        parse_buf,
+        encoded,
+        request_group.encoded.len(),
+        strict,
+    )
+    .await
 }
 
 async fn consume_responses_unchecked(
@@ -559,14 +572,29 @@ async fn run_prebuilt_worker(
 
     for _ in 0..full_batch_count {
         let response_started = Instant::now();
-        consume_prebuilt_batch(&mut reader, &mut parse_buf, &full_batch, cfg.no_response_check, cfg.strict)
-            .await?;
-        stats.response_ns += response_started.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64;
+        consume_prebuilt_batch(
+            &mut reader,
+            &mut parse_buf,
+            &full_batch,
+            cfg.no_response_check,
+            cfg.strict,
+        )
+        .await?;
+        stats.response_ns += response_started
+            .elapsed()
+            .as_nanos()
+            .min(u128::from(u64::MAX)) as u64;
         let (sent_at, batch) = timestamps_rx
             .recv()
             .await
             .ok_or_else(|| "writer timestamp channel closed".to_string())?;
-        record_batch(&mut stats, &progress, sent_at, batch, !cfg.no_response_check);
+        record_batch(
+            &mut stats,
+            &progress,
+            sent_at,
+            batch,
+            !cfg.no_response_check,
+        );
     }
 
     if let Some(tail_batch) = tail_batch.as_ref() {
@@ -580,12 +608,21 @@ async fn run_prebuilt_worker(
                 cfg.strict,
             )
             .await?;
-            stats.response_ns += response_started.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64;
+            stats.response_ns += response_started
+                .elapsed()
+                .as_nanos()
+                .min(u128::from(u64::MAX)) as u64;
             let (sent_at, batch) = timestamps_rx
                 .recv()
                 .await
                 .ok_or_else(|| "writer timestamp channel closed".to_string())?;
-            record_batch(&mut stats, &progress, sent_at, batch, !cfg.no_response_check);
+            record_batch(
+                &mut stats,
+                &progress,
+                sent_at,
+                batch,
+                !cfg.no_response_check,
+            );
         }
     }
 
@@ -607,7 +644,14 @@ async fn consume_prebuilt_batch(
     if no_response_check {
         crate::resp::consume_responses_unchecked_read(reader, parse_buf, request_group).await
     } else if let Some(encoded) = request_group.uniform_encoded.as_deref() {
-        crate::resp::consume_uniform_responses_read(reader, parse_buf, encoded, request_group.encoded.len(), strict).await
+        crate::resp::consume_uniform_responses_read(
+            reader,
+            parse_buf,
+            encoded,
+            request_group.encoded.len(),
+            strict,
+        )
+        .await
     } else {
         for index in 0..request_group.encoded.len() {
             crate::resp::consume_response_read(
@@ -632,10 +676,14 @@ fn record_batch(
 ) {
     let elapsed = sent_at.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64;
     if repeat_each_request {
-        stats.latencies_ns.extend(std::iter::repeat_n(elapsed, batch));
+        stats
+            .latencies_ns
+            .extend(std::iter::repeat_n(elapsed, batch));
     } else {
         stats.latencies_ns.push(elapsed);
     }
     stats.completed += batch as u64;
-    progress.completed.fetch_add(batch as u64, Ordering::Relaxed);
+    progress
+        .completed
+        .fetch_add(batch as u64, Ordering::Relaxed);
 }

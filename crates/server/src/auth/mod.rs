@@ -9,7 +9,7 @@ mod session;
 mod state;
 mod user;
 
-pub use self::directive::{parse_user_directive, UserDirectiveConfig};
-pub use self::error::{no_auth, no_perm, AuthError};
+pub use self::directive::{UserDirectiveConfig, parse_user_directive};
+pub use self::error::{AuthError, no_auth, no_perm};
 pub use self::service::AuthService;
 pub use self::session::SessionAuth;

@@ -1,4 +1,4 @@
-use crate::command::{identify, CommandId};
+use crate::command::{CommandId, identify};
 use crate::{connection, geo, hash, keyspace, list, scripting, set, stream, string, ttl, zset};
 use engine::store::Store;
 use protocol::types::{BulkData, RespFrame};
