@@ -119,6 +119,13 @@ impl PreparedBatch {
     }
 }
 
+pub fn encoded_len(template: &CommandTemplate) -> Option<usize> {
+    match template {
+        CommandTemplate::Inline(bytes) | CommandTemplate::Encoded(bytes) => Some(bytes.len()),
+        CommandTemplate::Resp(_) => None,
+    }
+}
+
 pub fn plans(config: &Config, stdin_payload: Option<Vec<u8>>) -> Vec<BenchPlan> {
     if !config.command.is_empty() {
         return vec![custom_plan(config, stdin_payload)];
