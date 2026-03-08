@@ -168,7 +168,12 @@ pub(crate) fn parse_config_content_into(content: &str, config: &mut Config) -> R
             "dir" => config.data_dir = values[0].clone(),
             "dbfilename" => config.dbfilename = values[0].clone(),
             "save" => {
-                config.snapshot_interval_secs = parse_save_interval(&tokens[1..])?;
+                // Strip surrounding quotes from each token (e.g. `save ""` > disable).
+                let save_values: Vec<String> = tokens[1..]
+                    .iter()
+                    .map(|t| t.trim_matches('"').to_string())
+                    .collect();
+                config.snapshot_interval_secs = parse_save_interval(&save_values)?;
             }
             "snapshot-on-shutdown" => {
                 config.snapshot_on_shutdown = values[0] == "yes";
@@ -188,6 +193,10 @@ pub(crate) fn parse_config_content_into(content: &str, config: &mut Config) -> R
 fn parse_save_interval(values: &[String]) -> Result<u64, String> {
     let _trace = profiler::scope("server::main::parse_save_interval");
     if values.is_empty() {
+        return Ok(0);
+    }
+    // `--save ""` or `save ""` in config file: empty string disables snapshots.
+    if values.len() == 1 && values[0].is_empty() {
         return Ok(0);
     }
     if values.len() == 1 {

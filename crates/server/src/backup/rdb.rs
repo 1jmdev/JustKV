@@ -1,43 +1,25 @@
 use std::collections::{BTreeMap, VecDeque};
-use std::fs::File;
-use std::io::{BufWriter, Write};
-use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::io::Write;
 
 use ahash::RandomState;
 use hashbrown::HashMap;
 use indexmap::IndexSet;
 
-use engine::store::{PreDecodedRestoreEntry, Store};
-use types::value::{
-    CompactKey, CompactValue, Entry as StoreEntry, StreamId, StreamValue, ZSetValueMap,
-};
+pub(super) const RDB_MAGIC_PREFIX: &[u8; 5] = b"REDIS";
+pub(super) const RDB_VERSION: &str = "0004";
+pub(super) const OP_EXPIRETIME: u8 = 0xFD;
+pub(super) const OP_SELECTDB: u8 = 0xFE;
+pub(super) const OP_EOF: u8 = 0xFF;
+pub(super) const TYPE_STRING: u8 = 0;
+pub(super) const TYPE_LIST: u8 = 1;
+pub(super) const TYPE_SET: u8 = 2;
+pub(super) const TYPE_ZSET: u8 = 3;
+pub(super) const TYPE_HASH: u8 = 4;
+pub(super) const EMBEDDED_PREFIX: &[u8] = b"__BETTERKV_EMBEDDED__";
 
-const RDB_MAGIC_PREFIX: &[u8; 5] = b"REDIS";
-const RDB_VERSION: &str = "0004";
-const OP_EXPIRETIME: u8 = 0xFD;
-const OP_SELECTDB: u8 = 0xFE;
-const OP_EOF: u8 = 0xFF;
-const TYPE_STRING: u8 = 0;
-const TYPE_LIST: u8 = 1;
-const TYPE_SET: u8 = 2;
-const TYPE_ZSET: u8 = 3;
-const TYPE_HASH: u8 = 4;
-const EMBEDDED_PREFIX: &[u8] = b"__BETTERKV_EMBEDDED__";
-
-#[derive(Debug, Clone, Copy)]
-pub struct SnapshotStats {
-    pub keys_written: u64,
-    pub bytes_written: u64,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct RestoreStats {
-    pub keys_loaded: u64,
-}
-
+/// In-memory representation of a value loaded from or written to a snapshot.
 #[derive(Debug, Clone)]
-enum Value {
+pub(super) enum Value {
     String(Vec<u8>),
     Hash(Vec<(Vec<u8>, Vec<u8>)>),
     List(Vec<Vec<u8>>),
@@ -48,309 +30,21 @@ enum Value {
 }
 
 #[derive(Debug, Clone)]
-struct StreamEntry {
-    ms: u64,
-    seq: u64,
-    fields: Vec<(Vec<u8>, Vec<u8>)>,
+pub(super) struct StreamEntry {
+    pub(super) ms: u64,
+    pub(super) seq: u64,
+    pub(super) fields: Vec<(Vec<u8>, Vec<u8>)>,
 }
 
 #[derive(Debug)]
-struct LoadedEntry {
-    key: Vec<u8>,
-    expire_at_s: Option<u32>,
-    value: Value,
+pub(super) struct LoadedEntry {
+    pub(super) key: Vec<u8>,
+    pub(super) expire_at_s: Option<u32>,
+    pub(super) value: Value,
 }
 
-pub async fn load_snapshot(store: &Store, path: &Path) -> Result<RestoreStats, String> {
-    let _trace = profiler::scope("server::backup::load_snapshot");
-    let bytes = read_snapshot_bytes(path).await?;
-    let entries = parse_rdb(&bytes)?;
-
-    let now_s = now_unix_seconds();
-    let mut loaded = 0u64;
-    let mut restore_entries = Vec::with_capacity(entries.len());
-    for entry in entries {
-        if let Some(expire_at) = entry.expire_at_s
-            && u64::from(expire_at) <= now_s
-        {
-            continue;
-        }
-
-        let ttl_ms = entry
-            .expire_at_s
-            .map(|ts| {
-                let remaining_s = u64::from(ts).saturating_sub(now_s);
-                remaining_s.saturating_mul(1000)
-            })
-            .unwrap_or(0);
-
-        restore_entries.push(PreDecodedRestoreEntry {
-            key: entry.key,
-            ttl_ms,
-            entry: value_into_store_entry(entry.value),
-        });
-        loaded += 1;
-    }
-
-    store.restore_predecoded_unchecked(restore_entries);
-
-    Ok(RestoreStats {
-        keys_loaded: loaded,
-    })
-}
-
-fn value_into_store_entry(value: Value) -> StoreEntry {
-    let _trace = profiler::scope("server::backup::value_into_store_entry");
-    match value {
-        Value::String(v) => StoreEntry::String(CompactValue::from_vec(v)),
-        Value::Hash(values) => {
-            let mut map: HashMap<CompactKey, CompactValue, RandomState> =
-                HashMap::with_capacity_and_hasher(values.len(), RandomState::new());
-            for (field, value) in values {
-                map.insert(CompactKey::from_vec(field), CompactValue::from_vec(value));
-            }
-            StoreEntry::Hash(Box::new(map))
-        }
-        Value::List(values) => {
-            let mut list = VecDeque::with_capacity(values.len());
-            for value in values {
-                list.push_back(CompactValue::from_vec(value));
-            }
-            StoreEntry::List(Box::new(list))
-        }
-        Value::Set(values) => {
-            let mut set: IndexSet<CompactKey, RandomState> =
-                IndexSet::with_capacity_and_hasher(values.len(), RandomState::new());
-            for value in values {
-                set.insert(CompactKey::from_vec(value));
-            }
-            StoreEntry::Set(Box::new(set))
-        }
-        Value::ZSet(values) => {
-            let mut zset = ZSetValueMap::new();
-            for (member, score) in values {
-                zset.insert(CompactKey::from_vec(member), score);
-            }
-            StoreEntry::ZSet(Box::new(zset))
-        }
-        Value::Geo(values) => {
-            let mut geo: HashMap<CompactKey, (f64, f64), RandomState> =
-                HashMap::with_capacity_and_hasher(values.len(), RandomState::new());
-            for (member, coords) in values {
-                geo.insert(CompactKey::from_vec(member), coords);
-            }
-            StoreEntry::Geo(Box::new(geo))
-        }
-        Value::Stream(values) => {
-            let mut stream = StreamValue::new();
-            for entry in values {
-                let id = StreamId {
-                    ms: entry.ms,
-                    seq: entry.seq,
-                };
-                let mut fields = Vec::with_capacity(entry.fields.len());
-                for (field, value) in entry.fields {
-                    fields.push((CompactKey::from_vec(field), CompactValue::from_vec(value)));
-                }
-                stream.last_id = id;
-                stream.entries.insert(id, fields);
-            }
-            StoreEntry::Stream(Box::new(stream))
-        }
-    }
-}
-
-#[cfg(target_os = "linux")]
-async fn read_snapshot_bytes(path: &Path) -> Result<Vec<u8>, String> {
-    let _trace = profiler::scope("server::backup::read_snapshot_bytes");
-    match read_snapshot_bytes_io_uring(path).await {
-        Ok(bytes) => Ok(bytes),
-        Err(err) => {
-            tracing::warn!(
-                error = %err,
-                path = %path.display(),
-                "io_uring snapshot read failed, falling back to std::fs::read"
-            );
-            std::fs::read(path).map_err(|read_err| {
-                format!("failed to read snapshot {}: {read_err}", path.display())
-            })
-        }
-    }
-}
-
-#[cfg(not(target_os = "linux"))]
-async fn read_snapshot_bytes(path: &Path) -> Result<Vec<u8>, String> {
-    let _trace = profiler::scope("server::backup::read_snapshot_bytes");
-    std::fs::read(path).map_err(|err| format!("failed to read snapshot {}: {err}", path.display()))
-}
-
-#[cfg(target_os = "linux")]
-async fn read_snapshot_bytes_io_uring(path: &Path) -> Result<Vec<u8>, String> {
-    let _trace = profiler::scope("server::backup::read_snapshot_bytes_io_uring");
-    let path_buf = path.to_path_buf();
-    let path_for_runtime = path_buf.clone();
-    let file_size = file_size_bytes(&path_buf)?;
-
-    tokio::task::spawn_blocking(move || {
-        tokio_uring::start(async move { read_with_io_uring(path_for_runtime, file_size).await })
-    })
-    .await
-    .map_err(|err| {
-        format!(
-            "failed to join io_uring reader task for {}: {err}",
-            path.display()
-        )
-    })?
-}
-
-#[cfg(target_os = "linux")]
-async fn read_with_io_uring(path: PathBuf, file_size: usize) -> Result<Vec<u8>, String> {
-    let _trace = profiler::scope("server::backup::read_with_io_uring");
-    let file = tokio_uring::fs::File::open(path.clone())
-        .await
-        .map_err(|err| format!("failed to open snapshot {}: {err}", path.display()))?;
-
-    let mut bytes = Vec::with_capacity(file_size);
-    let mut offset = 0u64;
-    const CHUNK_SIZE: usize = 4 * 1024 * 1024;
-
-    while bytes.len() < file_size {
-        let remaining = file_size - bytes.len();
-        let read_len = remaining.min(CHUNK_SIZE);
-        let read_buf = vec![0u8; read_len];
-        let (result, read_buf) = file.read_at(read_buf, offset).await;
-        let read = result
-            .map_err(|err| format!("failed to read snapshot chunk {}: {err}", path.display()))?;
-        if read == 0 {
-            return Err(format!(
-                "snapshot {} ended early: expected {file_size} bytes, got {}",
-                path.display(),
-                bytes.len()
-            ));
-        }
-        bytes.extend_from_slice(&read_buf[..read]);
-        offset = offset.saturating_add(read as u64);
-    }
-
-    Ok(bytes)
-}
-
-#[cfg(target_os = "linux")]
-fn file_size_bytes(path: &Path) -> Result<usize, String> {
-    let _trace = profiler::scope("server::backup::file_size_bytes");
-    let len = std::fs::metadata(path)
-        .map_err(|err| format!("failed to stat snapshot {}: {err}", path.display()))?
-        .len();
-    usize::try_from(len).map_err(|_| {
-        format!(
-            "snapshot {} is too large to fit in memory on this platform",
-            path.display()
-        )
-    })
-}
-
-pub fn write_snapshot(store: &Store, path: &Path) -> Result<SnapshotStats, String> {
-    let _trace = profiler::scope("server::backup::write_snapshot");
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|err| {
-            format!(
-                "failed to create snapshot directory {}: {err}",
-                parent.display()
-            )
-        })?;
-    }
-
-    let temp_path = path.with_extension("tmp");
-    let file = File::create(&temp_path)
-        .map_err(|err| format!("failed to create snapshot {}: {err}", temp_path.display()))?;
-    let mut writer = CountingWriter::new(BufWriter::new(file));
-
-    writer
-        .write_all(RDB_MAGIC_PREFIX)
-        .map_err(|err| format!("failed to write snapshot {}: {err}", temp_path.display()))?;
-    writer
-        .write_all(RDB_VERSION.as_bytes())
-        .map_err(|err| format!("failed to write snapshot {}: {err}", temp_path.display()))?;
-
-    writer
-        .write_all(&[OP_SELECTDB])
-        .map_err(|err| format!("failed to write snapshot {}: {err}", temp_path.display()))?;
-    encode_len(&mut writer, 0)
-        .map_err(|err| format!("failed to write snapshot {}: {err}", temp_path.display()))?;
-
-    let now_s = now_unix_seconds();
-    let mut written_keys = 0u64;
-    let mut cursor = 0u64;
-    loop {
-        let (next_cursor, keys) = store.scan(cursor, None, 8_192, None);
-        for key in keys {
-            let key_bytes = key.as_slice();
-            let Some(payload) = store.dump(key_bytes) else {
-                continue;
-            };
-
-            let ttl_ms = store.pttl(key_bytes);
-            let value = decode_custom_entry(&payload)?;
-            let rdb_value = match value {
-                Value::Geo(_) | Value::Stream(_) => {
-                    let mut bytes = EMBEDDED_PREFIX.to_vec();
-                    bytes.extend_from_slice(&payload);
-                    RdbValue::String(bytes)
-                }
-                Value::String(value) => RdbValue::String(value),
-                Value::Hash(pairs) => RdbValue::Hash(pairs),
-                Value::List(values) => RdbValue::List(values),
-                Value::Set(values) => RdbValue::Set(values),
-                Value::ZSet(values) => RdbValue::ZSet(values),
-            };
-
-            if ttl_ms >= 0 {
-                let expire_at_s = now_s.saturating_add((ttl_ms as u64).div_ceil(1000));
-                let expire_at_s_u32 = u32::try_from(expire_at_s)
-                    .map_err(|_| format!("ttl overflow while writing {}", path.display()))?;
-                writer.write_all(&[OP_EXPIRETIME]).map_err(|err| {
-                    format!("failed to write snapshot {}: {err}", temp_path.display())
-                })?;
-                writer
-                    .write_all(&expire_at_s_u32.to_le_bytes())
-                    .map_err(|err| {
-                        format!("failed to write snapshot {}: {err}", temp_path.display())
-                    })?;
-            }
-
-            write_rdb_value(&mut writer, key_bytes, rdb_value).map_err(|err| {
-                format!("failed to write snapshot {}: {err}", temp_path.display())
-            })?;
-            written_keys += 1;
-        }
-
-        if next_cursor == 0 {
-            break;
-        }
-        cursor = next_cursor;
-    }
-
-    writer
-        .write_all(&[OP_EOF])
-        .map_err(|err| format!("failed to write snapshot {}: {err}", temp_path.display()))?;
-    writer
-        .flush()
-        .map_err(|err| format!("failed to flush snapshot {}: {err}", temp_path.display()))?;
-    std::fs::rename(&temp_path, path).map_err(|err| {
-        format!(
-            "failed to move snapshot {} to {}: {err}",
-            temp_path.display(),
-            path.display()
-        )
-    })?;
-
-    Ok(SnapshotStats {
-        keys_written: written_keys,
-        bytes_written: writer.bytes_written(),
-    })
-}
-
-enum RdbValue {
+/// Wire representation used only when writing an RDB file.
+pub(super) enum RdbValue {
     String(Vec<u8>),
     List(Vec<Vec<u8>>),
     Set(Vec<Vec<u8>>),
@@ -358,7 +52,11 @@ enum RdbValue {
     Hash(Vec<(Vec<u8>, Vec<u8>)>),
 }
 
-fn write_rdb_value<W: Write>(out: &mut W, key: &[u8], value: RdbValue) -> Result<(), String> {
+pub(super) fn write_rdb_value<W: Write>(
+    out: &mut W,
+    key: &[u8],
+    value: RdbValue,
+) -> Result<(), String> {
     let _trace = profiler::scope("server::backup::write_rdb_value");
     match value {
         RdbValue::String(v) => {
@@ -406,20 +104,72 @@ fn write_rdb_value<W: Write>(out: &mut W, key: &[u8], value: RdbValue) -> Result
     Ok(())
 }
 
-struct CountingWriter<W> {
+pub(super) fn encode_len<W: Write>(out: &mut W, len: usize) -> Result<(), String> {
+    let _trace = profiler::scope("server::backup::encode_len");
+    if len < (1 << 6) {
+        out.write_all(&[len as u8]).map_err(|err| err.to_string())?;
+        return Ok(());
+    }
+    if len < (1 << 14) {
+        out.write_all(&[((len >> 8) as u8 & 0x3F) | 0b0100_0000, (len & 0xFF) as u8])
+            .map_err(|err| err.to_string())?;
+        return Ok(());
+    }
+
+    let len_u32 = u32::try_from(len).map_err(|_| "RDB length over u32 is unsupported")?;
+    out.write_all(&[0b1000_0000])
+        .and_then(|_| out.write_all(&len_u32.to_be_bytes()))
+        .map_err(|err| err.to_string())?;
+    Ok(())
+}
+
+pub(super) fn encode_string<W: Write>(out: &mut W, value: &[u8]) -> Result<(), String> {
+    let _trace = profiler::scope("server::backup::encode_string");
+    encode_len(out, value.len())?;
+    out.write_all(value).map_err(|err| err.to_string())?;
+    Ok(())
+}
+
+fn encode_zset_score<W: Write>(out: &mut W, score: f64) -> Result<(), String> {
+    let _trace = profiler::scope("server::backup::encode_zset_score");
+    if score.is_nan() {
+        out.write_all(&[253]).map_err(|err| err.to_string())?;
+        return Ok(());
+    }
+    if score == f64::INFINITY {
+        out.write_all(&[254]).map_err(|err| err.to_string())?;
+        return Ok(());
+    }
+    if score == f64::NEG_INFINITY {
+        out.write_all(&[255]).map_err(|err| err.to_string())?;
+        return Ok(());
+    }
+
+    let encoded = score.to_string();
+    out.write_all(&[encoded.len() as u8])
+        .and_then(|_| out.write_all(encoded.as_bytes()))
+        .map_err(|err| err.to_string())?;
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Counting writer
+// ---------------------------------------------------------------------------
+
+pub(super) struct CountingWriter<W> {
     inner: W,
     bytes_written: u64,
 }
 
 impl<W> CountingWriter<W> {
-    fn new(inner: W) -> Self {
+    pub(super) fn new(inner: W) -> Self {
         Self {
             inner,
             bytes_written: 0,
         }
     }
 
-    fn bytes_written(&self) -> u64 {
+    pub(super) fn bytes_written(&self) -> u64 {
         self.bytes_written
     }
 }
@@ -436,7 +186,7 @@ impl<W: Write> Write for CountingWriter<W> {
     }
 }
 
-fn parse_rdb(input: &[u8]) -> Result<Vec<LoadedEntry>, String> {
+pub(super) fn parse_rdb(input: &[u8]) -> Result<Vec<LoadedEntry>, String> {
     let _trace = profiler::scope("server::backup::parse_rdb");
     if input.len() < 9 {
         return Err("snapshot file is too short".to_string());
@@ -548,36 +298,10 @@ fn parse_rdb(input: &[u8]) -> Result<Vec<LoadedEntry>, String> {
     Ok(entries)
 }
 
-fn encode_len<W: Write>(out: &mut W, len: usize) -> Result<(), String> {
-    let _trace = profiler::scope("server::backup::encode_len");
-    if len < (1 << 6) {
-        out.write_all(&[len as u8]).map_err(|err| err.to_string())?;
-        return Ok(());
-    }
-    if len < (1 << 14) {
-        out.write_all(&[((len >> 8) as u8 & 0x3F) | 0b0100_0000, (len & 0xFF) as u8])
-            .map_err(|err| err.to_string())?;
-        return Ok(());
-    }
-
-    let len_u32 = u32::try_from(len).map_err(|_| "RDB length over u32 is unsupported")?;
-    out.write_all(&[0b1000_0000])
-        .and_then(|_| out.write_all(&len_u32.to_be_bytes()))
-        .map_err(|err| err.to_string())?;
-    Ok(())
-}
-
 fn decode_len(input: &[u8], cursor: &mut usize) -> Result<usize, String> {
     let _trace = profiler::scope("server::backup::decode_len");
     let first = read_u8(input, cursor)?;
     decode_len_with_first(input, cursor, first)
-}
-
-fn encode_string<W: Write>(out: &mut W, value: &[u8]) -> Result<(), String> {
-    let _trace = profiler::scope("server::backup::encode_string");
-    encode_len(out, value.len())?;
-    out.write_all(value).map_err(|err| err.to_string())?;
-    Ok(())
 }
 
 fn decode_string(input: &[u8], cursor: &mut usize) -> Result<Vec<u8>, String> {
@@ -702,28 +426,6 @@ fn lzf_decompress(input: &[u8], expected_len: usize) -> Result<Vec<u8>, String> 
     Ok(out)
 }
 
-fn encode_zset_score<W: Write>(out: &mut W, score: f64) -> Result<(), String> {
-    let _trace = profiler::scope("server::backup::encode_zset_score");
-    if score.is_nan() {
-        out.write_all(&[253]).map_err(|err| err.to_string())?;
-        return Ok(());
-    }
-    if score == f64::INFINITY {
-        out.write_all(&[254]).map_err(|err| err.to_string())?;
-        return Ok(());
-    }
-    if score == f64::NEG_INFINITY {
-        out.write_all(&[255]).map_err(|err| err.to_string())?;
-        return Ok(());
-    }
-
-    let encoded = score.to_string();
-    out.write_all(&[encoded.len() as u8])
-        .and_then(|_| out.write_all(encoded.as_bytes()))
-        .map_err(|err| err.to_string())?;
-    Ok(())
-}
-
 fn decode_zset_score(input: &[u8], cursor: &mut usize) -> Result<f64, String> {
     let _trace = profiler::scope("server::backup::decode_zset_score");
     let len = read_u8(input, cursor)?;
@@ -762,15 +464,7 @@ fn read_exact(input: &[u8], cursor: &mut usize, out: &mut [u8]) -> Result<(), St
     Ok(())
 }
 
-fn now_unix_seconds() -> u64 {
-    let _trace = profiler::scope("server::backup::now_unix_seconds");
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
-}
-
-fn decode_custom_entry(payload: &[u8]) -> Result<Value, String> {
+pub(super) fn decode_custom_entry(payload: &[u8]) -> Result<Value, String> {
     let _trace = profiler::scope("server::backup::decode_custom_entry");
     if payload.len() < 2 || payload[0] != 1 {
         return Err("invalid payload".to_string());
