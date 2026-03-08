@@ -133,10 +133,12 @@ pub(super) fn push_items(
     count: Option<usize>,
 ) -> Vec<StreamRangeItem> {
     let _trace = profiler::scope("engine::stream::types::push_items");
-    let iter = stream.entries.range(start..=end);
     let limit = count.unwrap_or(usize::MAX);
     if reverse {
-        iter.rev()
+        stream
+            .entries
+            .range(end..=start)
+            .rev()
             .take(limit)
             .map(|(id, fields)| StreamRangeItem {
                 id: *id,
@@ -144,7 +146,10 @@ pub(super) fn push_items(
             })
             .collect()
     } else {
-        iter.take(limit)
+        stream
+            .entries
+            .range(start..=end)
+            .take(limit)
             .map(|(id, fields)| StreamRangeItem {
                 id: *id,
                 fields: fields.clone(),
