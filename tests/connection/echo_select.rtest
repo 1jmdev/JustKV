@@ -1,0 +1,88 @@
+# ECHO, SELECT, QUIT command tests - Connection management
+@name ECHO-SELECT
+@group connection
+@since 1.0.0
+
+=== TEST: ECHO basic
+RUN:
+ECHO "hello world"
+EXPECT:
+"hello world"
+
+=== TEST: ECHO empty string
+RUN:
+ECHO ""
+EXPECT:
+""
+
+=== TEST: ECHO special characters
+RUN:
+ECHO "special\x00\x01chars"
+EXPECT:
+"special\x00\x01chars"
+
+=== TEST: ECHO long string
+RUN:
+ECHO "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
+EXPECT:
+"Lorem ipsum dolor sit amet, consectetur adipiscing elit."
+
+=== TEST: ECHO wrong number of arguments
+RUN:
+ECHO
+EXPECT:
+(error) ERR wrong number of arguments for 'echo' command
+
+=== TEST: ECHO too many arguments
+RUN:
+ECHO "hello" "world"
+EXPECT:
+(error) ERR wrong number of arguments for 'echo' command
+
+=== TEST: SELECT valid database
+RUN:
+SELECT 1
+EXPECT:
+OK
+
+=== TEST: SELECT back to default
+RUN:
+SELECT 0
+EXPECT:
+OK
+
+=== TEST: SELECT boundary database
+RUN:
+SELECT 15
+EXPECT:
+OK
+
+=== TEST: SELECT invalid database number
+RUN:
+SELECT 999
+EXPECT:
+(error) ERR DB index is out of range
+
+=== TEST: SELECT negative database
+RUN:
+SELECT -1
+EXPECT:
+(error) ERR invalid DB index
+
+=== TEST: SELECT non-integer
+RUN:
+SELECT abc
+EXPECT:
+(error) ERR invalid DB index
+
+=== TEST: SELECT wrong number of arguments
+RUN:
+SELECT
+EXPECT:
+(error) ERR wrong number of arguments for 'select' command
+
+=== TEST: SELECT too many arguments
+RUN:
+SELECT 0 1
+EXPECT:
+(error) ERR wrong number of arguments for 'select' command

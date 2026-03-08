@@ -1,0 +1,131 @@
+# ZRANGE, ZREVRANGE command tests - Get range of members
+@name ZRANGE-ZREVRANGE
+@group sorted_sets
+@since 1.2.0
+
+=== TEST: ZRANGE basic
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZRANGE myzset 0 -1
+EXPECT:
+1) "one"
+2) "two"
+3) "three"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZRANGE with WITHSCORES
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZRANGE myzset 0 -1 WITHSCORES
+EXPECT:
+1) "one"
+2) "1"
+3) "two"
+4) "2"
+5) "three"
+6) "3"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZRANGE partial
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three" 4 "four"
+RUN:
+ZRANGE myzset 0 1
+EXPECT:
+1) "one"
+2) "two"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZRANGE negative indices
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZRANGE myzset -2 -1
+EXPECT:
+1) "two"
+2) "three"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZRANGE out of range
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZRANGE myzset 0 100
+EXPECT:
+1) "one"
+2) "two"
+3) "three"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZRANGE empty result
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZRANGE myzset 5 10
+EXPECT:
+(empty array)
+CLEANUP:
+DEL myzset
+
+=== TEST: ZRANGE non-existing set
+SETUP:
+DEL myzset
+RUN:
+ZRANGE myzset 0 10
+EXPECT:
+(empty array)
+
+=== TEST: ZREVRANGE basic
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZREVRANGE myzset 0 -1
+EXPECT:
+1) "three"
+2) "two"
+3) "one"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZREVRANGE with WITHSCORES
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZREVRANGE myzset 0 -1 WITHSCORES
+EXPECT:
+1) "three"
+2) "3"
+3) "two"
+4) "2"
+5) "one"
+6) "1"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZREVRANGE partial
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three" 4 "four"
+RUN:
+ZREVRANGE myzset 0 1
+EXPECT:
+1) "four"
+2) "three"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZREVRANGE wrong type
+SETUP:
+SET mystring "value"
+RUN:
+ZREVRANGE mystring 0 -1
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring

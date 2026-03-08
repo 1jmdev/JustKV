@@ -1,0 +1,132 @@
+# SPOP, SRANDMEMBER, SMOVE command tests - Random and move operations
+@name SPOP-SRANDMEMBER
+@group sets
+@since 1.0.0
+
+=== TEST: SPOP basic
+SETUP:
+SADD myset "a" "b" "c"
+RUN:
+SPOP myset
+EXPECT:
+(any)
+CLEANUP:
+DEL myset
+
+=== TEST: SPOP removes element
+SETUP:
+SADD myset "a" "b" "c"
+RUN:
+SPOP myset
+SCARD myset
+EXPECT:
+(any)
+(integer) 2
+CLEANUP:
+DEL myset
+
+=== TEST: SPOP non-existing set
+SETUP:
+DEL myset
+RUN:
+SPOP myset
+EXPECT:
+(nil)
+
+=== TEST: SPOP count
+SETUP:
+SADD myset "a" "b" "c" "d" "e"
+RUN:
+SPOP myset 2
+EXPECT:
+(any)
+CLEANUP:
+DEL myset
+
+=== TEST: SRANDMEMBER basic
+SETUP:
+SADD myset "a" "b" "c"
+RUN:
+SRANDMEMBER myset
+EXPECT:
+(any)
+CLEANUP:
+DEL myset
+
+=== TEST: SRANDMEMBER does not remove
+SETUP:
+SADD myset "a" "b" "c"
+RUN:
+SRANDMEMBER myset
+SCARD myset
+EXPECT:
+(any)
+(integer) 3
+CLEANUP:
+DEL myset
+
+=== TEST: SRANDMEMBER count
+SETUP:
+SADD myset "a" "b" "c" "d"
+RUN:
+SRANDMEMBER myset 2
+EXPECT:
+(any)
+CLEANUP:
+DEL myset
+
+=== TEST: SRANDMEMBER non-existing set
+SETUP:
+DEL myset
+RUN:
+SRANDMEMBER myset
+EXPECT:
+(nil)
+
+=== TEST: SMOVE basic
+SETUP:
+SADD set1 "a" "b"
+SADD set2 "c"
+RUN:
+SMOVE set1 set2 "a"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL set1 set2
+
+=== TEST: SMOVE verifies transfer
+SETUP:
+SADD set1 "a" "b"
+SADD set2 "c"
+RUN:
+SMOVE set1 set2 "a"
+SMEMBERS set2
+EXPECT:
+(integer) 1
+(unordered)
+1) "c"
+2) "a"
+CLEANUP:
+DEL set1 set2
+
+=== TEST: SMOVE non-existing source member
+SETUP:
+SADD set1 "a"
+SADD set2 "c"
+RUN:
+SMOVE set1 set2 "x"
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL set1 set2
+
+=== TEST: SMOVE non-existing source set
+SETUP:
+DEL set1
+SADD set2 "c"
+RUN:
+SMOVE set1 set2 "a"
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL set2

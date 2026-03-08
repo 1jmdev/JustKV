@@ -1,0 +1,70 @@
+# SETRANGE command tests - Overwrite part of string
+@name SETRANGE
+@group strings
+@since 2.2.0
+
+=== TEST: SETRANGE basic
+SETUP:
+SET key1 "Hello World"
+RUN:
+SETRANGE key1 6 "Redis"
+EXPECT:
+(integer) 11
+CLEANUP:
+DEL key1
+
+=== TEST: SETRANGE extends string
+SETUP:
+SET key1 "Hello"
+RUN:
+SETRANGE key1 6 "World"
+EXPECT:
+(integer) 11
+CLEANUP:
+DEL key1
+
+=== TEST: SETRANGE from beginning
+SETUP:
+SET key1 "Hello World"
+RUN:
+SETRANGE key1 0 "GOODBYE"
+EXPECT:
+(integer) 11
+CLEANUP:
+DEL key1
+
+=== TEST: SETRANGE non-existing key
+SETUP:
+DEL key1
+RUN:
+SETRANGE key1 0 "Hello"
+EXPECT:
+(integer) 5
+CLEANUP:
+DEL key1
+
+=== TEST: SETRANGE with gap
+SETUP:
+DEL key1
+RUN:
+SETRANGE key1 5 "Hello"
+EXPECT:
+(integer) 10
+CLEANUP:
+DEL key1
+
+=== TEST: SETRANGE wrong number of arguments
+RUN:
+SETRANGE key offset
+EXPECT:
+(error) ERR wrong number of arguments for 'setrange' command
+
+=== TEST: SETRANGE non-integer offset
+SETUP:
+SET key1 "Hello"
+RUN:
+SETRANGE key1 abc "World"
+EXPECT:
+(error) ERR value is not an integer or out of range
+CLEANUP:
+DEL key1

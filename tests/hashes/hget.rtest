@@ -1,0 +1,68 @@
+# HGET command tests - Get field value from hash
+@name HGET
+@group hashes
+@since 2.0.0
+
+=== TEST: HGET existing field
+SETUP:
+HSET myhash field1 "value1"
+RUN:
+HGET myhash field1
+EXPECT:
+"value1"
+CLEANUP:
+DEL myhash
+
+=== TEST: HGET non-existing field
+SETUP:
+HSET myhash field1 "value1"
+RUN:
+HGET myhash nonexistent
+EXPECT:
+(nil)
+CLEANUP:
+DEL myhash
+
+=== TEST: HGET non-existing hash
+SETUP:
+DEL nonexistent
+RUN:
+HGET nonexistent field
+EXPECT:
+(nil)
+
+=== TEST: HGET empty value
+SETUP:
+HSET myhash field1 ""
+RUN:
+HGET myhash field1
+EXPECT:
+""
+CLEANUP:
+DEL myhash
+
+=== TEST: HGET binary data
+SETUP:
+HSET myhash field1 "hello\x00world"
+RUN:
+HGET myhash field1
+EXPECT:
+"hello\x00world"
+CLEANUP:
+DEL myhash
+
+=== TEST: HGET wrong number of arguments
+RUN:
+HGET key
+EXPECT:
+(error) ERR wrong number of arguments for 'hget' command
+
+=== TEST: HGET wrong type
+SETUP:
+SET mystring "value"
+RUN:
+HGET mystring field
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring

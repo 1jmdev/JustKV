@@ -1,0 +1,138 @@
+# PFADD, PFCOUNT, PFMERGE command tests - HyperLogLog cardinality estimation
+@name PFADD-PFCOUNT
+@group hyperloglog
+@since 2.8.9
+
+=== TEST: PFADD single element
+SETUP:
+DEL hll
+RUN:
+PFADD hll "a"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL hll
+
+=== TEST: PFADD multiple elements
+SETUP:
+DEL hll
+RUN:
+PFADD hll "a" "b" "c"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL hll
+
+=== TEST: PFADD duplicate element
+SETUP:
+PFADD hll "a"
+RUN:
+PFADD hll "a"
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL hll
+
+=== TEST: PFADD mixed new and existing
+SETUP:
+PFADD hll "a" "b"
+RUN:
+PFADD hll "b" "c"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL hll
+
+=== TEST: PFADD empty element
+SETUP:
+DEL hll
+RUN:
+PFADD hll ""
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL hll
+
+=== TEST: PFCOUNT basic
+SETUP:
+DEL hll
+PFADD hll "a" "b" "c"
+RUN:
+PFCOUNT hll
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL hll
+
+=== TEST: PFCOUNT non-existing key
+SETUP:
+DEL hll
+RUN:
+PFCOUNT hll
+EXPECT:
+(integer) 0
+
+=== TEST: PFCOUNT multiple keys
+SETUP:
+DEL hll1 hll2
+PFADD hll1 "a" "b"
+PFADD hll2 "b" "c"
+RUN:
+PFCOUNT hll1 hll2
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL hll1 hll2
+
+=== TEST: PFCOUNT after PFADD
+SETUP:
+DEL hll
+RUN:
+PFADD hll "foo" "bar" "zap" "a"
+PFCOUNT hll
+EXPECT:
+(integer) 1
+(integer) 4
+CLEANUP:
+DEL hll
+
+=== TEST: PFMERGE basic
+SETUP:
+DEL hll1 hll2 hll3
+PFADD hll1 "a" "b"
+PFADD hll2 "c" "d"
+RUN:
+PFMERGE hll3 hll1 hll2
+PFCOUNT hll3
+EXPECT:
+OK
+(integer) 4
+CLEANUP:
+DEL hll1 hll2 hll3
+
+=== TEST: PFMERGE overwrites destination
+SETUP:
+PFADD hll1 "a" "b"
+PFADD hll2 "c"
+PFADD hll3 "z"
+RUN:
+PFMERGE hll3 hll1 hll2
+PFCOUNT hll3
+EXPECT:
+OK
+(integer) 3
+CLEANUP:
+DEL hll1 hll2 hll3
+
+=== TEST: PFMERGE single source
+SETUP:
+DEL hll1 hll2
+PFADD hll1 "a" "b"
+RUN:
+PFMERGE hll2 hll1
+PFCOUNT hll2
+EXPECT:
+OK
+(integer) 2
+CLEANUP:
+DEL hll1 hll2

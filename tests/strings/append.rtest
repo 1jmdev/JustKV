@@ -1,0 +1,78 @@
+# APPEND command tests - Appends a string to the value of a key
+@name APPEND
+@group strings
+@since 1.0.0
+
+=== TEST: APPEND to existing key
+SETUP:
+SET mykey "Hello"
+RUN:
+APPEND mykey " World"
+EXPECT:
+(integer) 11
+CLEANUP:
+DEL mykey
+
+=== TEST: APPEND to non-existing key
+SETUP:
+DEL mykey
+RUN:
+APPEND mykey "Hello"
+EXPECT:
+(integer) 5
+CLEANUP:
+DEL mykey
+
+=== TEST: APPEND returns new length
+SETUP:
+SET mykey "foo"
+RUN:
+APPEND mykey "bar"
+EXPECT:
+(integer) 6
+CLEANUP:
+DEL mykey
+
+=== TEST: APPEND empty string
+SETUP:
+SET mykey "test"
+RUN:
+APPEND mykey ""
+EXPECT:
+(integer) 4
+CLEANUP:
+DEL mykey
+
+=== TEST: APPEND multiple times
+SETUP:
+SET mykey "a"
+RUN:
+APPEND mykey "b"
+APPEND mykey "c"
+APPEND mykey "d"
+EXPECT:
+(integer) 4
+CLEANUP:
+DEL mykey
+
+=== TEST: APPEND binary data
+SETUP:
+SET mykey "hello"
+RUN:
+APPEND mykey "\x00\x01\x02"
+EXPECT:
+(integer) 8
+CLEANUP:
+DEL mykey
+
+=== TEST: APPEND with wrong number of arguments
+RUN:
+APPEND mykey
+EXPECT:
+(error) ERR wrong number of arguments for 'append' command
+
+=== TEST: APPEND with too many arguments
+RUN:
+APPEND key1 value extra
+EXPECT:
+(error) ERR wrong number of arguments for 'append' command

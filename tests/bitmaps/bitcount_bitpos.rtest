@@ -1,0 +1,131 @@
+# BITCOUNT, BITPOS, BITOP command tests - Bitmap analysis
+@name BITCOUNT-BITPOS
+@group bitmaps
+@since 2.6.0
+
+=== TEST: BITCOUNT basic
+SETUP:
+SET mykey "foobar"
+RUN:
+BITCOUNT mykey
+EXPECT:
+(integer) 26
+CLEANUP:
+DEL mykey
+
+=== TEST: BITCOUNT empty key
+SETUP:
+DEL mykey
+RUN:
+BITCOUNT mykey
+EXPECT:
+(integer) 0
+
+=== TEST: BITCOUNT with range
+SETUP:
+SET mykey "foobar"
+RUN:
+BITCOUNT mykey 0 0
+EXPECT:
+(integer) 4
+CLEANUP:
+DEL mykey
+
+=== TEST: BITCOUNT non-existing key
+SETUP:
+DEL nonexistent
+RUN:
+BITCOUNT nonexistent
+EXPECT:
+(integer) 0
+
+=== TEST: BITPOS find first 1 bit
+SETUP:
+SET mykey "\x00\xff\xf0"
+RUN:
+BITPOS mykey 1
+EXPECT:
+(integer) 8
+CLEANUP:
+DEL mykey
+
+=== TEST: BITPOS find first 0 bit
+SETUP:
+SET mykey "\xff\x00\x00"
+RUN:
+BITPOS mykey 0
+EXPECT:
+(integer) 8
+CLEANUP:
+DEL mykey
+
+=== TEST: BITPOS all 1s
+SETUP:
+SET mykey "\xff\xff"
+RUN:
+BITPOS mykey 0
+EXPECT:
+(integer) 16
+CLEANUP:
+DEL mykey
+
+=== TEST: BITPOS with range
+SETUP:
+SET mykey "\x00\xff\x00"
+RUN:
+BITPOS mykey 1 1 1
+EXPECT:
+(integer) 8
+CLEANUP:
+DEL mykey
+
+=== TEST: BITOP AND
+SETUP:
+SET key1 "foo"
+SET key2 "bar"
+RUN:
+BITOP AND result key1 key2
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL key1 key2 result
+
+=== TEST: BITOP OR
+SETUP:
+SET key1 "foo"
+SET key2 "bar"
+RUN:
+BITOP OR result key1 key2
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL key1 key2 result
+
+=== TEST: BITOP XOR
+SETUP:
+SET key1 "foo"
+SET key2 "bar"
+RUN:
+BITOP XOR result key1 key2
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL key1 key2 result
+
+=== TEST: BITOP NOT
+SETUP:
+SET key "foo"
+RUN:
+BITOP NOT result key
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL key result
+
+=== TEST: BITPOS non-existing key
+SETUP:
+DEL mykey
+RUN:
+BITPOS mykey 1
+EXPECT:
+(integer) -1

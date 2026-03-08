@@ -1,0 +1,122 @@
+# ZSCORE, ZRANK, ZREVRANK command tests - Sorted set score and rank
+@name ZSCORE-ZRANK
+@group sorted_sets
+@since 1.2.0
+
+=== TEST: ZSCORE basic
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZSCORE myzset "one"
+EXPECT:
+"1"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZSCORE non-existing member
+SETUP:
+ZADD myzset 1 "one"
+RUN:
+ZSCORE myzset "nonexistent"
+EXPECT:
+(nil)
+CLEANUP:
+DEL myzset
+
+=== TEST: ZSCORE non-existing set
+SETUP:
+DEL myzset
+RUN:
+ZSCORE myzset "one"
+EXPECT:
+(nil)
+
+=== TEST: ZSCORE float score
+SETUP:
+ZADD myzset 1.5 "one"
+RUN:
+ZSCORE myzset "one"
+EXPECT:
+"1.5"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZRANK basic
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZRANK myzset "two"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL myzset
+
+=== TEST: ZRANK first member
+SETUP:
+ZADD myzset 1 "one" 2 "two"
+RUN:
+ZRANK myzset "one"
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL myzset
+
+=== TEST: ZRANK last member
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZRANK myzset "three"
+EXPECT:
+(integer) 2
+CLEANUP:
+DEL myzset
+
+=== TEST: ZRANK non-existing member
+SETUP:
+ZADD myzset 1 "one"
+RUN:
+ZRANK myzset "nonexistent"
+EXPECT:
+(nil)
+CLEANUP:
+DEL myzset
+
+=== TEST: ZREVRANK basic
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZREVRANK myzset "two"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL myzset
+
+=== TEST: ZREVRANK first member (highest score)
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZREVRANK myzset "three"
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL myzset
+
+=== TEST: ZREVRANK non-existing member
+SETUP:
+ZADD myzset 1 "one"
+RUN:
+ZREVRANK myzset "nonexistent"
+EXPECT:
+(nil)
+CLEANUP:
+DEL myzset
+
+=== TEST: ZSCORE wrong type
+SETUP:
+SET mystring "value"
+RUN:
+ZSCORE mystring "one"
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring

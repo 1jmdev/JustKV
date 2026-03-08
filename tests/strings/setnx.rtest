@@ -1,0 +1,58 @@
+# SETNX command tests - Set if not exists
+@name SETNX
+@group strings
+@since 1.0.0
+
+=== TEST: SETNX non-existing key
+SETUP:
+DEL mykey
+RUN:
+SETNX mykey "Hello"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL mykey
+
+=== TEST: SETNX existing key
+SETUP:
+SET mykey "Hello"
+RUN:
+SETNX mykey "World"
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL mykey
+
+=== TEST: SETNX does not overwrite
+SETUP:
+SET mykey "Hello"
+RUN:
+SETNX mykey "World"
+GET mykey
+EXPECT:
+(integer) 0
+"Hello"
+CLEANUP:
+DEL mykey
+
+=== TEST: SETNX empty value
+SETUP:
+DEL mykey
+RUN:
+SETNX mykey ""
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL mykey
+
+=== TEST: SETNX wrong number of arguments
+RUN:
+SETNX key
+EXPECT:
+(error) ERR wrong number of arguments for 'setnx' command
+
+=== TEST: SETNX too many arguments
+RUN:
+SETNX key value extra
+EXPECT:
+(error) ERR wrong number of arguments for 'setnx' command

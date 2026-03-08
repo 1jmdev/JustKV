@@ -1,0 +1,95 @@
+# COPY command tests - Copy key to new key (Redis 6.2+)
+@name COPY
+@group generic
+@since 6.2.0
+
+=== TEST: COPY basic
+SETUP:
+SET source "value"
+DEL destination
+RUN:
+COPY source destination
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL source destination
+
+=== TEST: COPY verifies copy
+SETUP:
+SET source "value"
+DEL destination
+RUN:
+COPY source destination
+GET destination
+EXPECT:
+(integer) 1
+"value"
+CLEANUP:
+DEL source destination
+
+=== TEST: COPY to existing destination
+SETUP:
+SET source "source_value"
+SET destination "dest_value"
+RUN:
+COPY source destination
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL source destination
+
+=== TEST: COPY with REPLACE option
+SETUP:
+SET source "source_value"
+SET destination "dest_value"
+RUN:
+COPY source destination REPLACE
+GET destination
+EXPECT:
+(integer) 1
+"source_value"
+CLEANUP:
+DEL source destination
+
+=== TEST: COPY non-existing source
+SETUP:
+DEL source
+DEL destination
+RUN:
+COPY source destination
+EXPECT:
+(integer) 0
+
+=== TEST: COPY list
+SETUP:
+LPUSH source "a" "b"
+DEL destination
+RUN:
+COPY source destination
+LRANGE destination 0 -1
+EXPECT:
+(integer) 1
+1) "b"
+2) "a"
+CLEANUP:
+DEL source destination
+
+=== TEST: COPY hash
+SETUP:
+HSET source field "value"
+DEL destination
+RUN:
+COPY source destination
+HGETALL destination
+EXPECT:
+(integer) 1
+1) "field"
+2) "value"
+CLEANUP:
+DEL source destination
+
+=== TEST: COPY wrong number of arguments
+RUN:
+COPY source
+EXPECT:
+(error) ERR wrong number of arguments for 'copy' command

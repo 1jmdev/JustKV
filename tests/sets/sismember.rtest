@@ -1,0 +1,83 @@
+# SISMEMBER, SMISMEMBER command tests - Check set membership
+@name SISMEMBER
+@group sets
+@since 1.0.0
+
+=== TEST: SISMEMBER existing member
+SETUP:
+SADD myset "a" "b"
+RUN:
+SISMEMBER myset "a"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL myset
+
+=== TEST: SISMEMBER non-existing member
+SETUP:
+SADD myset "a" "b"
+RUN:
+SISMEMBER myset "c"
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL myset
+
+=== TEST: SISMEMBER non-existing set
+SETUP:
+DEL myset
+RUN:
+SISMEMBER myset "a"
+EXPECT:
+(integer) 0
+
+=== TEST: SISMEMBER empty member
+SETUP:
+SADD myset ""
+RUN:
+SISMEMBER myset ""
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL myset
+
+=== TEST: SISMEMBER wrong type
+SETUP:
+SET mystring "value"
+RUN:
+SISMEMBER mystring "a"
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring
+
+=== TEST: SMISMEMBER multiple members (6.2+)
+SETUP:
+SADD myset "a" "b" "c"
+RUN:
+SMISMEMBER myset "a" "x" "b"
+EXPECT:
+1) (integer) 1
+2) (integer) 0
+3) (integer) 1
+CLEANUP:
+DEL myset
+
+=== TEST: SMISMEMBER non-existing set (6.2+)
+SETUP:
+DEL myset
+RUN:
+SMISMEMBER myset "a" "b"
+EXPECT:
+1) (integer) 0
+2) (integer) 0
+
+=== TEST: SMISMEMBER wrong type (6.2+)
+SETUP:
+SET mystring "value"
+RUN:
+SMISMEMBER mystring "a"
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring

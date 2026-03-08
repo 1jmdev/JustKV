@@ -1,0 +1,108 @@
+# DECR, DECRBY command tests - Decrement integer values
+@name DECR
+@group strings
+@since 1.0.0
+
+=== TEST: DECR existing integer
+SETUP:
+SET counter 10
+RUN:
+DECR counter
+EXPECT:
+(integer) 9
+CLEANUP:
+DEL counter
+
+=== TEST: DECR non-existing key
+SETUP:
+DEL counter
+RUN:
+DECR counter
+EXPECT:
+(integer) -1
+CLEANUP:
+DEL counter
+
+=== TEST: DECR below zero
+SETUP:
+SET counter 0
+RUN:
+DECR counter
+EXPECT:
+(integer) -1
+CLEANUP:
+DEL counter
+
+=== TEST: DECR multiple times
+SETUP:
+SET counter 5
+RUN:
+DECR counter
+DECR counter
+DECR counter
+EXPECT:
+(integer) 2
+CLEANUP:
+DEL counter
+
+=== TEST: DECR on non-integer
+SETUP:
+SET mykey "hello"
+RUN:
+DECR mykey
+EXPECT:
+(error) ERR value is not an integer or out of range
+CLEANUP:
+DEL mykey
+
+=== TEST: DECR wrong number of arguments
+RUN:
+DECR
+EXPECT:
+(error) ERR wrong number of arguments for 'decr' command
+
+=== TEST: DECRBY basic
+SETUP:
+SET counter 20
+RUN:
+DECRBY counter 5
+EXPECT:
+(integer) 15
+CLEANUP:
+DEL counter
+
+=== TEST: DECRBY non-existing key
+SETUP:
+DEL counter
+RUN:
+DECRBY counter 10
+EXPECT:
+(integer) -10
+CLEANUP:
+DEL counter
+
+=== TEST: DECRBY by zero
+SETUP:
+SET counter 5
+RUN:
+DECRBY counter 0
+EXPECT:
+(integer) 5
+CLEANUP:
+DEL counter
+
+=== TEST: DECRBY with wrong arguments
+RUN:
+DECRBY key
+EXPECT:
+(error) ERR wrong number of arguments for 'decrby' command
+
+=== TEST: DECRBY non-integer decrement
+SETUP:
+SET counter 10
+RUN:
+DECRBY counter abc
+EXPECT:
+(error) ERR value is not an integer or out of range
+CLEANUP:
+DEL counter

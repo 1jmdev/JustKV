@@ -1,0 +1,149 @@
+# ZINTER, ZUNION, ZDIFF, ZMSCORE, ZRANDMEMBER, ZRANGESTORE command tests (6.2+)
+@name ZINTER-ZUNION
+@group sorted_sets
+@since 6.2.0
+
+=== TEST: ZINTER basic (6.2+)
+SETUP:
+ZADD zset1 1 "one" 2 "two"
+ZADD zset2 1 "one" 2 "two" 3 "three"
+RUN:
+ZINTER 2 zset1 zset2
+EXPECT:
+1) "one"
+2) "two"
+CLEANUP:
+DEL zset1 zset2
+
+=== TEST: ZINTER with WITHSCORES (6.2+)
+SETUP:
+ZADD zset1 1 "one" 2 "two"
+ZADD zset2 2 "one" 3 "two"
+RUN:
+ZINTER 2 zset1 zset2 WITHSCORES
+EXPECT:
+(any)
+CLEANUP:
+DEL zset1 zset2
+
+=== TEST: ZINTERSTORE basic
+SETUP:
+ZADD zset1 1 "one" 2 "two"
+ZADD zset2 1 "one" 2 "two" 3 "three"
+DEL out
+RUN:
+ZINTERSTORE out 2 zset1 zset2
+EXPECT:
+(integer) 2
+CLEANUP:
+DEL zset1 zset2 out
+
+=== TEST: ZUNION basic (6.2+)
+SETUP:
+ZADD zset1 1 "one" 2 "two"
+ZADD zset2 1 "one" 3 "three"
+RUN:
+ZUNION 2 zset1 zset2
+EXPECT:
+(any)
+CLEANUP:
+DEL zset1 zset2
+
+=== TEST: ZUNION with WITHSCORES (6.2+)
+SETUP:
+ZADD zset1 1 "one" 2 "two"
+ZADD zset2 1 "one" 3 "three"
+RUN:
+ZUNION 2 zset1 zset2 WITHSCORES
+EXPECT:
+(any)
+CLEANUP:
+DEL zset1 zset2
+
+=== TEST: ZUNIONSTORE basic
+SETUP:
+ZADD zset1 1 "one" 2 "two"
+ZADD zset2 1 "one" 3 "three"
+DEL out
+RUN:
+ZUNIONSTORE out 2 zset1 zset2
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL zset1 zset2 out
+
+=== TEST: ZDIFF basic (6.2+)
+SETUP:
+ZADD zset1 1 "one" 2 "two" 3 "three"
+ZADD zset2 1 "one"
+RUN:
+ZDIFF 2 zset1 zset2
+EXPECT:
+(any)
+CLEANUP:
+DEL zset1 zset2
+
+=== TEST: ZDIFFSTORE basic (6.2+)
+SETUP:
+ZADD zset1 1 "one" 2 "two" 3 "three"
+ZADD zset2 1 "one"
+DEL out
+RUN:
+ZDIFFSTORE out 2 zset1 zset2
+EXPECT:
+(integer) (any)
+CLEANUP:
+DEL zset1 zset2 out
+
+=== TEST: ZMSCORE (6.2+)
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZMSCORE myzset "one" "two" "nonexistent"
+EXPECT:
+1) "1"
+2) "2"
+3) (nil)
+CLEANUP:
+DEL myzset
+
+=== TEST: ZRANDMEMBER (6.2+)
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZRANDMEMBER myzset
+EXPECT:
+(any)
+CLEANUP:
+DEL myzset
+
+=== TEST: ZRANDMEMBER with count (6.2+)
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZRANDMEMBER myzset 2
+EXPECT:
+(any)
+CLEANUP:
+DEL myzset
+
+=== TEST: ZRANDMEMBER with WITHSCORES (6.2+)
+SETUP:
+ZADD myzset 1 "one" 2 "two"
+RUN:
+ZRANDMEMBER myzset 1 WITHSCORES
+EXPECT:
+(any)
+CLEANUP:
+DEL myzset
+
+=== TEST: ZRANGESTORE (6.2+)
+SETUP:
+ZADD zset 1 "one" 2 "two" 3 "three"
+DEL out
+RUN:
+ZRANGESTORE out zset 0 1
+EXPECT:
+(integer) 2
+CLEANUP:
+DEL zset out

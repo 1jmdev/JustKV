@@ -1,0 +1,118 @@
+# SADD, SREM command tests - Set member operations
+@name SADD-SREM
+@group sets
+@since 1.0.0
+
+=== TEST: SADD single member
+SETUP:
+DEL myset
+RUN:
+SADD myset "a"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL myset
+
+=== TEST: SADD multiple members
+SETUP:
+DEL myset
+RUN:
+SADD myset "a" "b" "c"
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL myset
+
+=== TEST: SADD duplicate member
+SETUP:
+SADD myset "a"
+RUN:
+SADD myset "a"
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL myset
+
+=== TEST: SADD mixed new and existing
+SETUP:
+SADD myset "a" "b"
+RUN:
+SADD myset "b" "c"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL myset
+
+=== TEST: SADD empty member
+SETUP:
+DEL myset
+RUN:
+SADD myset ""
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL myset
+
+=== TEST: SADD wrong number of arguments
+RUN:
+SADD myset
+EXPECT:
+(error) ERR wrong number of arguments for 'sadd' command
+
+=== TEST: SREM single member
+SETUP:
+SADD myset "a" "b" "c"
+RUN:
+SREM myset "a"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL myset
+
+=== TEST: SREM multiple members
+SETUP:
+SADD myset "a" "b" "c"
+RUN:
+SREM myset "a" "b"
+EXPECT:
+(integer) 2
+CLEANUP:
+DEL myset
+
+=== TEST: SREM non-existing member
+SETUP:
+SADD myset "a" "b"
+RUN:
+SREM myset "x"
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL myset
+
+=== TEST: SREM mixed existing and non-existing
+SETUP:
+SADD myset "a" "b" "c"
+RUN:
+SREM myset "a" "x" "b"
+EXPECT:
+(integer) 2
+CLEANUP:
+DEL myset
+
+=== TEST: SREM non-existing set
+SETUP:
+DEL myset
+RUN:
+SREM myset "a"
+EXPECT:
+(integer) 0
+
+=== TEST: SREM wrong type
+SETUP:
+SET mystring "value"
+RUN:
+SREM mystring "a"
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring

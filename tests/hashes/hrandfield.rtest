@@ -1,0 +1,72 @@
+# HRANDFIELD command tests - Get random fields from hash (Redis 6.2+)
+@name HRANDFIELD
+@group hashes
+@since 6.2.0
+
+=== TEST: HRANDFIELD single field
+SETUP:
+HSET myhash field1 "value1" field2 "value2" field3 "value3"
+RUN:
+HRANDFIELD myhash
+EXPECT:
+(any)
+CLEANUP:
+DEL myhash
+
+=== TEST: HRANDFIELD multiple fields
+SETUP:
+HSET myhash field1 "value1" field2 "value2" field3 "value3"
+RUN:
+HRANDFIELD myhash 2
+EXPECT:
+(any)
+CLEANUP:
+DEL myhash
+
+=== TEST: HRANDFIELD with WITHVALUES
+SETUP:
+HSET myhash field1 "value1" field2 "value2"
+RUN:
+HRANDFIELD myhash 1 WITHVALUES
+EXPECT:
+(any)
+CLEANUP:
+DEL myhash
+
+=== TEST: HRANDFIELD non-existing hash
+SETUP:
+DEL nonexistent
+RUN:
+HRANDFIELD nonexistent
+EXPECT:
+(nil)
+
+=== TEST: HRANDFIELD negative count
+SETUP:
+HSET myhash field1 "value1" field2 "value2"
+RUN:
+HRANDFIELD myhash -5
+EXPECT:
+(any)
+CLEANUP:
+DEL myhash
+
+=== TEST: HRANDFIELD count exceeds hash size
+SETUP:
+HSET myhash field1 "value1"
+RUN:
+HRANDFIELD myhash 10
+EXPECT:
+(any)
+CLEANUP:
+DEL myhash
+
+=== TEST: HRANDFIELD wrong type
+SETUP:
+SET mystring "value"
+RUN:
+HRANDFIELD mystring
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring

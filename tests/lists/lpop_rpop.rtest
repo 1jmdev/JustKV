@@ -1,0 +1,108 @@
+# LPOP, RPOP command tests - List pop operations
+@name LPOP-RPOP
+@group lists
+@since 1.0.0
+
+=== TEST: LPOP basic
+SETUP:
+RPUSH mylist "a" "b" "c"
+RUN:
+LPOP mylist
+EXPECT:
+"a"
+CLEANUP:
+DEL mylist
+
+=== TEST: LPOP removes element
+SETUP:
+RPUSH mylist "a" "b" "c"
+RUN:
+LPOP mylist
+LRANGE mylist 0 -1
+EXPECT:
+"a"
+1) "b"
+2) "c"
+CLEANUP:
+DEL mylist
+
+=== TEST: LPOP non-existing list
+SETUP:
+DEL mylist
+RUN:
+LPOP mylist
+EXPECT:
+(nil)
+
+=== TEST: LPOP last element
+SETUP:
+RPUSH mylist "a"
+RUN:
+LPOP mylist
+LLEN mylist
+EXPECT:
+"a"
+(integer) 0
+
+=== TEST: LPOP with count
+SETUP:
+RPUSH mylist "a" "b" "c"
+RUN:
+LPOP mylist 2
+EXPECT:
+1) "a"
+2) "b"
+CLEANUP:
+DEL mylist
+
+=== TEST: RPOP basic
+SETUP:
+RPUSH mylist "a" "b" "c"
+RUN:
+RPOP mylist
+EXPECT:
+"c"
+CLEANUP:
+DEL mylist
+
+=== TEST: RPOP removes element
+SETUP:
+RPUSH mylist "a" "b" "c"
+RUN:
+RPOP mylist
+LRANGE mylist 0 -1
+EXPECT:
+"c"
+1) "a"
+2) "b"
+CLEANUP:
+DEL mylist
+
+=== TEST: RPOP non-existing list
+SETUP:
+DEL mylist
+RUN:
+RPOP mylist
+EXPECT:
+(nil)
+
+=== TEST: RPOP with count
+SETUP:
+RPUSH mylist "a" "b" "c"
+RUN:
+RPOP mylist 2
+EXPECT:
+1) "c"
+2) "b"
+CLEANUP:
+DEL mylist
+
+=== TEST: LPOP wrong type
+SETUP:
+SET mystring "value"
+RUN:
+LPOP mystring
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring

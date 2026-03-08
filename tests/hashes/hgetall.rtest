@@ -1,0 +1,77 @@
+# HGETALL command tests - Get all fields and values from hash
+@name HGETALL
+@group hashes
+@since 2.0.0
+
+=== TEST: HGETALL multiple fields
+SETUP:
+HSET myhash field1 "value1" field2 "value2" field3 "value3"
+RUN:
+HGETALL myhash
+EXPECT:
+(unordered)
+1) "field1"
+2) "value1"
+3) "field2"
+4) "value2"
+5) "field3"
+6) "value3"
+CLEANUP:
+DEL myhash
+
+=== TEST: HGETALL single field
+SETUP:
+HSET myhash field1 "value1"
+RUN:
+HGETALL myhash
+EXPECT:
+1) "field1"
+2) "value1"
+CLEANUP:
+DEL myhash
+
+=== TEST: HGETALL empty hash
+SETUP:
+DEL myhash
+RUN:
+HGETALL myhash
+EXPECT:
+(empty array)
+
+=== TEST: HGETALL non-existing hash
+SETUP:
+DEL nonexistent
+RUN:
+HGETALL nonexistent
+EXPECT:
+(empty array)
+
+=== TEST: HGETALL with empty values
+SETUP:
+HSET myhash field1 "" field2 "value"
+RUN:
+HGETALL myhash
+EXPECT:
+(unordered)
+1) "field1"
+2) ""
+3) "field2"
+4) "value"
+CLEANUP:
+DEL myhash
+
+=== TEST: HGETALL wrong number of arguments
+RUN:
+HGETALL
+EXPECT:
+(error) ERR wrong number of arguments for 'hgetall' command
+
+=== TEST: HGETALL wrong type
+SETUP:
+SET mystring "value"
+RUN:
+HGETALL mystring
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring

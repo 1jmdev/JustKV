@@ -1,0 +1,176 @@
+# ZRANGEBYSCORE, ZREVRANGEBYSCORE, ZRANGEBYLEX command tests - Range queries
+@name ZRANGE-BY
+@group sorted_sets
+@since 1.0.0
+
+=== TEST: ZRANGEBYSCORE basic
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZRANGEBYSCORE myzset 1 2
+EXPECT:
+1) "one"
+2) "two"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZRANGEBYSCORE with WITHSCORES
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZRANGEBYSCORE myzset 1 2 WITHSCORES
+EXPECT:
+1) "one"
+2) "1"
+3) "two"
+4) "2"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZRANGEBYSCORE exclusive
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZRANGEBYSCORE myzset (1 (3
+EXPECT:
+1) "two"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZRANGEBYSCORE infinity
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZRANGEBYSCORE myzset -inf +inf
+EXPECT:
+1) "one"
+2) "two"
+3) "three"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZRANGEBYSCORE with LIMIT
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three" 4 "four" 5 "five"
+RUN:
+ZRANGEBYSCORE myzset 1 5 LIMIT 1 2
+EXPECT:
+1) "two"
+2) "three"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZREVRANGEBYSCORE basic
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZREVRANGEBYSCORE myzset 3 1
+EXPECT:
+1) "three"
+2) "two"
+3) "one"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZREVRANGEBYSCORE with WITHSCORES
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZREVRANGEBYSCORE myzset 3 1 WITHSCORES
+EXPECT:
+1) "three"
+2) "3"
+3) "two"
+4) "2"
+5) "one"
+6) "1"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZRANGEBYLEX basic
+SETUP:
+ZADD myzset 0 "a" 0 "b" 0 "c" 0 "d"
+RUN:
+ZRANGEBYLEX myzset - +
+EXPECT:
+1) "a"
+2) "b"
+3) "c"
+4) "d"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZRANGEBYLEX with range
+SETUP:
+ZADD myzset 0 "a" 0 "b" 0 "c" 0 "d"
+RUN:
+ZRANGEBYLEX myzset "[b" "[d"
+EXPECT:
+1) "b"
+2) "c"
+3) "d"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZRANGEBYLEX exclusive
+SETUP:
+ZADD myzset 0 "a" 0 "b" 0 "c" 0 "d"
+RUN:
+ZRANGEBYLEX myzset "(b" "(d"
+EXPECT:
+1) "c"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZREVRANGEBYLEX
+SETUP:
+ZADD myzset 0 "a" 0 "b" 0 "c" 0 "d"
+RUN:
+ZREVRANGEBYLEX myzset + -
+EXPECT:
+1) "d"
+2) "c"
+3) "b"
+4) "a"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZLEXCOUNT
+SETUP:
+ZADD myzset 0 "a" 0 "b" 0 "c" 0 "d"
+RUN:
+ZLEXCOUNT myzset - +
+EXPECT:
+(integer) 4
+CLEANUP:
+DEL myzset
+
+=== TEST: ZREMRANGEBYLEX
+SETUP:
+ZADD myzset 0 "a" 0 "b" 0 "c" 0 "d"
+RUN:
+ZREMRANGEBYLEX myzset "[b" "[c"
+EXPECT:
+(integer) 2
+CLEANUP:
+DEL myzset
+
+=== TEST: ZREMRANGEBYRANK
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZREMRANGEBYRANK myzset 0 1
+EXPECT:
+(integer) 2
+CLEANUP:
+DEL myzset
+
+=== TEST: ZREMRANGEBYSCORE
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZREMRANGEBYSCORE myzset 1 2
+EXPECT:
+(integer) 2
+CLEANUP:
+DEL myzset

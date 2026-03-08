@@ -1,0 +1,58 @@
+# HEXISTS command tests - Check if field exists in hash
+@name HEXISTS
+@group hashes
+@since 2.0.0
+
+=== TEST: HEXISTS existing field
+SETUP:
+HSET myhash field1 "value1"
+RUN:
+HEXISTS myhash field1
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL myhash
+
+=== TEST: HEXISTS non-existing field
+SETUP:
+HSET myhash field1 "value1"
+RUN:
+HEXISTS myhash nonexistent
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL myhash
+
+=== TEST: HEXISTS non-existing hash
+SETUP:
+DEL nonexistent
+RUN:
+HEXISTS nonexistent field
+EXPECT:
+(integer) 0
+
+=== TEST: HEXISTS empty hash
+SETUP:
+DEL myhash
+HSET myhash field1 "value1"
+HDEL myhash field1
+RUN:
+HEXISTS myhash field1
+EXPECT:
+(integer) 0
+
+=== TEST: HEXISTS wrong number of arguments
+RUN:
+HEXISTS key
+EXPECT:
+(error) ERR wrong number of arguments for 'hexists' command
+
+=== TEST: HEXISTS wrong type
+SETUP:
+SET mystring "value"
+RUN:
+HEXISTS mystring field
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring

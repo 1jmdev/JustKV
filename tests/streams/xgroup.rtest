@@ -1,0 +1,124 @@
+# XGROUP, XREADGROUP, XACK, XPENDING command tests - Stream consumer groups
+@name XGROUP
+@group streams
+@since 5.0.0
+
+=== TEST: XGROUP CREATE
+SETUP:
+DEL mystream
+XADD mystream * field1 "value1"
+RUN:
+XGROUP CREATE mystream mygroup 0
+EXPECT:
+OK
+CLEANUP:
+DEL mystream
+
+=== TEST: XGROUP CREATE MKSTREAM
+SETUP:
+DEL mystream
+RUN:
+XGROUP CREATE mystream mygroup 0 MKSTREAM
+EXPECT:
+OK
+CLEANUP:
+DEL mystream
+
+=== TEST: XGROUP CREATE duplicate
+SETUP:
+DEL mystream
+XADD mystream * field1 "value1"
+XGROUP CREATE mystream mygroup 0
+RUN:
+XGROUP CREATE mystream mygroup 0
+EXPECT:
+(error) BUSYGROUP Consumer group 'mygroup' already exists
+CLEANUP:
+DEL mystream
+
+=== TEST: XGROUP DESTROY
+SETUP:
+DEL mystream
+XADD mystream * field1 "value1"
+XGROUP CREATE mystream mygroup 0
+RUN:
+XGROUP DESTROY mystream mygroup
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL mystream
+
+=== TEST: XREADGROUP basic
+SETUP:
+DEL mystream
+XADD mystream 1000-0 field1 "value1"
+XADD mystream 2000-0 field2 "value2"
+XGROUP CREATE mystream mygroup 0
+RUN:
+XREADGROUP GROUP mygroup consumer1 STREAMS mystream >
+EXPECT:
+(any)
+CLEANUP:
+DEL mystream
+
+=== TEST: XACK basic
+SETUP:
+DEL mystream
+XADD mystream 1000-0 field1 "value1"
+XGROUP CREATE mystream mygroup 0
+XREADGROUP GROUP mygroup consumer1 STREAMS mystream >
+RUN:
+XACK mystream mygroup 1000-0
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL mystream
+
+=== TEST: XPENDING basic
+SETUP:
+DEL mystream
+XADD mystream 1000-0 field1 "value1"
+XGROUP CREATE mystream mygroup 0
+XREADGROUP GROUP mygroup consumer1 STREAMS mystream >
+RUN:
+XPENDING mystream mygroup
+EXPECT:
+(any)
+CLEANUP:
+DEL mystream
+
+=== TEST: XINFO STREAM
+SETUP:
+DEL mystream
+XADD mystream * field "value"
+RUN:
+XINFO STREAM mystream
+EXPECT:
+(any)
+CLEANUP:
+DEL mystream
+
+=== TEST: XINFO GROUPS
+SETUP:
+DEL mystream
+XADD mystream * field1 "value1"
+XGROUP CREATE mystream mygroup 0
+RUN:
+XINFO GROUPS mystream
+EXPECT:
+(any)
+CLEANUP:
+DEL mystream
+
+=== TEST: XINFO CONSUMERS
+SETUP:
+DEL mystream
+XADD mystream 1000-0 field1 "value1"
+XGROUP CREATE mystream mygroup 0
+XREADGROUP GROUP mygroup consumer1 STREAMS mystream >
+RUN:
+XINFO CONSUMERS mystream mygroup
+EXPECT:
+(any)
+CLEANUP:
+DEL mystream

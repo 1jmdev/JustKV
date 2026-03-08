@@ -1,0 +1,109 @@
+# ZCARD, ZCOUNT command tests - Sorted set cardinality and counting
+@name ZCARD-ZCOUNT
+@group sorted_sets
+@since 1.2.0
+
+=== TEST: ZCARD basic
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZCARD myzset
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL myzset
+
+=== TEST: ZCARD empty set
+SETUP:
+DEL myzset
+RUN:
+ZCARD myzset
+EXPECT:
+(integer) 0
+
+=== TEST: ZCARD non-existing set
+SETUP:
+DEL nonexistent
+RUN:
+ZCARD nonexistent
+EXPECT:
+(integer) 0
+
+=== TEST: ZCARD after deletion
+SETUP:
+ZADD myzset 1 "one" 2 "two"
+ZREM myzset "one"
+RUN:
+ZCARD myzset
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL myzset
+
+=== TEST: ZCARD wrong type
+SETUP:
+SET mystring "value"
+RUN:
+ZCARD mystring
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring
+
+=== TEST: ZCOUNT basic
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three" 4 "four"
+RUN:
+ZCOUNT myzset 2 3
+EXPECT:
+(integer) 2
+CLEANUP:
+DEL myzset
+
+=== TEST: ZCOUNT inclusive
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZCOUNT myzset -inf +inf
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL myzset
+
+=== TEST: ZCOUNT exclusive
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZCOUNT myzset (1 (3
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL myzset
+
+=== TEST: ZCOUNT zero results
+SETUP:
+ZADD myzset 1 "one" 2 "two"
+RUN:
+ZCOUNT myzset 5 10
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL myzset
+
+=== TEST: ZCOUNT non-existing set
+SETUP:
+DEL myzset
+RUN:
+ZCOUNT myzset 1 3
+EXPECT:
+(integer) 0
+
+=== TEST: ZCOUNT wrong type
+SETUP:
+SET mystring "value"
+RUN:
+ZCOUNT mystring 1 3
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring

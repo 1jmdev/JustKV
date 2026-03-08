@@ -1,0 +1,112 @@
+# MULTI, EXEC, DISCARD command tests - Transaction operations
+@name MULTI-EXEC
+@group transactions
+@since 1.2.0
+
+=== TEST: MULTI EXEC basic
+SETUP:
+DEL key1
+RUN:
+MULTI
+SET key1 "value1"
+GET key1
+EXEC
+EXPECT:
+OK
+QUEUED
+QUEUED
+1) OK
+2) "value1"
+CLEANUP:
+DEL key1
+
+=== TEST: MULTI EXEC multiple commands
+SETUP:
+DEL key1 key2 key3
+RUN:
+MULTI
+SET key1 "a"
+SET key2 "b"
+SET key3 "c"
+EXEC
+EXPECT:
+OK
+QUEUED
+QUEUED
+QUEUED
+1) OK
+2) OK
+3) OK
+CLEANUP:
+DEL key1 key2 key3
+
+=== TEST: MULTI EXEC with GET
+SETUP:
+SET mykey "value"
+RUN:
+MULTI
+INCR counter
+GET mykey
+EXEC
+EXPECT:
+OK
+QUEUED
+QUEUED
+1) (integer) 1
+2) "value"
+CLEANUP:
+DEL mykey counter
+
+=== TEST: MULTI DISCARD
+SETUP:
+SET key1 "old"
+RUN:
+MULTI
+SET key1 "new"
+DISCARD
+GET key1
+EXPECT:
+OK
+QUEUED
+OK
+"old"
+CLEANUP:
+DEL key1
+
+=== TEST: MULTI nested transaction
+RUN:
+MULTI
+MULTI
+EXPECT:
+OK
+(error) ERR MULTI calls can not be nested
+
+=== TEST: EXEC without MULTI
+RUN:
+EXEC
+EXPECT:
+(error) ERR EXEC without MULTI
+
+=== TEST: DISCARD without MULTI
+RUN:
+DISCARD
+EXPECT:
+(error) ERR DISCARD without MULTI
+
+=== TEST: DISCARD clears queue
+SETUP:
+DEL key1 key2
+RUN:
+MULTI
+SET key1 "a"
+SET key2 "b"
+DISCARD
+EXISTS key1
+EXISTS key2
+EXPECT:
+OK
+QUEUED
+QUEUED
+OK
+(integer) 0
+(integer) 0

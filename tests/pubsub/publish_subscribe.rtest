@@ -1,0 +1,84 @@
+# PUBLISH, SUBSCRIBE, UNSUBSCRIBE command tests - Pub/Sub messaging
+@name PUBLISH-SUBSCRIBE
+@group pubsub
+@since 2.0.0
+
+=== TEST: PUBLISH no subscribers
+RUN:
+PUBLISH channel "message"
+EXPECT:
+(integer) 0
+
+=== TEST: PUBLISH basic (requires second connection)
+SETUP:
+RUN:
+PUBLISH mychannel "Hello World"
+EXPECT:
+(integer) (any)
+
+=== TEST: SUBSCRIBE response format
+SETUP:
+RUN:
+SUBSCRIBE mychannel
+EXPECT:
+(any)
+
+=== TEST: PSUBSCRIBE response format
+SETUP:
+RUN:
+PSUBSCRIBE pattern*
+EXPECT:
+(any)
+
+=== TEST: UNSUBSCRIBE without subscription
+SETUP:
+RUN:
+UNSUBSCRIBE
+EXPECT:
+(error) ERR only (P)SUBSCRIBE / (P)UNSUBSCRIBE / PING / RESET / QUIT allowed in this context
+
+=== TEST: PUBSUB CHANNELS
+RUN:
+PUBSUB CHANNELS
+EXPECT:
+(any)
+
+=== TEST: PUBSUB NUMSUB
+RUN:
+PUBSUB NUMSUB mychannel
+EXPECT:
+(any)
+
+=== TEST: PUBSUB NUMPAT
+RUN:
+PUBSUB NUMPAT
+EXPECT:
+(integer) (any)
+
+=== TEST: PUBLISH to pattern (uses PSUBSCRIBE)
+RUN:
+PUBLISH news.sports "goal"
+EXPECT:
+(integer) (any)
+
+=== TEST: PUBLISH multiple channels
+RUN:
+PUBLISH channel1 "msg1"
+PUBLISH channel2 "msg2"
+PUBLISH channel3 "msg3"
+EXPECT:
+(integer) (any)
+(integer) (any)
+(integer) (any)
+
+=== TEST: PUBLISH empty message
+RUN:
+PUBLISH mychannel ""
+EXPECT:
+(integer) (any)
+
+=== TEST: PUBLISH binary data
+RUN:
+PUBLISH mychannel "\x00\x01\x02"
+EXPECT:
+(integer) (any)

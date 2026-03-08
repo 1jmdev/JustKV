@@ -1,0 +1,98 @@
+# HSET, HSETNX command tests - Set hash field values
+@name HSET-HSETNX
+@group hashes
+@since 2.0.0
+
+=== TEST: HSET new field
+SETUP:
+DEL myhash
+RUN:
+HSET myhash field1 "value1"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL myhash
+
+=== TEST: HSET multiple fields
+SETUP:
+DEL myhash
+RUN:
+HSET myhash field1 "value1" field2 "value2" field3 "value3"
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL myhash
+
+=== TEST: HSET overwrites field
+SETUP:
+HSET myhash field1 "old"
+RUN:
+HSET myhash field1 "new"
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL myhash
+
+=== TEST: HSET mixed new and existing
+SETUP:
+HSET myhash field1 "value1"
+RUN:
+HSET myhash field1 "new" field2 "value2"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL myhash
+
+=== TEST: HSET empty value
+SETUP:
+DEL myhash
+RUN:
+HSET myhash field ""
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL myhash
+
+=== TEST: HSET wrong number of arguments
+RUN:
+HSET myhash field
+EXPECT:
+(error) ERR wrong number of arguments for 'hset' command
+
+=== TEST: HSETNX new field
+SETUP:
+DEL myhash
+RUN:
+HSETNX myhash field1 "value1"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL myhash
+
+=== TEST: HSETNX existing field
+SETUP:
+HSET myhash field1 "value1"
+RUN:
+HSETNX myhash field1 "new"
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL myhash
+
+=== TEST: HSETNX does not overwrite
+SETUP:
+HSET myhash field1 "old"
+RUN:
+HSETNX myhash field1 "new"
+HGET myhash field1
+EXPECT:
+(integer) 0
+"old"
+CLEANUP:
+DEL myhash
+
+=== TEST: HSETNX wrong number of arguments
+RUN:
+HSETNX myhash field
+EXPECT:
+(error) ERR wrong number of arguments for 'hsetnx' command

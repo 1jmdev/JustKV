@@ -1,0 +1,110 @@
+# EVAL, EVALSHA, SCRIPT command tests - Lua scripting
+@name EVAL
+@group scripting
+@since 2.6.0
+
+=== TEST: EVAL basic script
+RUN:
+EVAL "return redis.call('PING')" 0
+EXPECT:
+PONG
+
+=== TEST: EVAL with return value
+RUN:
+EVAL "return 42" 0
+EXPECT:
+(integer) 42
+
+=== TEST: EVAL string return
+RUN:
+EVAL "return 'hello'" 0
+EXPECT:
+"hello"
+
+=== TEST: EVAL array return
+RUN:
+EVAL "return {1, 2, 3}" 0
+EXPECT:
+1) (integer) 1
+2) (integer) 2
+3) (integer) 3
+
+=== TEST: EVAL with key argument
+SETUP:
+SET mykey "myvalue"
+RUN:
+EVAL "return redis.call('GET', KEYS[1])" 1 mykey
+EXPECT:
+"myvalue"
+CLEANUP:
+DEL mykey
+
+=== TEST: EVAL with argv argument
+RUN:
+EVAL "return ARGV[1]" 0 "hello"
+EXPECT:
+"hello"
+
+=== TEST: EVAL multiple keys and args
+SETUP:
+SET key1 "value1"
+SET key2 "value2"
+RUN:
+EVAL "return {KEYS[1], KEYS[2], ARGV[1]}" 2 key1 key2 arg1
+EXPECT:
+1) "key1"
+2) "key2"
+3) "arg1"
+CLEANUP:
+DEL key1 key2
+
+=== TEST: EVAL redis call SET
+SETUP:
+DEL mykey
+RUN:
+EVAL "return redis.call('SET', 'mykey', 'value')" 0
+EXPECT:
+OK
+CLEANUP:
+DEL mykey
+
+=== TEST: EVAL redis call INCR
+SETUP:
+DEL counter
+RUN:
+EVAL "return redis.call('INCR', 'counter')" 0
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL counter
+
+=== TEST: SCRIPT LOAD
+RUN:
+SCRIPT LOAD "return 1"
+EXPECT:
+(match) ^[0-9a-f]{40}$
+
+=== TEST: SCRIPT EXISTS
+SETUP:
+RUN:
+SCRIPT EXISTS ffffffffffffffffffffffffffffffffffffffff
+EXPECT:
+1) (integer) 0
+
+=== TEST: SCRIPT FLUSH
+RUN:
+SCRIPT FLUSH
+EXPECT:
+OK
+
+=== TEST: EVALSHA wrong SHA
+RUN:
+EVALSHA ffffffffffffffffffffffffffffffffffffffff 0
+EXPECT:
+(error) NOSCRIPT No matching script. Please use EVAL.
+
+=== TEST: EVAL syntax error
+RUN:
+EVAL "return {" 0
+EXPECT:
+(error) ERR

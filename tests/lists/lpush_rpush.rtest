@@ -1,0 +1,139 @@
+# LPUSH, RPUSH, LPUSHX, RPUSHX command tests - List push operations
+@name LPUSH-RPUSH
+@group lists
+@since 1.0.0
+
+=== TEST: LPUSH single element
+SETUP:
+DEL mylist
+RUN:
+LPUSH mylist "a"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL mylist
+
+=== TEST: LPUSH multiple elements
+SETUP:
+DEL mylist
+RUN:
+LPUSH mylist "a" "b" "c"
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL mylist
+
+=== TEST: LPUSH appends to existing list
+SETUP:
+LPUSH mylist "a"
+RUN:
+LPUSH mylist "b"
+EXPECT:
+(integer) 2
+CLEANUP:
+DEL mylist
+
+=== TEST: LPUSH returns new length
+SETUP:
+LPUSH mylist "a" "b"
+RUN:
+LPUSH mylist "c"
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL mylist
+
+=== TEST: LPUSH empty value
+SETUP:
+DEL mylist
+RUN:
+LPUSH mylist ""
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL mylist
+
+=== TEST: LPUSH wrong number of arguments
+RUN:
+LPUSH mylist
+EXPECT:
+(error) ERR wrong number of arguments for 'lpush' command
+
+=== TEST: RPUSH single element
+SETUP:
+DEL mylist
+RUN:
+RPUSH mylist "a"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL mylist
+
+=== TEST: RPUSH multiple elements
+SETUP:
+DEL mylist
+RUN:
+RPUSH mylist "a" "b" "c"
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL mylist
+
+=== TEST: RPUSH order verification
+SETUP:
+DEL mylist
+RPUSH mylist "a" "b" "c"
+RUN:
+LRANGE mylist 0 -1
+EXPECT:
+1) "a"
+2) "b"
+3) "c"
+CLEANUP:
+DEL mylist
+
+=== TEST: LPUSHX on existing list
+SETUP:
+LPUSH mylist "a" "b"
+RUN:
+LPUSHX mylist "c"
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL mylist
+
+=== TEST: LPUSHX on non-existing list
+SETUP:
+DEL mylist
+RUN:
+LPUSHX mylist "a"
+EXPECT:
+(integer) 0
+
+=== TEST: RPUSHX on existing list
+SETUP:
+RPUSH mylist "a" "b"
+RUN:
+RPUSHX mylist "c"
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL mylist
+
+=== TEST: RPUSHX on non-existing list
+SETUP:
+DEL mylist
+RUN:
+RPUSHX mylist "a"
+EXPECT:
+(integer) 0
+
+=== TEST: LPUSH wrong type
+SETUP:
+SET mystring "value"
+RUN:
+LPUSH mystring "a"
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring

@@ -1,0 +1,131 @@
+# SINTER, SUNION, SDIFF command tests - Set operations
+@name SINTER-SUNION-SDIFF
+@group sets
+@since 1.0.0
+
+=== TEST: SINTER basic
+SETUP:
+SADD set1 "a" "b" "c"
+SADD set2 "b" "c" "d"
+RUN:
+SINTER set1 set2
+EXPECT:
+(unordered)
+1) "b"
+2) "c"
+CLEANUP:
+DEL set1 set2
+
+=== TEST: SINTER no intersection
+SETUP:
+SADD set1 "a" "b"
+SADD set2 "c" "d"
+RUN:
+SINTER set1 set2
+EXPECT:
+(empty array)
+CLEANUP:
+DEL set1 set2
+
+=== TEST: SINTER single set
+SETUP:
+SADD set1 "a" "b" "c"
+RUN:
+SINTER set1
+EXPECT:
+(unordered)
+1) "a"
+2) "b"
+3) "c"
+CLEANUP:
+DEL set1
+
+=== TEST: SINTER non-existing set
+SETUP:
+SADD set1 "a" "b"
+DEL set2
+RUN:
+SINTER set1 set2
+EXPECT:
+(empty array)
+CLEANUP:
+DEL set1
+
+=== TEST: SUNION basic
+SETUP:
+SADD set1 "a" "b"
+SADD set2 "c" "d"
+RUN:
+SUNION set1 set2
+EXPECT:
+(unordered)
+1) "a"
+2) "b"
+3) "c"
+4) "d"
+CLEANUP:
+DEL set1 set2
+
+=== TEST: SUNION overlapping
+SETUP:
+SADD set1 "a" "b"
+SADD set2 "b" "c"
+RUN:
+SUNION set1 set2
+EXPECT:
+(unordered)
+1) "a"
+2) "b"
+3) "c"
+CLEANUP:
+DEL set1 set2
+
+=== TEST: SUNION single set
+SETUP:
+SADD set1 "a" "b" "c"
+RUN:
+SUNION set1
+EXPECT:
+(unordered)
+1) "a"
+2) "b"
+3) "c"
+CLEANUP:
+DEL set1
+
+=== TEST: SDIFF basic
+SETUP:
+SADD set1 "a" "b" "c"
+SADD set2 "b"
+RUN:
+SDIFF set1 set2
+EXPECT:
+(unordered)
+1) "a"
+2) "c"
+CLEANUP:
+DEL set1 set2
+
+=== TEST: SDIFF no difference
+SETUP:
+SADD set1 "a" "b"
+SADD set2 "a" "b"
+RUN:
+SDIFF set1 set2
+EXPECT:
+(empty array)
+CLEANUP:
+DEL set1 set2
+
+=== TEST: SDIFF non-existing set
+SETUP:
+SADD set1 "a" "b"
+DEL set2
+RUN:
+SDIFF set1 set2
+EXPECT:
+(unordered)
+1) "a"
+2) "b"
+CLEANUP:
+DEL set1

@@ -1,0 +1,84 @@
+# RENAME, RENAMENX command tests - Rename keys
+@name RENAME
+@group generic
+@since 1.0.0
+
+=== TEST: RENAME basic
+SETUP:
+SET oldkey "value"
+RUN:
+RENAME oldkey newkey
+EXPECT:
+OK
+CLEANUP:
+DEL newkey
+
+=== TEST: RENAME overwrites destination
+SETUP:
+SET oldkey "old_value"
+SET newkey "new_value"
+RUN:
+RENAME oldkey newkey
+GET newkey
+EXPECT:
+OK
+"old_value"
+CLEANUP:
+DEL newkey
+
+=== TEST: RENAME non-existing key
+SETUP:
+DEL nonexistent
+RUN:
+RENAME nonexistent newkey
+EXPECT:
+(error) ERR no such key
+
+=== TEST: RENAME to same name
+SETUP:
+SET key "value"
+RUN:
+RENAME key key
+EXPECT:
+(error) ERR source and destination objects are the same
+CLEANUP:
+DEL key
+
+=== TEST: RENAMENX basic
+SETUP:
+SET oldkey "value"
+DEL newkey
+RUN:
+RENAMENX oldkey newkey
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL newkey
+
+=== TEST: RENAMENX destination exists
+SETUP:
+SET oldkey "old"
+SET newkey "new"
+RUN:
+RENAMENX oldkey newkey
+GET oldkey
+EXPECT:
+(integer) 0
+"old"
+CLEANUP:
+DEL oldkey newkey
+
+=== TEST: RENAMENX non-existing source
+SETUP:
+DEL oldkey
+DEL newkey
+RUN:
+RENAMENX oldkey newkey
+EXPECT:
+(error) ERR no such key
+
+=== TEST: RENAME wrong number of arguments
+RUN:
+RENAME key
+EXPECT:
+(error) ERR wrong number of arguments for 'rename' command

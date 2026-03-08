@@ -1,0 +1,95 @@
+# HMGET, HMSET command tests - Multi-field hash operations
+@name HMGET-HMSET
+@group hashes
+@since 2.0.0
+
+=== TEST: HMGET multiple fields
+SETUP:
+HSET myhash field1 "value1" field2 "value2" field3 "value3"
+RUN:
+HMGET myhash field1 field2 field3
+EXPECT:
+1) "value1"
+2) "value2"
+3) "value3"
+CLEANUP:
+DEL myhash
+
+=== TEST: HMGET with non-existing fields
+SETUP:
+HSET myhash field1 "value1"
+RUN:
+HMGET myhash field1 nonexistent field2
+EXPECT:
+1) "value1"
+2) (nil)
+3) (nil)
+CLEANUP:
+DEL myhash
+
+=== TEST: HMGET single field
+SETUP:
+HSET myhash field1 "value1"
+RUN:
+HMGET myhash field1
+EXPECT:
+1) "value1"
+CLEANUP:
+DEL myhash
+
+=== TEST: HMGET non-existing hash
+SETUP:
+DEL nonexistent
+RUN:
+HMGET nonexistent field1 field2
+EXPECT:
+1) (nil)
+2) (nil)
+
+=== TEST: HMGET wrong number of arguments
+RUN:
+HMGET key
+EXPECT:
+(error) ERR wrong number of arguments for 'hmget' command
+
+=== TEST: HMSET multiple fields
+SETUP:
+DEL myhash
+RUN:
+HMSET myhash field1 "value1" field2 "value2" field3 "value3"
+EXPECT:
+OK
+CLEANUP:
+DEL myhash
+
+=== TEST: HMSET overwrites fields
+SETUP:
+HSET myhash field1 "old"
+RUN:
+HMSET myhash field1 "new" field2 "value2"
+EXPECT:
+OK
+CLEANUP:
+DEL myhash
+
+=== TEST: HMSET odd arguments
+RUN:
+HMSET myhash field1 value2 extra
+EXPECT:
+(error) ERR wrong number of arguments for 'hmset' command
+
+=== TEST: HMSET single field
+SETUP:
+DEL myhash
+RUN:
+HMSET myhash field "value"
+EXPECT:
+OK
+CLEANUP:
+DEL myhash
+
+=== TEST: HMSET wrong number of arguments
+RUN:
+HMSET
+EXPECT:
+(error) ERR wrong number of arguments for 'hmset' command

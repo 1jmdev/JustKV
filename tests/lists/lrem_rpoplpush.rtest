@@ -1,0 +1,115 @@
+# LREM, RPOPLPUSH, LMOVE command tests - List removal operations
+@name LREM-RPOPLPUSH
+@group lists
+@since 1.0.0
+
+=== TEST: LREM remove all occurrences
+SETUP:
+RPUSH mylist "a" "b" "a" "c" "a"
+RUN:
+LREM mylist 0 "a"
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL mylist
+
+=== TEST: LREM remove first N
+SETUP:
+RPUSH mylist "a" "b" "a" "c" "a"
+RUN:
+LREM mylist 2 "a"
+EXPECT:
+(integer) 2
+CLEANUP:
+DEL mylist
+
+=== TEST: LREM remove from tail
+SETUP:
+RPUSH mylist "a" "b" "a" "c" "a"
+RUN:
+LREM mylist -2 "a"
+EXPECT:
+(integer) 2
+CLEANUP:
+DEL mylist
+
+=== TEST: LREM element not found
+SETUP:
+RPUSH mylist "a" "b" "c"
+RUN:
+LREM mylist 0 "x"
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL mylist
+
+=== TEST: LREM non-existing list
+SETUP:
+DEL mylist
+RUN:
+LREM mylist 0 "a"
+EXPECT:
+(integer) 0
+
+=== TEST: LREM wrong type
+SETUP:
+SET mystring "value"
+RUN:
+LREM mystring 0 "a"
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring
+
+=== TEST: RPOPLPUSH basic
+SETUP:
+RPUSH mylist "a" "b" "c"
+DEL mylist2
+RUN:
+RPOPLPUSH mylist mylist2
+EXPECT:
+"c"
+CLEANUP:
+DEL mylist mylist2
+
+=== TEST: RPOPLPUSH same list
+SETUP:
+RPUSH mylist "a" "b" "c"
+RUN:
+RPOPLPUSH mylist mylist
+EXPECT:
+"c"
+CLEANUP:
+DEL mylist
+
+=== TEST: RPOPLPUSH verifies destination
+SETUP:
+RPUSH mylist "a" "b"
+DEL mylist2
+RUN:
+RPOPLPUSH mylist mylist2
+LRANGE mylist2 0 -1
+EXPECT:
+"b"
+1) "b"
+CLEANUP:
+DEL mylist mylist2
+
+=== TEST: RPOPLPUSH non-existing source
+SETUP:
+DEL mylist
+DEL mylist2
+RUN:
+RPOPLPUSH mylist mylist2
+EXPECT:
+(nil)
+
+=== TEST: RPOPLPUSH wrong type
+SETUP:
+SET mystring "value"
+RUN:
+RPOPLPUSH mystring mylist2
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring

@@ -1,0 +1,86 @@
+# LRANGE command tests - Get range of elements from list
+@name LRANGE
+@group lists
+@since 1.0.0
+
+=== TEST: LRANGE basic
+SETUP:
+RPUSH mylist "a" "b" "c" "d" "e"
+RUN:
+LRANGE mylist 0 2
+EXPECT:
+1) "a"
+2) "b"
+3) "c"
+CLEANUP:
+DEL mylist
+
+=== TEST: LRANGE full list
+SETUP:
+RPUSH mylist "a" "b" "c"
+RUN:
+LRANGE mylist 0 -1
+EXPECT:
+1) "a"
+2) "b"
+3) "c"
+CLEANUP:
+DEL mylist
+
+=== TEST: LRANGE negative indices
+SETUP:
+RPUSH mylist "a" "b" "c" "d" "e"
+RUN:
+LRANGE mylist -3 -1
+EXPECT:
+1) "c"
+2) "d"
+3) "e"
+CLEANUP:
+DEL mylist
+
+=== TEST: LRANGE out of range
+SETUP:
+RPUSH mylist "a" "b" "c"
+RUN:
+LRANGE mylist 0 100
+EXPECT:
+1) "a"
+2) "b"
+3) "c"
+CLEANUP:
+DEL mylist
+
+=== TEST: LRANGE empty range
+SETUP:
+RPUSH mylist "a" "b" "c"
+RUN:
+LRANGE mylist 5 10
+EXPECT:
+(empty array)
+CLEANUP:
+DEL mylist
+
+=== TEST: LRANGE non-existing list
+SETUP:
+DEL mylist
+RUN:
+LRANGE mylist 0 10
+EXPECT:
+(empty array)
+
+=== TEST: LRANGE wrong type
+SETUP:
+SET mystring "value"
+RUN:
+LRANGE mystring 0 10
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring
+
+=== TEST: LRANGE wrong number of arguments
+RUN:
+LRANGE key
+EXPECT:
+(error) ERR wrong number of arguments for 'lrange' command

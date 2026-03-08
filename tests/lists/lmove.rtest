@@ -1,0 +1,70 @@
+# LMOVE command tests - Move element between lists (Redis 6.2+)
+@name LMOVE
+@group lists
+@since 6.2.0
+
+=== TEST: LMOVE LEFT RIGHT
+SETUP:
+RPUSH source "a" "b" "c"
+DEL dest
+RUN:
+LMOVE source dest LEFT RIGHT
+EXPECT:
+"a"
+CLEANUP:
+DEL source dest
+
+=== TEST: LMOVE RIGHT LEFT
+SETUP:
+RPUSH source "a" "b" "c"
+DEL dest
+RUN:
+LMOVE source dest RIGHT LEFT
+EXPECT:
+"c"
+CLEANUP:
+DEL source dest
+
+=== TEST: LMOVE updates destination
+SETUP:
+RPUSH source "a" "b"
+RPUSH dest "x"
+RUN:
+LMOVE source dest LEFT RIGHT
+LRANGE dest 0 -1
+EXPECT:
+"a"
+1) "x"
+2) "a"
+CLEANUP:
+DEL source dest
+
+=== TEST: LMOVE same list
+SETUP:
+RPUSH mylist "a" "b" "c"
+RUN:
+LMOVE mylist mylist RIGHT LEFT
+EXPECT:
+"c"
+CLEANUP:
+DEL mylist
+
+=== TEST: LMOVE non-existing source
+SETUP:
+DEL source
+DEL dest
+RUN:
+LMOVE source dest LEFT RIGHT
+EXPECT:
+(nil)
+
+=== TEST: LMOVE wrong type
+SETUP:
+SET mystring "value"
+DEL dest
+RUN:
+LMOVE mystring dest LEFT RIGHT
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring

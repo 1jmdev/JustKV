@@ -1,0 +1,104 @@
+# ZPOPMIN, ZPOPMAX, BZPOPMIN, BZPOPMAX command tests - Pop operations
+@name ZPOPMIN-ZPOPMAX
+@group sorted_sets
+@since 5.0.0
+
+=== TEST: ZPOPMIN basic
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZPOPMIN myzset
+EXPECT:
+1) "one"
+2) "1"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZPOPMIN with count
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZPOPMIN myzset 2
+EXPECT:
+1) "one"
+2) "1"
+3) "two"
+4) "2"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZPOPMIN removes members
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZPOPMIN myzset
+ZCARD myzset
+EXPECT:
+1) "one"
+2) "1"
+(integer) 2
+CLEANUP:
+DEL myzset
+
+=== TEST: ZPOPMIN non-existing set
+SETUP:
+DEL myzset
+RUN:
+ZPOPMIN myzset
+EXPECT:
+(empty array)
+
+=== TEST: ZPOPMAX basic
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZPOPMAX myzset
+EXPECT:
+1) "three"
+2) "3"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZPOPMAX with count
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZPOPMAX myzset 2
+EXPECT:
+1) "three"
+2) "3"
+3) "two"
+4) "2"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZPOPMAX removes members
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZPOPMAX myzset
+ZCARD myzset
+EXPECT:
+1) "three"
+2) "3"
+(integer) 2
+CLEANUP:
+DEL myzset
+
+=== TEST: ZPOPMAX non-existing set
+SETUP:
+DEL myzset
+RUN:
+ZPOPMAX myzset
+EXPECT:
+(empty array)
+
+=== TEST: ZPOPMIN wrong type
+SETUP:
+SET mystring "value"
+RUN:
+ZPOPMIN mystring
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring

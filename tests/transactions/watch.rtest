@@ -1,0 +1,102 @@
+# WATCH, UNWATCH command tests - Optimistic locking
+@name WATCH
+@group transactions
+@since 2.2.0
+
+=== TEST: WATCH basic setup
+SETUP:
+DEL mykey
+SET mykey 10
+RUN:
+WATCH mykey
+EXPECT:
+OK
+CLEANUP:
+DEL mykey
+
+=== TEST: WATCH unmodified transaction
+SETUP:
+SET mykey 10
+RUN:
+WATCH mykey
+MULTI
+INCR mykey
+EXEC
+EXPECT:
+OK
+OK
+QUEUED
+1) (integer) 11
+CLEANUP:
+DEL mykey
+
+=== TEST: WATCH unwatch
+SETUP:
+SET mykey 10
+RUN:
+WATCH mykey
+UNWATCH
+EXPECT:
+OK
+OK
+CLEANUP:
+DEL mykey
+
+=== TEST: WATCH multiple keys
+SETUP:
+SET key1 "a"
+SET key2 "b"
+RUN:
+WATCH key1 key2
+EXPECT:
+OK
+CLEANUP:
+DEL key1 key2
+
+=== TEST: WATCH non-existing key
+SETUP:
+DEL mykey
+RUN:
+WATCH mykey
+EXPECT:
+OK
+
+=== TEST: UNWATCH without WATCH
+RUN:
+UNWATCH
+EXPECT:
+OK
+
+=== TEST: WATCH clears on EXEC
+SETUP:
+SET mykey 10
+RUN:
+WATCH mykey
+MULTI
+INCR mykey
+EXEC
+WATCH mykey
+EXPECT:
+OK
+OK
+QUEUED
+1) (integer) 11
+OK
+
+=== TEST: WATCH clears on DISCARD
+SETUP:
+SET mykey 10
+RUN:
+WATCH mykey
+MULTI
+INCR mykey
+DISCARD
+WATCH mykey
+EXPECT:
+OK
+OK
+QUEUED
+OK
+OK
+CLEANUP:
+DEL mykey

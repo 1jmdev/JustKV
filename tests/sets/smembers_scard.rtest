@@ -1,0 +1,105 @@
+# SMEMBERS, SCARD command tests - Set access operations
+@name SMEMBERS-SCARD
+@group sets
+@since 1.0.0
+
+=== TEST: SMEMBERS basic
+SETUP:
+SADD myset "a" "b" "c"
+RUN:
+SMEMBERS myset
+EXPECT:
+(unordered)
+1) "a"
+2) "b"
+3) "c"
+CLEANUP:
+DEL myset
+
+=== TEST: SMEMBERS single member
+SETUP:
+SADD myset "a"
+RUN:
+SMEMBERS myset
+EXPECT:
+1) "a"
+CLEANUP:
+DEL myset
+
+=== TEST: SMEMBERS empty set
+SETUP:
+DEL myset
+RUN:
+SMEMBERS myset
+EXPECT:
+(empty array)
+
+=== TEST: SMEMBERS non-existing set
+SETUP:
+DEL nonexistent
+RUN:
+SMEMBERS nonexistent
+EXPECT:
+(empty array)
+
+=== TEST: SMEMBERS wrong type
+SETUP:
+SET mystring "value"
+RUN:
+SMEMBERS mystring
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring
+
+=== TEST: SCARD basic
+SETUP:
+SADD myset "a" "b" "c"
+RUN:
+SCARD myset
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL myset
+
+=== TEST: SCARD single member
+SETUP:
+SADD myset "a"
+RUN:
+SCARD myset
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL myset
+
+=== TEST: SCARD empty set
+SETUP:
+DEL myset
+RUN:
+SCARD myset
+EXPECT:
+(integer) 0
+
+=== TEST: SCARD non-existing set
+SETUP:
+DEL nonexistent
+RUN:
+SCARD nonexistent
+EXPECT:
+(integer) 0
+
+=== TEST: SCARD wrong type
+SETUP:
+SET mystring "value"
+RUN:
+SCARD mystring
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring
+
+=== TEST: SCARD wrong number of arguments
+RUN:
+SCARD
+EXPECT:
+(error) ERR wrong number of arguments for 'scard' command

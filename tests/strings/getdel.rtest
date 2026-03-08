@@ -1,0 +1,71 @@
+# GETDEL command tests - Get and delete a key (Redis 6.2+)
+@name GETDEL
+@group strings
+@since 6.2.0
+
+=== TEST: GETDEL existing key
+SETUP:
+SET mykey "Hello"
+RUN:
+GETDEL mykey
+EXPECT:
+"Hello"
+CLEANUP:
+DEL mykey
+
+=== TEST: GETDEL deletes the key
+SETUP:
+SET mykey "Hello"
+RUN:
+GETDEL mykey
+GET mykey
+EXPECT:
+"Hello"
+(nil)
+
+=== TEST: GETDEL non-existing key
+SETUP:
+DEL nonexistent
+RUN:
+GETDEL nonexistent
+EXPECT:
+(nil)
+
+=== TEST: GETDEL empty string
+SETUP:
+SET mykey ""
+RUN:
+GETDEL mykey
+EXPECT:
+""
+
+=== TEST: GETDEL binary data
+SETUP:
+SET mykey "hello\x00world"
+RUN:
+GETDEL mykey
+EXPECT:
+"hello\x00world"
+
+=== TEST: GETDEL with wrong type
+SETUP:
+DEL mykey
+LPUSH mykey "a"
+RUN:
+GETDEL mykey
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mykey
+
+=== TEST: GETDEL wrong number of arguments
+RUN:
+GETDEL
+EXPECT:
+(error) ERR wrong number of arguments for 'getdel' command
+
+=== TEST: GETDEL too many arguments
+RUN:
+GETDEL a b
+EXPECT:
+(error) ERR wrong number of arguments for 'getdel' command

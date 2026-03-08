@@ -1,0 +1,64 @@
+# STRLEN command tests - Get string length
+@name STRLEN
+@group strings
+@since 2.2.0
+
+=== TEST: STRLEN basic
+SETUP:
+SET mykey "Hello World"
+RUN:
+STRLEN mykey
+EXPECT:
+(integer) 11
+CLEANUP:
+DEL mykey
+
+=== TEST: STRLEN empty string
+SETUP:
+SET mykey ""
+RUN:
+STRLEN mykey
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL mykey
+
+=== TEST: STRLEN non-existing key
+SETUP:
+DEL nonexistent
+RUN:
+STRLEN nonexistent
+EXPECT:
+(integer) 0
+
+=== TEST: STRLEN single character
+SETUP:
+SET mykey "a"
+RUN:
+STRLEN mykey
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL mykey
+
+=== TEST: STRLEN with binary data
+SETUP:
+SET mykey "hello\x00world"
+RUN:
+STRLEN mykey
+EXPECT:
+(integer) 11
+CLEANUP:
+DEL mykey
+
+=== TEST: STRLEN wrong number of arguments
+RUN:
+STRLEN
+EXPECT:
+(error) ERR wrong number of arguments for 'strlen' command
+
+=== TEST: STRLEN too many arguments
+RUN:
+STRLEN key extra
+EXPECT:
+(error) ERR wrong number of arguments for 'strlen' command

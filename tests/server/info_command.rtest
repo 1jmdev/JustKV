@@ -1,0 +1,118 @@
+# INFO, DBSIZE, FLUSHDB, FLUSHALL command tests - Server information
+@name INFO
+@group server
+@since 1.0.0
+
+=== TEST: INFO basic
+RUN:
+INFO
+EXPECT:
+(any)
+
+=== TEST: INFO server
+RUN:
+INFO server
+EXPECT:
+(any)
+
+=== TEST: INFO clients
+RUN:
+INFO clients
+EXPECT:
+(any)
+
+=== TEST: INFO memory
+RUN:
+INFO memory
+EXPECT:
+(any)
+
+=== TEST: INFO persistence
+RUN:
+INFO persistence
+EXPECT:
+(any)
+
+=== TEST: INFO stats
+RUN:
+INFO stats
+EXPECT:
+(any)
+
+=== TEST: INFO replication
+RUN:
+INFO replication
+EXPECT:
+(any)
+
+=== TEST: INFO cpu
+RUN:
+INFO cpu
+EXPECT:
+(any)
+
+=== TEST: INFO commandstats
+RUN:
+INFO commandstats
+EXPECT:
+(any)
+
+=== TEST: DBSIZE basic
+SETUP:
+SET key1 "value1"
+SET key2 "value2"
+RUN:
+DBSIZE
+EXPECT:
+(integer) (any)
+CLEANUP:
+DEL key1 key2
+
+=== TEST: DBSIZE empty database
+SETUP:
+FLUSHDB
+RUN:
+DBSIZE
+EXPECT:
+(integer) 0
+
+=== TEST: FLUSHDB basic
+SETUP:
+SET key "value"
+RUN:
+FLUSHDB
+EXPECT:
+OK
+
+=== TEST: FLUSHDB clears keys
+SETUP:
+SET key "value"
+FLUSHDB
+RUN:
+DBSIZE
+EXPECT:
+(integer) 0
+
+=== TEST: FLUSHALL clears all databases
+RUN:
+FLUSHALL
+EXPECT:
+OK
+
+=== TEST: COMMAND COUNT
+RUN:
+COMMAND COUNT
+EXPECT:
+(integer) (any)
+
+=== TEST: COMMAND basic
+RUN:
+COMMAND
+EXPECT:
+(any)
+
+=== TEST: COMMAND INFO
+RUN:
+COMMAND INFO GET SET
+EXPECT:
+(any)

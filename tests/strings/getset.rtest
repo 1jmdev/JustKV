@@ -1,0 +1,63 @@
+# GETSET command tests - Get old value and set new value
+@name GETSET
+@group strings
+@since 1.0.0
+
+=== TEST: GETSET existing key
+SETUP:
+SET mykey "Hello"
+RUN:
+GETSET mykey "World"
+EXPECT:
+"Hello"
+CLEANUP:
+DEL mykey
+
+=== TEST: GETSET non-existing key
+SETUP:
+DEL mykey
+RUN:
+GETSET mykey "Hello"
+EXPECT:
+(nil)
+CLEANUP:
+DEL mykey
+
+=== TEST: GETSET actually sets value
+SETUP:
+SET mykey "old"
+RUN:
+GETSET mykey "new"
+GET mykey
+EXPECT:
+"old"
+"new"
+CLEANUP:
+DEL mykey
+
+=== TEST: GETSET empty string
+SETUP:
+SET mykey "Hello"
+RUN:
+GETSET mykey ""
+EXPECT:
+"Hello"
+CLEANUP:
+DEL mykey
+
+=== TEST: GETSET with wrong type
+SETUP:
+DEL mykey
+LPUSH mykey "a"
+RUN:
+GETSET mykey "value"
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mykey
+
+=== TEST: GETSET wrong number of arguments
+RUN:
+GETSET key
+EXPECT:
+(error) ERR wrong number of arguments for 'getset' command

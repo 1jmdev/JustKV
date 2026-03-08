@@ -1,0 +1,135 @@
+# XADD, XRANGE, XREVRANGE, XLEN command tests - Stream operations
+@name XADD-XRANGE
+@group streams
+@since 5.0.0
+
+=== TEST: XADD auto ID
+SETUP:
+DEL mystream
+RUN:
+XADD mystream * field1 "value1"
+EXPECT:
+(match) ^[0-9]+-[0-9]+$
+CLEANUP:
+DEL mystream
+
+=== TEST: XADD multiple fields
+SETUP:
+DEL mystream
+RUN:
+XADD mystream * field1 "value1" field2 "value2"
+EXPECT:
+(match) ^[0-9]+-[0-9]+$
+CLEANUP:
+DEL mystream
+
+=== TEST: XADD with explicit ID
+SETUP:
+DEL mystream
+RUN:
+XADD mystream 1000-0 field "value"
+EXPECT:
+"1000-0"
+CLEANUP:
+DEL mystream
+
+=== TEST: XADD NOMKSTREAM option
+SETUP:
+DEL mystream
+RUN:
+XADD mystream NOMKSTREAM * field "value"
+EXPECT:
+(nil)
+
+=== TEST: XLEN basic
+SETUP:
+DEL mystream
+XADD mystream * field1 "value1"
+XADD mystream * field2 "value2"
+RUN:
+XLEN mystream
+EXPECT:
+(integer) 2
+CLEANUP:
+DEL mystream
+
+=== TEST: XLEN non-existing stream
+SETUP:
+DEL mystream
+RUN:
+XLEN mystream
+EXPECT:
+(integer) 0
+
+=== TEST: XRANGE basic
+SETUP:
+DEL mystream
+XADD mystream 1000-0 field1 "value1"
+XADD mystream 2000-0 field2 "value2"
+RUN:
+XRANGE mystream - +
+EXPECT:
+(any)
+CLEANUP:
+DEL mystream
+
+=== TEST: XRANGE with COUNT
+SETUP:
+DEL mystream
+XADD mystream * field1 "value1"
+XADD mystream * field2 "value2"
+XADD mystream * field3 "value3"
+RUN:
+XRANGE mystream - + COUNT 2
+EXPECT:
+(any)
+CLEANUP:
+DEL mystream
+
+=== TEST: XREVRANGE basic
+SETUP:
+DEL mystream
+XADD mystream 1000-0 field1 "value1"
+XADD mystream 2000-0 field2 "value2"
+RUN:
+XREVRANGE mystream + -
+EXPECT:
+(any)
+CLEANUP:
+DEL mystream
+
+=== TEST: XREAD basic
+SETUP:
+DEL mystream
+XADD mystream 1000-0 field1 "value1"
+XADD mystream 2000-0 field2 "value2"
+RUN:
+XREAD STREAMS mystream 0
+EXPECT:
+(any)
+CLEANUP:
+DEL mystream
+
+=== TEST: XDEL basic
+SETUP:
+DEL mystream
+XADD mystream * field "value"
+RUN:
+XDEL mystream (any)
+EXPECT:
+(integer) (any)
+CLEANUP:
+DEL mystream
+
+=== TEST: XTRIM basic
+SETUP:
+DEL mystream
+XADD mystream * field1 "value1"
+XADD mystream * field2 "value2"
+XADD mystream * field3 "value3"
+RUN:
+XTRIM mystream MAXLEN 2
+EXPECT:
+(integer) (any)
+CLEANUP:
+DEL mystream

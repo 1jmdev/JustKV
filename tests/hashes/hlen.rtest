@@ -1,0 +1,67 @@
+# HLEN command tests - Get number of fields in hash
+@name HLEN
+@group hashes
+@since 2.0.0
+
+=== TEST: HLEN with multiple fields
+SETUP:
+HSET myhash field1 "value1" field2 "value2" field3 "value3"
+RUN:
+HLEN myhash
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL myhash
+
+=== TEST: HLEN single field
+SETUP:
+HSET myhash field1 "value1"
+RUN:
+HLEN myhash
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL myhash
+
+=== TEST: HLEN empty hash
+SETUP:
+DEL myhash
+RUN:
+HLEN myhash
+EXPECT:
+(integer) 0
+
+=== TEST: HLEN non-existing hash
+SETUP:
+DEL nonexistent
+RUN:
+HLEN nonexistent
+EXPECT:
+(integer) 0
+
+=== TEST: HLEN after deletion
+SETUP:
+HSET myhash field1 "value1" field2 "value2"
+HDEL myhash field1
+RUN:
+HLEN myhash
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL myhash
+
+=== TEST: HLEN wrong number of arguments
+RUN:
+HLEN
+EXPECT:
+(error) ERR wrong number of arguments for 'hlen' command
+
+=== TEST: HLEN wrong type
+SETUP:
+SET mystring "value"
+RUN:
+HLEN mystring
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring

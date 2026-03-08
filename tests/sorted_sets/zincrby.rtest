@@ -1,0 +1,86 @@
+# ZINCRBY command tests - Increment score of sorted set member
+@name ZINCRBY
+@group sorted_sets
+@since 1.2.0
+
+=== TEST: ZINCRBY existing member
+SETUP:
+ZADD myzset 1 "one"
+RUN:
+ZINCRBY myzset 2 "one"
+EXPECT:
+"3"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZINCRBY non-existing member
+SETUP:
+ZADD myzset 1 "one"
+RUN:
+ZINCRBY myzset 2 "two"
+EXPECT:
+"2"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZINCRBY negative increment
+SETUP:
+ZADD myzset 5 "one"
+RUN:
+ZINCRBY myzset -2 "one"
+EXPECT:
+"3"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZINCRBY float increment
+SETUP:
+ZADD myzset 1.5 "one"
+RUN:
+ZINCRBY myzset 2.5 "one"
+EXPECT:
+"4"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZINCRBY updates rank
+SETUP:
+ZADD myzset 1 "one" 3 "three"
+RUN:
+ZINCRBY myzset 5 "one"
+ZRANK myzset "one"
+EXPECT:
+"6"
+(integer) 1
+CLEANUP:
+DEL myzset
+
+=== TEST: ZINCRBY non-existing set
+SETUP:
+DEL myzset
+RUN:
+ZINCRBY myzset 1 "one"
+EXPECT:
+"1"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZINCRBY wrong type
+SETUP:
+SET mystring "value"
+RUN:
+ZINCRBY mystring 1 "one"
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring
+
+=== TEST: ZINCRBY non-numeric increment
+SETUP:
+ZADD myzset 1 "one"
+RUN:
+ZINCRBY myzset abc "one"
+EXPECT:
+(error) ERR value is not a valid float
+CLEANUP:
+DEL myzset

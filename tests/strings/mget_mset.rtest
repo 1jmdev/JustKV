@@ -1,0 +1,132 @@
+# MGET, MSET, MSETNX command tests - Multi key operations
+@name MGET-MSET
+@group strings
+@since 1.0.0
+
+=== TEST: MGET multiple keys
+SETUP:
+SET key1 "value1"
+SET key2 "value2"
+SET key3 "value3"
+RUN:
+MGET key1 key2 key3
+EXPECT:
+1) "value1"
+2) "value2"
+3) "value3"
+CLEANUP:
+DEL key1 key2 key3
+
+=== TEST: MGET with non-existing keys
+SETUP:
+SET key1 "value1"
+DEL key2
+SET key3 "value3"
+RUN:
+MGET key1 key2 key3
+EXPECT:
+1) "value1"
+2) (nil)
+3) "value3"
+CLEANUP:
+DEL key1 key3
+
+=== TEST: MGET single key
+SETUP:
+SET key1 "value1"
+RUN:
+MGET key1
+EXPECT:
+1) "value1"
+CLEANUP:
+DEL key1
+
+=== TEST: MGET empty result
+SETUP:
+DEL key1 key2 key3
+RUN:
+MGET key1 key2 key3
+EXPECT:
+1) (nil)
+2) (nil)
+3) (nil)
+
+=== TEST: MGET no arguments
+RUN:
+MGET
+EXPECT:
+(error) ERR wrong number of arguments for 'mget' command
+
+=== TEST: MSET basic
+SETUP:
+DEL key1 key2 key3
+RUN:
+MSET key1 "value1" key2 "value2" key3 "value3"
+EXPECT:
+OK
+CLEANUP:
+DEL key1 key2 key3
+
+=== TEST: MSET overwrites existing
+SETUP:
+SET key1 "old"
+RUN:
+MSET key1 "new"
+GET key1
+EXPECT:
+OK
+"new"
+CLEANUP:
+DEL key1
+
+=== TEST: MSET odd number of arguments
+RUN:
+MSET key1 "value1" key2
+EXPECT:
+(error) ERR wrong number of arguments for 'mset' command
+
+=== TEST: MSET no arguments
+RUN:
+MSET
+EXPECT:
+(error) ERR wrong number of arguments for 'mset' command
+
+=== TEST: MSETNX all new keys
+SETUP:
+DEL key1 key2 key3
+RUN:
+MSETNX key1 "value1" key2 "value2"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL key1 key2
+
+=== TEST: MSETNX one key exists
+SETUP:
+SET key1 "existing"
+DEL key2
+RUN:
+MSETNX key1 "value1" key2 "value2"
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL key1
+
+=== TEST: MSETNX does not overwrite on failure
+SETUP:
+SET key1 "existing"
+DEL key2
+RUN:
+MSETNX key1 "value1" key2 "value2"
+GET key1
+GET key2
+EXPECT:
+(integer) 0
+"existing"
+(nil)
+
+=== TEST: MSETNX odd arguments
+RUN:
+MSETNX key1 value
+EXPECT:
+(error) ERR wrong number of arguments for 'msetnx' command

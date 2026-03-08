@@ -1,0 +1,78 @@
+# HSTRLEN command tests - Get string length of hash field
+@name HSTRLEN
+@group hashes
+@since 3.2.0
+
+=== TEST: HSTRLEN basic
+SETUP:
+HSET myhash field "Hello World"
+RUN:
+HSTRLEN myhash field
+EXPECT:
+(integer) 11
+CLEANUP:
+DEL myhash
+
+=== TEST: HSTRLEN empty value
+SETUP:
+HSET myhash field ""
+RUN:
+HSTRLEN myhash field
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL myhash
+
+=== TEST: HSTRLEN non-existing field
+SETUP:
+HSET myhash field1 "value1"
+RUN:
+HSTRLEN myhash nonexistent
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL myhash
+
+=== TEST: HSTRLEN non-existing hash
+SETUP:
+DEL nonexistent
+RUN:
+HSTRLEN nonexistent field
+EXPECT:
+(integer) 0
+
+=== TEST: HSTRLEN single character
+SETUP:
+HSET myhash field "a"
+RUN:
+HSTRLEN myhash field
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL myhash
+
+=== TEST: HSTRLEN binary data
+SETUP:
+HSET myhash field "hello\x00world"
+RUN:
+HSTRLEN myhash field
+EXPECT:
+(integer) 11
+CLEANUP:
+DEL myhash
+
+=== TEST: HSTRLEN wrong number of arguments
+RUN:
+HSTRLEN key
+EXPECT:
+(error) ERR wrong number of arguments for 'hstrlen' command
+
+=== TEST: HSTRLEN wrong type
+SETUP:
+SET mystring "value"
+RUN:
+HSTRLEN mystring field
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring

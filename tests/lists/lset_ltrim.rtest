@@ -1,0 +1,126 @@
+# LSET, LTRIM command tests - List modification operations
+@name LSET-LTRIM
+@group lists
+@since 1.0.0
+
+=== TEST: LSET basic
+SETUP:
+RPUSH mylist "a" "b" "c"
+RUN:
+LSET mylist 0 "x"
+LRANGE mylist 0 -1
+EXPECT:
+OK
+1) "x"
+2) "b"
+3) "c"
+CLEANUP:
+DEL mylist
+
+=== TEST: LSET middle
+SETUP:
+RPUSH mylist "a" "b" "c"
+RUN:
+LSET mylist 1 "y"
+EXPECT:
+OK
+CLEANUP:
+DEL mylist
+
+=== TEST: LSET negative index
+SETUP:
+RPUSH mylist "a" "b" "c"
+RUN:
+LSET mylist -1 "z"
+LRANGE mylist 0 -1
+EXPECT:
+OK
+1) "a"
+2) "b"
+3) "z"
+CLEANUP:
+DEL mylist
+
+=== TEST: LSET out of range
+SETUP:
+RPUSH mylist "a" "b" "c"
+RUN:
+LSET mylist 10 "x"
+EXPECT:
+(error) ERR index out of range
+CLEANUP:
+DEL mylist
+
+=== TEST: LSET non-existing list
+SETUP:
+DEL mylist
+RUN:
+LSET mylist 0 "a"
+EXPECT:
+(error) ERR no such key
+
+=== TEST: LSET wrong type
+SETUP:
+SET mystring "value"
+RUN:
+LSET mystring 0 "a"
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring
+
+=== TEST: LTRIM basic
+SETUP:
+RPUSH mylist "a" "b" "c" "d" "e"
+RUN:
+LTRIM mylist 1 3
+LRANGE mylist 0 -1
+EXPECT:
+OK
+1) "b"
+2) "c"
+3) "d"
+CLEANUP:
+DEL mylist
+
+=== TEST: LTRIM keep all
+SETUP:
+RPUSH mylist "a" "b" "c"
+RUN:
+LTRIM mylist 0 -1
+LLEN mylist
+EXPECT:
+OK
+(integer) 3
+CLEANUP:
+DEL mylist
+
+=== TEST: LTRIM remove all
+SETUP:
+RPUSH mylist "a" "b" "c"
+RUN:
+LTRIM mylist 10 20
+LLEN mylist
+EXPECT:
+OK
+(integer) 0
+
+=== TEST: LTRIM negative indices
+SETUP:
+RPUSH mylist "a" "b" "c" "d" "e"
+RUN:
+LTRIM mylist -3 -1
+LRANGE mylist 0 -1
+EXPECT:
+OK
+1) "c"
+2) "d"
+3) "e"
+CLEANUP:
+DEL mylist
+
+=== TEST: LTRIM wrong number of arguments
+RUN:
+LTRIM key
+EXPECT:
+(error) ERR wrong number of arguments for 'ltrim' command

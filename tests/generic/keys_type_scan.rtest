@@ -1,0 +1,126 @@
+# KEYS, TYPE, SCAN command tests - Key patterns and discovery
+@name KEYS-TYPE
+@group generic
+@since 1.0.0
+
+=== TEST: KEYS exact match
+SETUP:
+SET key1 "value"
+SET other "value"
+RUN:
+KEYS key1
+EXPECT:
+1) "key1"
+CLEANUP:
+DEL key1 other
+
+=== TEST: KEYS pattern matching
+SETUP:
+SET foo1 "a"
+SET foo2 "b"
+SET bar1 "c"
+RUN:
+KEYS foo*
+EXPECT:
+(unordered)
+1) "foo1"
+2) "foo2"
+CLEANUP:
+DEL foo1 foo2 bar1
+
+=== TEST: KEYS all keys
+SETUP:
+SET key1 "a"
+SET key2 "b"
+RUN:
+KEYS *
+EXPECT:
+(any)
+CLEANUP:
+DEL key1 key2
+
+=== TEST: KEYS no matches
+SETUP:
+DEL noexist1 noexist2
+RUN:
+KEYS noexist*
+EXPECT:
+(empty array)
+
+=== TEST: KEYS question mark wildcard
+SETUP:
+SET key1 "a"
+SET key2 "b"
+SET key10 "c"
+RUN:
+KEYS key?
+EXPECT:
+(unordered)
+1) "key1"
+2) "key2"
+CLEANUP:
+DEL key1 key2 key10
+
+=== TEST: TYPE string
+SETUP:
+SET key "value"
+RUN:
+TYPE key
+EXPECT:
+string
+CLEANUP:
+DEL key
+
+=== TEST: TYPE hash
+SETUP:
+HSET myhash field "value"
+RUN:
+TYPE myhash
+EXPECT:
+hash
+CLEANUP:
+DEL myhash
+
+=== TEST: TYPE list
+SETUP:
+LPUSH mylist "a"
+RUN:
+TYPE mylist
+EXPECT:
+list
+CLEANUP:
+DEL mylist
+
+=== TEST: TYPE set
+SETUP:
+SADD myset "a"
+RUN:
+TYPE myset
+EXPECT:
+set
+CLEANUP:
+DEL myset
+
+=== TEST: TYPE zset
+SETUP:
+ZADD myzset 1 "a"
+RUN:
+TYPE myzset
+EXPECT:
+zset
+CLEANUP:
+DEL myzset
+
+=== TEST: TYPE non-existing key
+SETUP:
+DEL nonexistent
+RUN:
+TYPE nonexistent
+EXPECT:
+none
+
+=== TEST: TYPE wrong number of arguments
+RUN:
+TYPE
+EXPECT:
+(error) ERR wrong number of arguments for 'type' command

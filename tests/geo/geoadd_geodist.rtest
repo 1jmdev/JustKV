@@ -1,0 +1,136 @@
+# GEOADD, GEODIST command tests - Geospatial operations
+@name GEOADD-GEODIST
+@group geo
+@since 3.2.0
+
+=== TEST: GEOADD single location
+SETUP:
+DEL Sicily
+RUN:
+GEOADD Sicily 13.361389 38.115556 "Palermo"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL Sicily
+
+=== TEST: GEOADD multiple locations
+SETUP:
+DEL Sicily
+RUN:
+GEOADD Sicily 13.361389 38.115556 "Palermo" 15.087269 37.502669 "Catania"
+EXPECT:
+(integer) 2
+CLEANUP:
+DEL Sicily
+
+=== TEST: GEOADD overwrites location
+SETUP:
+GEOADD Sicily 13.361389 38.115556 "Palermo"
+RUN:
+GEOADD Sicily 13.361389 38.115556 "Palermo"
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL Sicily
+
+=== TEST: GEOADD with CH option
+SETUP:
+GEOADD Sicily 13.361389 38.115556 "Palermo"
+RUN:
+GEOADD Sicily CH 13.5 38.5 "Palermo"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL Sicily
+
+=== TEST: GEOADD invalid longitude
+RUN:
+GEOADD Sicily 200 38 "invalid"
+EXPECT:
+(error) ERR valid longitude
+
+=== TEST: GEOADD invalid latitude
+RUN:
+GEOADD Sicily 13 100 "invalid"
+EXPECT:
+(error) ERR valid latitude
+
+=== TEST: GEODIST basic
+SETUP:
+GEOADD Sicily 13.361389 38.115556 "Palermo" 15.087269 37.502669 "Catania"
+RUN:
+GEODIST Sicily "Palermo" "Catania"
+EXPECT:
+(any)
+CLEANUP:
+DEL Sicily
+
+=== TEST: GEODIST with unit
+SETUP:
+GEOADD Sicily 13.361389 38.115556 "Palermo" 15.087269 37.502669 "Catania"
+RUN:
+GEODIST Sicily "Palermo" "Catania" km
+EXPECT:
+(any)
+CLEANUP:
+DEL Sicily
+
+=== TEST: GEODIST meters unit
+SETUP:
+GEOADD Sicily 13.361389 38.115556 "Palermo" 15.087269 37.502669 "Catania"
+RUN:
+GEODIST Sicily "Palermo" "Catania" m
+EXPECT:
+(any)
+CLEANUP:
+DEL Sicily
+
+=== TEST: GEODIST miles unit
+SETUP:
+GEOADD Sicily 13.361389 38.115556 "Palermo" 15.087269 37.502669 "Catania"
+RUN:
+GEODIST Sicily "Palermo" "Catania" mi
+EXPECT:
+(any)
+CLEANUP:
+DEL Sicily
+
+=== TEST: GEODIST non-existing member
+SETUP:
+GEOADD Sicily 13.361389 38.115556 "Palermo"
+RUN:
+GEODIST Sicily "Palermo" "NonExistent"
+EXPECT:
+(nil)
+CLEANUP:
+DEL Sicily
+
+=== TEST: GEODIST non-existing key
+SETUP:
+DEL Sicily
+RUN:
+GEODIST Sicily "Palermo" "Catania"
+EXPECT:
+(nil)
+
+=== TEST: GEOHASH
+SETUP:
+GEOADD Sicily 13.361389 38.115556 "Palermo" 15.087269 37.502669 "Catania"
+RUN:
+GEOHASH Sicily "Palermo" "Catania"
+EXPECT:
+1) (any)
+2) (any)
+CLEANUP:
+DEL Sicily
+
+=== TEST: GEOPOS
+SETUP:
+GEOADD Sicily 13.361389 38.115556 "Palermo"
+RUN:
+GEOPOS Sicily "Palermo"
+EXPECT:
+1) 1) (any)
+   2) (any)
+CLEANUP:
+DEL Sicily

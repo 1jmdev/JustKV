@@ -1,0 +1,88 @@
+# PSETEX, SETEX command tests - Set with expiration
+@name SETEX-PSETEX
+@group strings
+@since 2.0.0
+
+=== TEST: SETEX basic
+SETUP:
+DEL mykey
+RUN:
+SETEX mykey 10 "Hello"
+EXPECT:
+OK
+CLEANUP:
+DEL mykey
+
+=== TEST: SETEX overwrites existing
+SETUP:
+SET mykey "old"
+RUN:
+SETEX mykey 10 "new"
+EXPECT:
+OK
+CLEANUP:
+DEL mykey
+
+=== TEST: SETEX zero expiration
+SETUP:
+DEL mykey
+RUN:
+SETEX mykey 0 "Hello"
+EXPECT:
+(error) ERR invalid expire time in setex
+
+=== TEST: SETEX negative expiration
+SETUP:
+DEL mykey
+RUN:
+SETEX mykey -1 "Hello"
+EXPECT:
+(error) ERR invalid expire time in setex
+
+=== TEST: SETEX wrong arguments
+RUN:
+SETEX key value
+EXPECT:
+(error) ERR wrong number of arguments for 'setex' command
+
+=== TEST: SETEX non-integer seconds
+SETUP:
+DEL mykey
+RUN:
+SETEX mykey abc "Hello"
+EXPECT:
+(error) ERR value is not an integer or out of range
+
+=== TEST: PSETEX basic
+SETUP:
+DEL mykey
+RUN:
+PSETEX mykey 10000 "Hello"
+EXPECT:
+OK
+CLEANUP:
+DEL mykey
+
+=== TEST: PSETEX overwrites
+SETUP:
+SET mykey "old"
+RUN:
+PSETEX mykey 10000 "new"
+EXPECT:
+OK
+CLEANUP:
+DEL mykey
+
+=== TEST: PSETEX wrong arguments
+RUN:
+PSETEX key value
+EXPECT:
+(error) ERR wrong number of arguments for 'psetex' command
+
+=== TEST: PSETEX non-integer milliseconds
+SETUP:
+DEL mykey
+RUN:
+PSETEX mykey abc "Hello"
+EXPECT:
+(error) ERR value is not an integer or out of range

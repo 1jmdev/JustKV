@@ -1,0 +1,79 @@
+# GETEX command tests - Get with expiration (Redis 6.2+)
+@name GETEX
+@group strings
+@since 6.2.0
+
+=== TEST: GETEX with EX option
+SETUP:
+SET mykey "Hello"
+RUN:
+GETEX mykey EX 10
+EXPECT:
+"Hello"
+CLEANUP:
+DEL mykey
+
+=== TEST: GETEX with PX option
+SETUP:
+SET mykey "Hello"
+RUN:
+GETEX mykey PX 10000
+EXPECT:
+"Hello"
+CLEANUP:
+DEL mykey
+
+=== TEST: GETEX with EXAT option
+SETUP:
+SET mykey "Hello"
+RUN:
+GETEX mykey EXAT 2000000000
+EXPECT:
+"Hello"
+CLEANUP:
+DEL mykey
+
+=== TEST: GETEX with PXAT option
+SETUP:
+SET mykey "Hello"
+RUN:
+GETEX mykey PXAT 2000000000000
+EXPECT:
+"Hello"
+CLEANUP:
+DEL mykey
+
+=== TEST: GETEX with PERSIST option
+SETUP:
+SET mykey "Hello" EX 100
+RUN:
+GETEX mykey PERSIST
+EXPECT:
+"Hello"
+CLEANUP:
+DEL mykey
+
+=== TEST: GETEX non-existing key
+SETUP:
+DEL nonexistent
+RUN:
+GETEX nonexistent EX 10
+EXPECT:
+(nil)
+
+=== TEST: GETEX with wrong type
+SETUP:
+DEL mykey
+LPUSH mykey "a"
+RUN:
+GETEX mykey EX 10
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mykey
+
+=== TEST: GETEX wrong number of arguments
+RUN:
+GETEX
+EXPECT:
+(error) ERR wrong number of arguments for 'getex' command

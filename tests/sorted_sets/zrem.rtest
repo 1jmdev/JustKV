@@ -1,0 +1,80 @@
+# ZREM command tests - Remove members from sorted set
+@name ZREM
+@group sorted_sets
+@since 1.2.0
+
+=== TEST: ZREM single member
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZREM myzset "one"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL myzset
+
+=== TEST: ZREM multiple members
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZREM myzset "one" "two"
+EXPECT:
+(integer) 2
+CLEANUP:
+DEL myzset
+
+=== TEST: ZREM non-existing member
+SETUP:
+ZADD myzset 1 "one"
+RUN:
+ZREM myzset "nonexistent"
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL myzset
+
+=== TEST: ZREM mixed existing and non-existing
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZREM myzset "one" "nonexistent" "three"
+EXPECT:
+(integer) 2
+CLEANUP:
+DEL myzset
+
+=== TEST: ZREM non-existing set
+SETUP:
+DEL myzset
+RUN:
+ZREM myzset "one"
+EXPECT:
+(integer) 0
+
+=== TEST: ZREM removes member
+SETUP:
+ZADD myzset 1 "one" 2 "two"
+RUN:
+ZREM myzset "one"
+ZSCORE myzset "one"
+EXPECT:
+(integer) 1
+(nil)
+CLEANUP:
+DEL myzset
+
+=== TEST: ZREM wrong type
+SETUP:
+SET mystring "value"
+RUN:
+ZREM mystring "one"
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring
+
+=== TEST: ZREM wrong number of arguments
+RUN:
+ZREM myzset
+EXPECT:
+(error) ERR wrong number of arguments for 'zrem' command

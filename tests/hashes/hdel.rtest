@@ -1,0 +1,68 @@
+# HDEL command tests - Delete fields from hash
+@name HDEL
+@group hashes
+@since 2.0.0
+
+=== TEST: HDEL single field
+SETUP:
+HSET myhash field1 "value1" field2 "value2"
+RUN:
+HDEL myhash field1
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL myhash
+
+=== TEST: HDEL multiple fields
+SETUP:
+HSET myhash field1 "value1" field2 "value2" field3 "value3"
+RUN:
+HDEL myhash field1 field2
+EXPECT:
+(integer) 2
+CLEANUP:
+DEL myhash
+
+=== TEST: HDEL non-existing field
+SETUP:
+HSET myhash field1 "value1"
+RUN:
+HDEL myhash nonexistent
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL myhash
+
+=== TEST: HDEL mixed existing and non-existing
+SETUP:
+HSET myhash field1 "value1" field2 "value2"
+RUN:
+HDEL myhash field1 nonexistent field2
+EXPECT:
+(integer) 2
+CLEANUP:
+DEL myhash
+
+=== TEST: HDEL non-existing hash
+SETUP:
+DEL nonexistent
+RUN:
+HDEL nonexistent field1
+EXPECT:
+(integer) 0
+
+=== TEST: HDEL wrong number of arguments
+RUN:
+HDEL key
+EXPECT:
+(error) ERR wrong number of arguments for 'hdel' command
+
+=== TEST: HDEL wrong type
+SETUP:
+SET mystring "value"
+RUN:
+HDEL mystring field
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring

@@ -1,0 +1,157 @@
+# EXPIRE, EXPIREAT, PEXPIRE, PEXPIREAT, TTL, PTTL command tests
+@name EXPIRE-TTL
+@group generic
+@since 1.0.0
+
+=== TEST: EXPIRE basic
+SETUP:
+SET key "value"
+RUN:
+EXPIRE key 100
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL key
+
+=== TEST: EXPIRE non-existing key
+SETUP:
+DEL nonexistent
+RUN:
+EXPIRE nonexistent 100
+EXPECT:
+(integer) 0
+
+=== TEST: EXPIRE zero seconds
+SETUP:
+SET key "value"
+RUN:
+EXPIRE key 0
+EXPECT:
+(integer) 1
+
+=== TEST: EXPIRE negative seconds
+SETUP:
+SET key "value"
+RUN:
+EXPIRE key -1
+EXPECT:
+(integer) 1
+
+=== TEST: EXPIREAT future timestamp
+SETUP:
+SET key "value"
+RUN:
+EXPIREAT key 2000000000
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL key
+
+=== TEST: EXPIREAT non-existing key
+SETUP:
+DEL nonexistent
+RUN:
+EXPIREAT nonexistent 2000000000
+EXPECT:
+(integer) 0
+
+=== TEST: PEXPIRE basic
+SETUP:
+SET key "value"
+RUN:
+PEXPIRE key 100000
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL key
+
+=== TEST: PEXPIREAT future timestamp
+SETUP:
+SET key "value"
+RUN:
+PEXPIREAT key 2000000000000
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL key
+
+=== TEST: TTL existing key with expiration
+SETUP:
+SET key "value"
+EXPIRE key 100
+RUN:
+TTL key
+EXPECT:
+(any)
+CLEANUP:
+DEL key
+
+=== TEST: TTL key without expiration
+SETUP:
+SET key "value"
+RUN:
+TTL key
+EXPECT:
+(integer) -1
+CLEANUP:
+DEL key
+
+=== TEST: TTL non-existing key
+SETUP:
+DEL nonexistent
+RUN:
+TTL nonexistent
+EXPECT:
+(integer) -2
+
+=== TEST: PTTL existing key with expiration
+SETUP:
+SET key "value"
+PEXPIRE key 100000
+RUN:
+PTTL key
+EXPECT:
+(any)
+CLEANUP:
+DEL key
+
+=== TEST: PTTL key without expiration
+SETUP:
+SET key "value"
+RUN:
+PTTL key
+EXPECT:
+(integer) -1
+CLEANUP:
+DEL key
+
+=== TEST: PTTL non-existing key
+SETUP:
+DEL nonexistent
+RUN:
+PTTL nonexistent
+EXPECT:
+(integer) -2
+
+=== TEST: PERSIST removes expiration
+SETUP:
+SET key "value"
+EXPIRE key 100
+RUN:
+PERSIST key
+TTL key
+EXPECT:
+(integer) 1
+(integer) -1
+CLEANUP:
+DEL key
+
+=== TEST: PERSIST non-expiring key
+SETUP:
+SET key "value"
+RUN:
+PERSIST key
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL key

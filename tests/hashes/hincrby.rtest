@@ -1,0 +1,104 @@
+# HINCRBY, HINCRBYFLOAT command tests - Increment hash field values
+@name HINCRBY
+@group hashes
+@since 2.0.0
+
+=== TEST: HINCRBY existing field
+SETUP:
+HSET myhash field 10
+RUN:
+HINCRBY myhash field 5
+EXPECT:
+(integer) 15
+CLEANUP:
+DEL myhash
+
+=== TEST: HINCRBY non-existing field
+SETUP:
+HSET myhash field1 "value1"
+RUN:
+HINCRBY myhash field2 10
+EXPECT:
+(integer) 10
+CLEANUP:
+DEL myhash
+
+=== TEST: HINCRBY negative increment
+SETUP:
+HSET myhash field 10
+RUN:
+HINCRBY myhash field -5
+EXPECT:
+(integer) 5
+CLEANUP:
+DEL myhash
+
+=== TEST: HINCRBY by zero
+SETUP:
+HSET myhash field 10
+RUN:
+HINCRBY myhash field 0
+EXPECT:
+(integer) 10
+CLEANUP:
+DEL myhash
+
+=== TEST: HINCRBY non-integer value
+SETUP:
+HSET myhash field "hello"
+RUN:
+HINCRBY myhash field 5
+EXPECT:
+(error) ERR hash value is not an integer
+CLEANUP:
+DEL myhash
+
+=== TEST: HINCRBY non-integer increment
+SETUP:
+HSET myhash field 10
+RUN:
+HINCRBY myhash field abc
+EXPECT:
+(error) ERR value is not an integer or out of range
+CLEANUP:
+DEL myhash
+
+=== TEST: HINCRBYFLOAT existing field
+SETUP:
+HSET myhash field 10.5
+RUN:
+HINCRBYFLOAT myhash field 0.1
+EXPECT:
+"10.6"
+CLEANUP:
+DEL myhash
+
+=== TEST: HINCRBYFLOAT non-existing field
+SETUP:
+HSET myhash field1 "value1"
+RUN:
+HINCRBYFLOAT myhash field2 2.5
+EXPECT:
+"2.5"
+CLEANUP:
+DEL myhash
+
+=== TEST: HINCRBYFLOAT negative increment
+SETUP:
+HSET myhash field 10.5
+RUN:
+HINCRBYFLOAT myhash field -2.3
+EXPECT:
+"8.2"
+CLEANUP:
+DEL myhash
+
+=== TEST: HINCRBYFLOAT non-float value
+SETUP:
+HSET myhash field "hello"
+RUN:
+HINCRBYFLOAT myhash field 1.5
+EXPECT:
+(error) ERR hash value is not a float
+CLEANUP:
+DEL myhash

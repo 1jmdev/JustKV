@@ -1,0 +1,106 @@
+# HKEYS, HVALS command tests - Get all keys or values from hash
+@name HKEYS-HVALS
+@group hashes
+@since 2.0.0
+
+=== TEST: HKEYS multiple fields
+SETUP:
+HSET myhash field1 "value1" field2 "value2" field3 "value3"
+RUN:
+HKEYS myhash
+EXPECT:
+(unordered)
+1) "field1"
+2) "field2"
+3) "field3"
+CLEANUP:
+DEL myhash
+
+=== TEST: HKEYS single field
+SETUP:
+HSET myhash field1 "value1"
+RUN:
+HKEYS myhash
+EXPECT:
+1) "field1"
+CLEANUP:
+DEL myhash
+
+=== TEST: HKEYS empty hash
+SETUP:
+DEL myhash
+RUN:
+HKEYS myhash
+EXPECT:
+(empty array)
+
+=== TEST: HKEYS non-existing hash
+SETUP:
+DEL nonexistent
+RUN:
+HKEYS nonexistent
+EXPECT:
+(empty array)
+
+=== TEST: HKEYS wrong type
+SETUP:
+SET mystring "value"
+RUN:
+HKEYS mystring
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring
+
+=== TEST: HVALS multiple fields
+SETUP:
+HSET myhash field1 "value1" field2 "value2" field3 "value3"
+RUN:
+HVALS myhash
+EXPECT:
+(unordered)
+1) "value1"
+2) "value2"
+3) "value3"
+CLEANUP:
+DEL myhash
+
+=== TEST: HVALS single field
+SETUP:
+HSET myhash field1 "value1"
+RUN:
+HVALS myhash
+EXPECT:
+1) "value1"
+CLEANUP:
+DEL myhash
+
+=== TEST: HVALS empty hash
+SETUP:
+DEL myhash
+RUN:
+HVALS myhash
+EXPECT:
+(empty array)
+
+=== TEST: HVALS empty values
+SETUP:
+HSET myhash field1 "" field2 ""
+RUN:
+HVALS myhash
+EXPECT:
+(unordered)
+1) ""
+2) ""
+CLEANUP:
+DEL myhash
+
+=== TEST: HVALS wrong type
+SETUP:
+SET mystring "value"
+RUN:
+HVALS mystring
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring

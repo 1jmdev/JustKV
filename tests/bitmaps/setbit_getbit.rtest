@@ -1,0 +1,126 @@
+# SETBIT, GETBIT command tests - Bitmap operations
+@name SETBIT-GETBIT
+@group bitmaps
+@since 2.2.0
+
+=== TEST: SETBIT basic
+SETUP:
+DEL mykey
+RUN:
+SETBIT mykey 7 1
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL mykey
+
+=== TEST: SETBIT overwrites bit
+SETUP:
+SETBIT mykey 7 1
+RUN:
+SETBIT mykey 7 0
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL mykey
+
+=== TEST: SETBIT returns previous value
+SETUP:
+DEL mykey
+RUN:
+SETBIT mykey 0 1
+SETBIT mykey 0 1
+EXPECT:
+(integer) 0
+(integer) 1
+CLEANUP:
+DEL mykey
+
+=== TEST: SETBIT multiple bits
+SETUP:
+DEL mykey
+RUN:
+SETBIT mykey 0 1
+SETBIT mykey 7 1
+SETBIT mykey 10 1
+EXPECT:
+(integer) 0
+(integer) 0
+(integer) 0
+CLEANUP:
+DEL mykey
+
+=== TEST: SETBIT non-existing key
+SETUP:
+DEL mykey
+RUN:
+SETBIT mykey 0 1
+EXISTS mykey
+EXPECT:
+(integer) 0
+(integer) 1
+CLEANUP:
+DEL mykey
+
+=== TEST: SETBIT invalid value
+SETUP:
+DEL mykey
+RUN:
+SETBIT mykey 0 2
+EXPECT:
+(error) ERR bit is not an integer or out of range
+
+=== TEST: SETBIT invalid offset
+SETUP:
+DEL mykey
+RUN:
+SETBIT mykey -1 1
+EXPECT:
+(error) ERR bit offset is not an integer or out of range
+
+=== TEST: GETBIT basic
+SETUP:
+SETBIT mykey 7 1
+RUN:
+GETBIT mykey 7
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL mykey
+
+=== TEST: GETBIT unset bit
+SETUP:
+SETBIT mykey 7 1
+RUN:
+GETBIT mykey 5
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL mykey
+
+=== TEST: GETBIT non-existing key
+SETUP:
+DEL mykey
+RUN:
+GETBIT mykey 0
+EXPECT:
+(integer) 0
+
+=== TEST: GETBIT out of range
+SETUP:
+SETBIT mykey 7 1
+RUN:
+GETBIT mykey 1000
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL mykey
+
+=== TEST: GETBIT wrong type
+SETUP:
+SET mystring "value"
+RUN:
+GETBIT mystring 0
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring

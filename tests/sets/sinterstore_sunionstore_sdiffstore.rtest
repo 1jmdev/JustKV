@@ -1,0 +1,108 @@
+# SINTERSTORE, SUNIONSTORE, SDIFFSTORE command tests - Set operations with storage
+@name SINTERSTORE-SUNIONSTORE-SDIFFSTORE
+@group sets
+@since 1.0.0
+
+=== TEST: SINTERSTORE basic
+SETUP:
+SADD set1 "a" "b" "c"
+SADD set2 "b" "c" "d"
+DEL dest
+RUN:
+SINTERSTORE dest set1 set2
+SMEMBERS dest
+EXPECT:
+(integer) 2
+(unordered)
+1) "b"
+2) "c"
+CLEANUP:
+DEL set1 set2 dest
+
+=== TEST: SINTERSTORE no intersection
+SETUP:
+SADD set1 "a" "b"
+SADD set2 "c" "d"
+DEL dest
+RUN:
+SINTERSTORE dest set1 set2
+EXISTS dest
+EXPECT:
+(integer) 0
+(integer) 0
+CLEANUP:
+DEL set1 set2
+
+=== TEST: SINTERSTORE overwrites destination
+SETUP:
+SADD set1 "a" "b"
+SADD set2 "b"
+SADD dest "x" "y" "z"
+RUN:
+SINTERSTORE dest set1 set2
+SMEMBERS dest
+EXPECT:
+(integer) 1
+1) "b"
+CLEANUP:
+DEL set1 set2 dest
+
+=== TEST: SUNIONSTORE basic
+SETUP:
+SADD set1 "a" "b"
+SADD set2 "c" "d"
+DEL dest
+RUN:
+SUNIONSTORE dest set1 set2
+SMEMBERS dest
+EXPECT:
+(integer) 4
+(unordered)
+1) "a"
+2) "b"
+3) "c"
+4) "d"
+CLEANUP:
+DEL set1 set2 dest
+
+=== TEST: SUNIONSTORE overlapping
+SETUP:
+SADD set1 "a" "b"
+SADD set2 "b" "c"
+DEL dest
+RUN:
+SUNIONSTORE dest set1 set2
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL set1 set2 dest
+
+=== TEST: SDIFFSTORE basic
+SETUP:
+SADD set1 "a" "b" "c"
+SADD set2 "b"
+DEL dest
+RUN:
+SDIFFSTORE dest set1 set2
+SMEMBERS dest
+EXPECT:
+(integer) 2
+(unordered)
+1) "a"
+2) "c"
+CLEANUP:
+DEL set1 set2 dest
+
+=== TEST: SDIFFSTORE no difference
+SETUP:
+SADD set1 "a" "b"
+SADD set2 "a" "b"
+DEL dest
+RUN:
+SDIFFSTORE dest set1 set2
+EXISTS dest
+EXPECT:
+(integer) 0
+(integer) 0
+CLEANUP:
+DEL set1 set2

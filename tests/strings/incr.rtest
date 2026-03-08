@@ -1,0 +1,146 @@
+# INCR, INCRBY, INCRBYFLOAT command tests - Increment values
+@name INCR
+@group strings
+@since 1.0.0
+
+=== TEST: INCR existing integer
+SETUP:
+SET counter 10
+RUN:
+INCR counter
+EXPECT:
+(integer) 11
+CLEANUP:
+DEL counter
+
+=== TEST: INCR non-existing key
+SETUP:
+DEL counter
+RUN:
+INCR counter
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL counter
+
+=== TEST: INCR at boundary (max int)
+SETUP:
+SET counter 9223372036854775806
+RUN:
+INCR counter
+EXPECT:
+(integer) 9223372036854775807
+CLEANUP:
+DEL counter
+
+=== TEST: INCR on non-integer
+SETUP:
+SET mykey "hello"
+RUN:
+INCR mykey
+EXPECT:
+(error) ERR value is not an integer or out of range
+CLEANUP:
+DEL mykey
+
+=== TEST: INCR wrong number of arguments
+RUN:
+INCR
+EXPECT:
+(error) ERR wrong number of arguments for 'incr' command
+
+=== TEST: INCRBY basic
+SETUP:
+SET counter 10
+RUN:
+INCRBY counter 5
+EXPECT:
+(integer) 15
+CLEANUP:
+DEL counter
+
+=== TEST: INCRBY non-existing key
+SETUP:
+DEL counter
+RUN:
+INCRBY counter 10
+EXPECT:
+(integer) 10
+CLEANUP:
+DEL counter
+
+=== TEST: INCRBY by zero
+SETUP:
+SET counter 5
+RUN:
+INCRBY counter 0
+EXPECT:
+(integer) 5
+CLEANUP:
+DEL counter
+
+=== TEST: INCRBY negative increment
+SETUP:
+SET counter 10
+RUN:
+INCRBY counter -5
+EXPECT:
+(integer) 5
+CLEANUP:
+DEL counter
+
+=== TEST: INCRBY with wrong arguments
+RUN:
+INCRBY key
+EXPECT:
+(error) ERR wrong number of arguments for 'incrby' command
+
+=== TEST: INCRBYFLOAT basic
+SETUP:
+SET counter 10.5
+RUN:
+INCRBYFLOAT counter 0.1
+EXPECT:
+"10.6"
+CLEANUP:
+DEL counter
+
+=== TEST: INCRBYFLOAT on integer
+SETUP:
+SET counter 10
+RUN:
+INCRBYFLOAT counter 2.5
+EXPECT:
+"12.5"
+CLEANUP:
+DEL counter
+
+=== TEST: INCRBYFLOAT non-existing key
+SETUP:
+DEL counter
+RUN:
+INCRBYFLOAT counter 2.5
+EXPECT:
+"2.5"
+CLEANUP:
+DEL counter
+
+=== TEST: INCRBYFLOAT negative increment
+SETUP:
+SET counter 10.5
+RUN:
+INCRBYFLOAT counter -2.3
+EXPECT:
+"8.2"
+CLEANUP:
+DEL counter
+
+=== TEST: INCRBYFLOAT on non-float
+SETUP:
+SET mykey "hello"
+RUN:
+INCRBYFLOAT mykey 1.5
+EXPECT:
+(error) ERR value is not a valid float
+CLEANUP:
+DEL mykey

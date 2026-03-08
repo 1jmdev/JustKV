@@ -1,0 +1,126 @@
+# ZADD command tests - Add members to sorted set
+@name ZADD
+@group sorted_sets
+@since 1.2.0
+
+=== TEST: ZADD single member
+SETUP:
+DEL myzset
+RUN:
+ZADD myzset 1 "one"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL myzset
+
+=== TEST: ZADD multiple members
+SETUP:
+DEL myzset
+RUN:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL myzset
+
+=== TEST: ZADD duplicate member
+SETUP:
+ZADD myzset 1 "one"
+RUN:
+ZADD myzset 2 "one"
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL myzset
+
+=== TEST: ZADD returns count
+SETUP:
+ZADD myzset 1 "one" 2 "two"
+RUN:
+ZADD myzset 2 "two" 3 "three"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL myzset
+
+=== TEST: ZADD float score
+SETUP:
+DEL myzset
+RUN:
+ZADD myzset 1.5 "one"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL myzset
+
+=== TEST: ZADD negative score
+SETUP:
+DEL myzset
+RUN:
+ZADD myzset -5 "negative"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL myzset
+
+=== TEST: ZADD with NX option
+SETUP:
+DEL myzset
+RUN:
+ZADD myzset NX 1 "one"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL myzset
+
+=== TEST: ZADD with XX option
+SETUP:
+ZADD myzset 1 "one"
+RUN:
+ZADD myzset XX 2 "one"
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL myzset
+
+=== TEST: ZADD with GT option (6.2+)
+SETUP:
+ZADD myzset 1 "one"
+RUN:
+ZADD myzset GT 2 "one"
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL myzset
+
+=== TEST: ZADD with LT option (6.2+)
+SETUP:
+ZADD myzset 2 "one"
+RUN:
+ZADD myzset LT 1 "one"
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL myzset
+
+=== TEST: ZADD with INCR option
+SETUP:
+ZADD myzset 1 "one"
+RUN:
+ZADD myzset INCR 2 "one"
+EXPECT:
+"3"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZADD wrong number of arguments
+RUN:
+ZADD myzset
+EXPECT:
+(error) ERR wrong number of arguments for 'zadd' command
+
+=== TEST: ZADD non-numeric score
+RUN:
+ZADD myzset abc "one"
+EXPECT:
+(error) ERR value is not a valid float

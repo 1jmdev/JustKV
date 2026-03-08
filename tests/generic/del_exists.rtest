@@ -1,0 +1,115 @@
+# DEL, EXISTS, UNLINK command tests - Key operations
+@name DEL-EXISTS
+@group generic
+@since 1.0.0
+
+=== TEST: DEL single key
+SETUP:
+SET key1 "value"
+RUN:
+DEL key1
+EXPECT:
+(integer) 1
+
+=== TEST: DEL multiple keys
+SETUP:
+SET key1 "value1"
+SET key2 "value2"
+SET key3 "value3"
+RUN:
+DEL key1 key2 key3
+EXPECT:
+(integer) 3
+
+=== TEST: DEL non-existing key
+SETUP:
+DEL nonexistent
+RUN:
+DEL nonexistent
+EXPECT:
+(integer) 0
+
+=== TEST: DEL mixed existing and non-existing
+SETUP:
+SET key1 "value1"
+DEL key2
+RUN:
+DEL key1 key2 key3
+EXPECT:
+(integer) 1
+
+=== TEST: DEL wrong number of arguments
+RUN:
+DEL
+EXPECT:
+(error) ERR wrong number of arguments for 'del' command
+
+=== TEST: EXISTS single key
+SETUP:
+SET key1 "value"
+RUN:
+EXISTS key1
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL key1
+
+=== TEST: EXISTS non-existing key
+SETUP:
+DEL nonexistent
+RUN:
+EXISTS nonexistent
+EXPECT:
+(integer) 0
+
+=== TEST: EXISTS multiple keys
+SETUP:
+SET key1 "value1"
+SET key2 "value2"
+RUN:
+EXISTS key1 key2 key3
+EXPECT:
+(integer) 2
+CLEANUP:
+DEL key1 key2
+
+=== TEST: EXISTS duplicate key
+SETUP:
+SET key1 "value"
+RUN:
+EXISTS key1 key1
+EXPECT:
+(integer) 2
+CLEANUP:
+DEL key1
+
+=== TEST: EXISTS wrong number of arguments
+RUN:
+EXISTS
+EXPECT:
+(error) ERR wrong number of arguments for 'exists' command
+
+=== TEST: UNLINK single key
+SETUP:
+SET key1 "value"
+RUN:
+UNLINK key1
+EXPECT:
+(integer) 1
+
+=== TEST: UNLINK multiple keys
+SETUP:
+SET key1 "value1"
+SET key2 "value2"
+RUN:
+UNLINK key1 key2
+EXPECT:
+(integer) 2
+
+=== TEST: UNLINK non-existing key
+SETUP:
+DEL nonexistent
+RUN:
+UNLINK nonexistent
+EXPECT:
+(integer) 0

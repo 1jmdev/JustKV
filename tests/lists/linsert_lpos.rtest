@@ -1,0 +1,100 @@
+# LINSERT, LPOS command tests - List insertion operations
+@name LINSERT-LPOS
+@group lists
+@since 2.2.0
+
+=== TEST: LINSERT before
+SETUP:
+RPUSH mylist "a" "c"
+RUN:
+LINSERT mylist BEFORE "c" "b"
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL mylist
+
+=== TEST: LINSERT after
+SETUP:
+RPUSH mylist "a" "b"
+RUN:
+LINSERT mylist AFTER "a" "x"
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL mylist
+
+=== TEST: LINSERT pivot not found
+SETUP:
+RPUSH mylist "a" "b"
+RUN:
+LINSERT mylist BEFORE "x" "y"
+EXPECT:
+(integer) -1
+CLEANUP:
+DEL mylist
+
+=== TEST: LINSERT non-existing list
+SETUP:
+DEL mylist
+RUN:
+LINSERT mylist BEFORE "a" "b"
+EXPECT:
+(integer) 0
+
+=== TEST: LINSERT wrong type
+SETUP:
+SET mystring "value"
+RUN:
+LINSERT mystring BEFORE "a" "b"
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring
+
+=== TEST: LPOS basic
+SETUP:
+RPUSH mylist "a" "b" "c" "b" "d"
+RUN:
+LPOS mylist "b"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL mylist
+
+=== TEST: LPOS not found
+SETUP:
+RPUSH mylist "a" "b" "c"
+RUN:
+LPOS mylist "x"
+EXPECT:
+(nil)
+CLEANUP:
+DEL mylist
+
+=== TEST: LPOS first occurrence
+SETUP:
+RPUSH mylist "a" "b" "c" "b" "d"
+RUN:
+LPOS mylist "b"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL mylist
+
+=== TEST: LPOS non-existing list
+SETUP:
+DEL mylist
+RUN:
+LPOS mylist "a"
+EXPECT:
+(nil)
+
+=== TEST: LPOS wrong type
+SETUP:
+SET mystring "value"
+RUN:
+LPOS mystring "a"
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring
