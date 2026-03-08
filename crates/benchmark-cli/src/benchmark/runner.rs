@@ -104,6 +104,9 @@ pub async fn run_single_benchmark(args: &Args, run: BenchRun) -> Result<BenchRes
 
     let mut samples = Vec::new();
     let mut total_completed = 0u64;
+    let mut total_build_ns = 0u64;
+    let mut total_write_ns = 0u64;
+    let mut total_response_ns = 0u64;
     for handle in handles {
         let thread_stats = handle
             .join()
@@ -111,6 +114,9 @@ pub async fn run_single_benchmark(args: &Args, run: BenchRun) -> Result<BenchRes
         for stats in thread_stats {
             total_completed += stats.completed;
             samples.extend(stats.latencies_ns);
+            total_build_ns += stats.build_ns;
+            total_write_ns += stats.write_ns;
+            total_response_ns += stats.response_ns;
         }
     }
 
@@ -132,6 +138,18 @@ pub async fn run_single_benchmark(args: &Args, run: BenchRun) -> Result<BenchRes
     let p95_ms = percentile_ms(&samples, 95.0);
     let p99_ms = percentile_ms(&samples, 99.0);
     let max_ms = ns_to_ms(*samples.last().unwrap_or(&0));
+    let req_count = total_completed.max(1) as f64;
+    let bench_build_ns_per_req = total_build_ns as f64 / req_count;
+    let bench_write_ns_per_req = total_write_ns as f64 / req_count;
+    let bench_response_ns_per_req = total_response_ns as f64 / req_count;
+    let bench_total_ns_per_req =
+        bench_build_ns_per_req + bench_write_ns_per_req + bench_response_ns_per_req;
+    let avg_latency_ns = avg_ms * 1_000_000.0;
+    let bench_pressure_pct = if avg_latency_ns > 0.0 {
+        bench_total_ns_per_req * 100.0 / avg_latency_ns
+    } else {
+        0.0
+    };
 
     Ok(BenchResult {
         name: shared.run.name.clone(),
@@ -147,7 +165,11 @@ pub async fn run_single_benchmark(args: &Args, run: BenchRun) -> Result<BenchRes
         max_ms,
         data_size: shared.run.data_size,
         keep_alive: shared.run.keep_alive,
-        multi_thread: args.multi_thread_enabled(),
+        bench_build_ns_per_req,
+        bench_write_ns_per_req,
+        bench_response_ns_per_req,
+        bench_total_ns_per_req,
+        bench_pressure_pct,
         cumulative_distribution: build_cumulative_distribution(&samples),
         samples_ns: samples,
     })
@@ -305,6 +327,7 @@ async fn run_worker(
         ) {
             Some(group) => group,
             None => {
+                let built_at = Instant::now();
                 dynamic_group = build_request_group(
                     &cfg.run,
                     &key_base,
@@ -312,16 +335,20 @@ async fn run_worker(
                     batch,
                     &mut random,
                 )?;
+                stats.build_ns += built_at.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64;
                 &dynamic_group
             }
         };
         let sent_at = Instant::now();
+        let write_started = Instant::now();
         connection
             .stream
             .write_all(&request_group.payload)
             .await
             .map_err(|err| format!("write failed: {err}"))?;
+        stats.write_ns += write_started.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64;
 
+        let response_started = Instant::now();
         if cfg.no_response_check {
             consume_responses_unchecked(
                 &mut connection.stream,
@@ -356,6 +383,7 @@ async fn run_worker(
                     .latencies_ns
                     .push(started.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64);
             }
+            stats.response_ns += response_started.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64;
             stats.completed += batch as u64;
             progress
                 .completed
@@ -363,6 +391,7 @@ async fn run_worker(
             remaining -= batch as u64;
             continue;
         }
+        stats.response_ns += response_started.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64;
 
         record_batch(&mut stats, &progress, sent_at, batch, !cfg.no_response_check);
         remaining -= batch as u64;
@@ -487,14 +516,21 @@ async fn run_prebuilt_worker(
     let full_batch_len = full_batch.encoded.len();
     let full_batch_writer = full_batch.clone();
     let tail_batch_writer = tail_batch.clone();
+    let write_ns = Arc::new(AtomicU64::new(0));
+    let writer_write_ns = Arc::clone(&write_ns);
 
     let writer_task = tokio::spawn(async move {
         for _ in 0..full_batch_count {
             let sent_at = Instant::now();
+            let write_started = Instant::now();
             writer
                 .write_all(&full_batch_writer.payload)
                 .await
                 .map_err(|err| format!("write failed: {err}"))?;
+            writer_write_ns.fetch_add(
+                write_started.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64,
+                Ordering::Relaxed,
+            );
             timestamps_tx
                 .send((sent_at, full_batch_len))
                 .map_err(|_| "writer timestamp channel closed".to_string())?;
@@ -503,10 +539,15 @@ async fn run_prebuilt_worker(
         if let Some(tail_batch) = tail_batch_writer {
             if tail_batch_len > 0 {
                 let sent_at = Instant::now();
+                let write_started = Instant::now();
                 writer
                     .write_all(&tail_batch.payload)
                     .await
                     .map_err(|err| format!("write failed: {err}"))?;
+                writer_write_ns.fetch_add(
+                    write_started.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64,
+                    Ordering::Relaxed,
+                );
                 timestamps_tx
                     .send((sent_at, tail_batch.encoded.len()))
                     .map_err(|_| "writer timestamp channel closed".to_string())?;
@@ -517,8 +558,10 @@ async fn run_prebuilt_worker(
     });
 
     for _ in 0..full_batch_count {
+        let response_started = Instant::now();
         consume_prebuilt_batch(&mut reader, &mut parse_buf, &full_batch, cfg.no_response_check, cfg.strict)
             .await?;
+        stats.response_ns += response_started.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64;
         let (sent_at, batch) = timestamps_rx
             .recv()
             .await
@@ -528,6 +571,7 @@ async fn run_prebuilt_worker(
 
     if let Some(tail_batch) = tail_batch.as_ref() {
         if tail_batch_len > 0 {
+            let response_started = Instant::now();
             consume_prebuilt_batch(
                 &mut reader,
                 &mut parse_buf,
@@ -536,6 +580,7 @@ async fn run_prebuilt_worker(
                 cfg.strict,
             )
             .await?;
+            stats.response_ns += response_started.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64;
             let (sent_at, batch) = timestamps_rx
                 .recv()
                 .await
@@ -547,6 +592,7 @@ async fn run_prebuilt_worker(
     writer_task
         .await
         .map_err(|err| format!("writer join error: {err}"))??;
+    stats.write_ns += write_ns.load(Ordering::Relaxed);
 
     Ok(stats)
 }

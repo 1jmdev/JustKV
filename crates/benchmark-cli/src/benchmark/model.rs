@@ -7,6 +7,9 @@ use crate::workload::BenchRun;
 pub(crate) struct WorkerStats {
     pub completed: u64,
     pub latencies_ns: Vec<u64>,
+    pub build_ns: u64,
+    pub write_ns: u64,
+    pub response_ns: u64,
 }
 
 pub struct CumulativeBucket {
@@ -29,7 +32,11 @@ pub struct BenchResult {
     pub max_ms: f64,
     pub data_size: usize,
     pub keep_alive: bool,
-    pub multi_thread: bool,
+    pub bench_build_ns_per_req: f64,
+    pub bench_write_ns_per_req: f64,
+    pub bench_response_ns_per_req: f64,
+    pub bench_total_ns_per_req: f64,
+    pub bench_pressure_pct: f64,
     pub(crate) samples_ns: Vec<u64>,
     pub cumulative_distribution: Vec<CumulativeBucket>,
 }

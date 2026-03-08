@@ -29,8 +29,15 @@ pub fn render_result(args: &Args, result: &BenchResult) {
     println!("  {} bytes payload", result.data_size);
     println!("  keep alive: {}", if result.keep_alive { 1 } else { 0 });
     println!(
-        "  multi-thread: {}",
-        if result.multi_thread { "yes" } else { "no" }
+        "  benchmarker cost: {:.1} ns build / {:.1} ns write / {:.1} ns read+check",
+        result.bench_build_ns_per_req,
+        result.bench_write_ns_per_req,
+        result.bench_response_ns_per_req,
+    );
+    println!(
+        "  benchmarker pressure: {:.1} ns total per req ({}% of avg latency)",
+        result.bench_total_ns_per_req,
+        format_percent(result.bench_pressure_pct),
     );
     println!();
 
@@ -92,6 +99,16 @@ pub fn progress_line(name: &str, completed: u64, total: u64, elapsed_secs: f64) 
 
 fn format_float(value: f64, precision: usize) -> String {
     format!("{value:.precision$}")
+}
+
+fn format_percent(value: f64) -> String {
+    if value >= 1.0 {
+        format!("{value:.1}")
+    } else if value >= 0.1 {
+        format!("{value:.2}")
+    } else {
+        format!("{value:.3}")
+    }
 }
 
 #[allow(dead_code)]

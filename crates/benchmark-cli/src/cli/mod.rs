@@ -145,10 +145,6 @@ impl Args {
         self.keep_alive != 0
     }
 
-    pub fn multi_thread_enabled(&self) -> bool {
-        self.threads.unwrap_or(1) > 1
-    }
-
     pub fn thread_count(&self) -> usize {
         self.threads.unwrap_or_else(default_threads)
     }
