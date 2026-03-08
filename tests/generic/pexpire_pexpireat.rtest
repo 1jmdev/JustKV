@@ -1,0 +1,112 @@
+# PEXPIRE and PEXPIREAT command tests - Millisecond precision expiration
+@name PEXPIRE-PEXPIREAT
+@group generic
+@since 2.6.0
+
+=== TEST: PEXPIRE on existing key
+SETUP:
+SET mykey "Hello"
+RUN:
+PEXPIRE mykey 1500
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL mykey
+
+=== TEST: PEXPIRE on non-existing key
+RUN:
+PEXPIRE nonexistent 1000
+EXPECT:
+(integer) 0
+
+=== TEST: PEXPIRE zero milliseconds
+SETUP:
+SET mykey "Hello"
+RUN:
+PEXPIRE mykey 0
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL mykey
+
+=== TEST: PEXPIRE negative milliseconds
+SETUP:
+SET mykey "Hello"
+RUN:
+PEXPIRE mykey -1000
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL mykey
+
+=== TEST: PEXPIREAT with future timestamp
+SETUP:
+SET mykey "Hello"
+RUN:
+PEXPIREAT mykey 9999999999999
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL mykey
+
+=== TEST: PEXPIREAT with past timestamp
+SETUP:
+SET mykey "Hello"
+RUN:
+PEXPIREAT mykey 1000
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL mykey
+
+=== TEST: PEXPIRE large value
+SETUP:
+SET mykey "Hello"
+RUN:
+PEXPIRE mykey 999999999999
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL mykey
+
+=== TEST: PEXPIRE wrong type
+SETUP:
+LPUSH mylist "value"
+RUN:
+PEXPIRE mylist 1000
+EXPECT:
+(error) (not an error if command works on non-string types)
+CLEANUP:
+DEL mylist
+
+=== TEST: PEXPIRE invalid milliseconds
+SETUP:
+SET mykey "Hello"
+RUN:
+PEXPIRE mykey notint
+EXPECT:
+(error) ERR value is not an integer or out of range
+CLEANUP:
+DEL mykey
+
+=== TEST: PEXPIREAT invalid timestamp
+SETUP:
+SET mykey "Hello"
+RUN:
+PEXPIREAT mykey nottime
+EXPECT:
+(error) ERR value is not an integer or out of range
+CLEANUP:
+DEL mykey
+
+=== TEST: PEXPIRE wrong number of arguments
+RUN:
+PEXPIRE key
+EXPECT:
+(error) ERR wrong number of arguments for 'pexpire' command
+
+=== TEST: PEXPIREAT wrong number of arguments
+RUN:
+PEXPIREAT key
+EXPECT:
+(error) ERR wrong number of arguments for 'pexpireat' command

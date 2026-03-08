@@ -1,0 +1,34 @@
+# AUTH command tests - Authenticate with password
+@name AUTH
+@group connection
+@since 1.0.0
+
+=== TEST: AUTH without password configured
+RUN:
+AUTH mypassword
+EXPECT:
+(error) ERR invalid password
+
+=== TEST: AUTH wrong number of arguments
+RUN:
+AUTH
+EXPECT:
+(error) ERR wrong number of arguments for 'auth' command
+
+=== TEST: AUTH multiple arguments
+RUN:
+AUTH password extra
+EXPECT:
+(error) ERR syntax error
+
+=== TEST: AUTH empty password
+RUN:
+AUTH ""
+EXPECT:
+(error) ERR invalid password
+
+=== TEST: AUTH returns error when no auth configured
+RUN:
+AUTH wrongpassword
+EXPECT:
+(error) ERR invalid password

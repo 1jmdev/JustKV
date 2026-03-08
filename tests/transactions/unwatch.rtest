@@ -1,0 +1,80 @@
+# UNWATCH command tests - Unwatch keys in transaction
+@name UNWATCH
+@group transactions
+@since 2.2.0
+
+=== TEST: UNWATCH basic
+SETUP:
+SET mykey "Hello"
+RUN:
+WATCH mykey
+EXPECT:
+OK
+
+=== TEST: UNWATCH multiple watched keys
+SETUP:
+SET key1 "value1"
+SET key2 "value2"
+RUN:
+WATCH key1 key2
+EXPECT:
+OK
+
+=== TEST: UNWATCH non-existing key
+RUN:
+WATCH nonexistent
+EXPECT:
+OK
+
+=== TEST: UNWATCH before transaction
+SETUP:
+SET mykey "Hello"
+RUN:
+WATCH mykey
+UNWATCH
+EXPECT:
+OK
+OK
+
+=== TEST: UNWATCH in transaction
+RUN:
+MULTI
+UNWATCH
+EXPECT:
+(error) ERR UNWATCH inside MULTI is not allowed
+
+=== TEST: UNWATCH without WATCH
+RUN:
+UNWATCH
+EXPECT:
+OK
+
+=== TEST: UNWATCH multiple calls
+SETUP:
+SET mykey "Hello"
+RUN:
+WATCH mykey
+UNWATCH
+UNWATCH
+EXPECT:
+OK
+OK
+OK
+
+=== TEST: UNWATCH wrong number of arguments
+RUN:
+UNWATCH extra
+EXPECT:
+(error) ERR wrong number of arguments for 'unwatch' command
+
+=== TEST: UNWATCH clears all watches
+SETUP:
+SET key1 "val1"
+SET key2 "val2"
+SET key3 "val3"
+RUN:
+WATCH key1 key2 key3
+UNWATCH
+EXPECT:
+OK
+OK

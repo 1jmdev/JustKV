@@ -1,0 +1,90 @@
+# PTTL command tests - Get millisecond precision TTL
+@name PTTL
+@group generic
+@since 2.8.0
+
+=== TEST: PTTL on key with TTL
+SETUP:
+SET mykey "Hello"
+EXPIRE mykey 10
+RUN:
+PTTL mykey
+EXPECT:
+(match) \\d+
+CLEANUP:
+DEL mykey
+
+=== TEST: PTTL on key without TTL
+SETUP:
+SET mykey "Hello"
+RUN:
+PTTL mykey
+EXPECT:
+(integer) -1
+CLEANUP:
+DEL mykey
+
+=== TEST: PTTL on non-existing key
+RUN:
+PTTL nonexistent
+EXPECT:
+(integer) -2
+
+=== TEST: PTTL expired key
+SETUP:
+SET mykey "Hello"
+PEXPIRE mykey 10
+RUN:
+PTTL mykey
+EXPECT:
+(match) [0-9]+
+CLEANUP:
+DEL mykey
+
+=== TEST: PTTL millisecond precision
+SETUP:
+SET mykey "Hello"
+PEXPIRE mykey 5000
+RUN:
+PTTL mykey
+EXPECT:
+(match) [0-9]{1,5}
+CLEANUP:
+DEL mykey
+
+=== TEST: PTTL just before expiry
+SETUP:
+SET mykey "Hello"
+PEXPIRE mykey 100
+RUN:
+PTTL mykey
+EXPECT:
+(match) [0-9]{1,3}
+CLEANUP:
+DEL mykey
+
+=== TEST: PTTL wrong type
+SETUP:
+LPUSH mylist "value"
+RUN:
+PTTL mylist
+EXPECT:
+(match) -?\\d+
+CLEANUP:
+DEL mylist
+
+=== TEST: PTTL wrong number of arguments
+RUN:
+PTTL
+EXPECT:
+(error) ERR wrong number of arguments for 'pttl' command
+
+=== TEST: PTTL multiple arguments
+SETUP:
+SET mykey "Hello"
+RUN:
+PTTL mykey extra
+EXPECT:
+(error) ERR wrong number of arguments for 'pttl' command
+CLEANUP:
+DEL mykey

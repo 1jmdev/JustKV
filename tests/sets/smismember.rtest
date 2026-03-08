@@ -1,0 +1,104 @@
+# SMISMEMBER command tests - Check multiple members in set
+@name SMISMEMBER
+@group sets
+@since 6.2.0
+
+=== TEST: SMISMEMBER single existing member
+SETUP:
+SADD myset "a" "b" "c"
+RUN:
+SMISMEMBER myset "a"
+EXPECT:
+1) (integer) 1
+CLEANUP:
+DEL myset
+
+=== TEST: SMISMEMBER single non-existing member
+SETUP:
+SADD myset "a" "b" "c"
+RUN:
+SMISMEMBER myset "z"
+EXPECT:
+1) (integer) 0
+CLEANUP:
+DEL myset
+
+=== TEST: SMISMEMBER multiple members all exist
+SETUP:
+SADD myset "a" "b" "c"
+RUN:
+SMISMEMBER myset "a" "b" "c"
+EXPECT:
+1) (integer) 1
+2) (integer) 1
+3) (integer) 1
+CLEANUP:
+DEL myset
+
+=== TEST: SMISMEMBER multiple members mixed
+SETUP:
+SADD myset "a" "b" "c"
+RUN:
+SMISMEMBER myset "a" "z" "b" "y"
+EXPECT:
+1) (integer) 1
+2) (integer) 0
+3) (integer) 1
+4) (integer) 0
+CLEANUP:
+DEL myset
+
+=== TEST: SMISMEMBER all non-existing members
+SETUP:
+SADD myset "a" "b"
+RUN:
+SMISMEMBER myset "x" "y" "z"
+EXPECT:
+1) (integer) 0
+2) (integer) 0
+3) (integer) 0
+CLEANUP:
+DEL myset
+
+=== TEST: SMISMEMBER non-existing set
+RUN:
+SMISMEMBER nonexistent "a" "b"
+EXPECT:
+1) (integer) 0
+2) (integer) 0
+
+=== TEST: SMISMEMBER empty set
+SETUP:
+DEL myset
+RUN:
+SMISMEMBER myset "a"
+EXPECT:
+1) (integer) 0
+
+=== TEST: SMISMEMBER wrong type
+SETUP:
+SET mystring "value"
+RUN:
+SMISMEMBER mystring "a"
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring
+
+=== TEST: SMISMEMBER duplicate member in args
+SETUP:
+SADD myset "a" "b"
+RUN:
+SMISMEMBER myset "a" "a" "b"
+EXPECT:
+1) (integer) 1
+2) (integer) 1
+3) (integer) 1
+CLEANUP:
+DEL myset
+
+=== TEST: SMISMEMBER no members specified
+RUN:
+SMISMEMBER key
+EXPECT:
+(error) ERR wrong number of arguments for 'smismember' command

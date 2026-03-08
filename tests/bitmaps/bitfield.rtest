@@ -1,0 +1,106 @@
+# BITFIELD command tests - Bitfield operations
+@name BITFIELD
+@group bitmaps
+@since 3.2.0
+
+=== TEST: BITFIELD SET GET
+SETUP:
+DEL mykey
+RUN:
+BITFIELD mykey SET u8 0 255
+EXPECT:
+1) (integer) 0
+CLEANUP:
+DEL mykey
+
+=== TEST: BITFIELD GET
+SETUP:
+BITFIELD mykey SET u8 0 255
+RUN:
+BITFIELD mykey GET u8 0
+EXPECT:
+1) (integer) 255
+CLEANUP:
+DEL mykey
+
+=== TEST: BITFIELD INCRBY
+SETUP:
+BITFIELD mykey SET u8 0 100
+RUN:
+BITFIELD mykey INCRBY u8 0 50
+EXPECT:
+1) (integer) 150
+CLEANUP:
+DEL mykey
+
+=== TEST: BITFIELD multiple operations
+SETUP:
+DEL mykey
+RUN:
+BITFIELD mykey SET u8 0 100 GET u8 0 INCRBY u8 0 50
+EXPECT:
+(any)
+CLEANUP:
+DEL mykey
+
+=== TEST: BITFIELD offset
+SETUP:
+DEL mykey
+RUN:
+BITFIELD mykey SET u8 8 255
+EXPECT:
+1) (integer) 0
+CLEANUP:
+DEL mykey
+
+=== TEST: BITFIELD signed integers
+SETUP:
+DEL mykey
+RUN:
+BITFIELD mykey SET i8 0 -100
+EXPECT:
+1) (integer) 0
+CLEANUP:
+DEL mykey
+
+=== TEST: BITFIELD non-existing key
+RUN:
+BITFIELD nonexistent GET u8 0
+EXPECT:
+1) (integer) 0
+
+=== TEST: BITFIELD overflow WRAP
+SETUP:
+BITFIELD mykey SET u8 0 255 OVERFLOW WRAP
+RUN:
+BITFIELD mykey INCRBY u8 0 1
+EXPECT:
+1) (integer) 0
+CLEANUP:
+DEL mykey
+
+=== TEST: BITFIELD overflow SAT
+SETUP:
+BITFIELD mykey SET u8 0 250 OVERFLOW SAT
+RUN:
+BITFIELD mykey INCRBY u8 0 10
+EXPECT:
+1) (integer) 255
+CLEANUP:
+DEL mykey
+
+=== TEST: BITFIELD wrong number of arguments
+RUN:
+BITFIELD key
+EXPECT:
+(error) ERR wrong number of arguments for 'bitfield' command
+
+=== TEST: BITFIELD wrong type
+SETUP:
+LPUSH mylist "value"
+RUN:
+BITFIELD mylist SET u8 0 255
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mylist

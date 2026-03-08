@@ -1,0 +1,90 @@
+# UNLINK command tests - Asynchronous delete keys
+@name UNLINK
+@group generic
+@since 4.0.0
+
+=== TEST: UNLINK single key
+SETUP:
+SET mykey "Hello"
+RUN:
+UNLINK mykey
+EXPECT:
+(integer) 1
+
+=== TEST: UNLINK multiple keys
+SETUP:
+SET key1 "Hello"
+SET key2 "World"
+SET key3 "Test"
+RUN:
+UNLINK key1 key2 key3
+EXPECT:
+(integer) 3
+
+=== TEST: UNLINK non-existing keys
+RUN:
+UNLINK nonexistent1 nonexistent2
+EXPECT:
+(integer) 0
+
+=== TEST: UNLINK mixed existing and non-existing
+SETUP:
+SET key1 "Hello"
+RUN:
+UNLINK key1 nonexistent1 nonexistent2
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL key1
+
+=== TEST: UNLINK list key
+SETUP:
+RPUSH mylist "a" "b" "c"
+RUN:
+UNLINK mylist
+EXPECT:
+(integer) 1
+
+=== TEST: UNLINK hash key
+SETUP:
+HSET myhash field1 "value1"
+RUN:
+UNLINK myhash
+EXPECT:
+(integer) 1
+
+=== TEST: UNLINK set key
+SETUP:
+SADD myset "a" "b" "c"
+RUN:
+UNLINK myset
+EXPECT:
+(integer) 1
+
+=== TEST: UNLINK sorted set key
+SETUP:
+ZADD myzset 1 "one" 2 "two"
+RUN:
+UNLINK myzset
+EXPECT:
+(integer) 1
+
+=== TEST: UNLINK no arguments
+RUN:
+UNLINK
+EXPECT:
+(error) ERR wrong number of arguments for 'unlink' command
+
+=== TEST: UNLINK large number of keys
+SETUP:
+SET k1 "v1"
+SET k2 "v2"
+SET k3 "v3"
+SET k4 "v4"
+SET k5 "v5"
+RUN:
+UNLINK k1 k2 k3 k4 k5
+EXPECT:
+(integer) 5
+CLEANUP:
+DEL k1 k2 k3 k4 k5

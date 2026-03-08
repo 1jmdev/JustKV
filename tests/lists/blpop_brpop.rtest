@@ -1,0 +1,124 @@
+# BLPOP and BRPOP command tests - Blocking list pop
+@name BLPOP-BRPOP
+@group lists
+@since 2.0.0
+
+=== TEST: BLPOP with existing elements
+SETUP:
+RPUSH mylist "a" "b" "c"
+RUN:
+BLPOP mylist 1
+EXPECT:
+1) "mylist"
+2) "a"
+CLEANUP:
+DEL mylist
+
+=== TEST: BLPOP multiple keys
+SETUP:
+RPUSH list1 "a"
+RPUSH list2 "b"
+RUN:
+BLPOP list1 list2 1
+EXPECT:
+1) "list1"
+2) "a"
+CLEANUP:
+DEL list1 list2
+
+=== TEST: BLPOP timeout zero
+SETUP:
+RPUSH mylist "value"
+RUN:
+BLPOP mylist 0
+EXPECT:
+1) "mylist"
+2) "value"
+CLEANUP:
+DEL mylist
+
+=== TEST: BRPOP with existing elements
+SETUP:
+RPUSH mylist "a" "b" "c"
+RUN:
+BRPOP mylist 1
+EXPECT:
+1) "mylist"
+2) "c"
+CLEANUP:
+DEL mylist
+
+=== TEST: BRPOP multiple keys
+SETUP:
+RPUSH list1 "a"
+RPUSH list2 "b"
+RUN:
+BRPOP list1 list2 1
+EXPECT:
+1) "list1"
+2) "a"
+CLEANUP:
+DEL list1 list2
+
+=== TEST: BRPOP timeout zero
+SETUP:
+RPUSH mylist "value"
+RUN:
+BRPOP mylist 0
+EXPECT:
+1) "mylist"
+2) "value"
+CLEANUP:
+DEL mylist
+
+=== TEST: BLPOP non-list type
+SETUP:
+SET mystring "value"
+RUN:
+BLPOP mystring 1
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring
+
+=== TEST: BRPOP non-list type
+SETUP:
+SET mystring "value"
+RUN:
+BRPOP mystring 1
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring
+
+=== TEST: BLPOP wrong number of arguments
+RUN:
+BLPOP key
+EXPECT:
+(error) ERR wrong number of arguments for 'blpop' command
+
+=== TEST: BRPOP wrong number of arguments
+RUN:
+BRPOP key
+EXPECT:
+(error) ERR wrong number of arguments for 'brpop' command
+
+=== TEST: BLPOP invalid timeout
+SETUP:
+RPUSH mylist "value"
+RUN:
+BLPOP mylist notimeout
+EXPECT:
+(error) ERR timeout is not a float or out of range
+CLEANUP:
+DEL mylist
+
+=== TEST: BRPOP invalid timeout
+SETUP:
+RPUSH mylist "value"
+RUN:
+BRPOP mylist notimeout
+EXPECT:
+(error) ERR timeout is not a float or out of range
+CLEANUP:
+DEL mylist

@@ -1,0 +1,56 @@
+# PFDEBUG command tests - Debug HyperLogLog internals
+@name PFDEBUG
+@group hyperloglog
+@since 2.8.9
+
+=== TEST: PFDEBUG GETREG
+SETUP:
+PFADD myhll "a" "b" "c"
+RUN:
+PFDEBUG GETREG myhll
+EXPECT:
+(any)
+CLEANUP:
+DEL myhll
+
+=== TEST: PFDEBUG DECODE
+SETUP:
+PFADD myhll "foo" "bar" "baz"
+RUN:
+PFDEBUG DECODE myhll
+EXPECT:
+(any)
+CLEANUP:
+DEL myhll
+
+=== TEST: PFDEBUG non-existing key
+RUN:
+PFDEBUG GETREG nonexistent
+EXPECT:
+(any)
+
+=== TEST: PFDEBUG wrong type
+SETUP:
+SET mystring "value"
+RUN:
+PFDEBUG GETREG mystring
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring
+
+=== TEST: PFDEBUG invalid command
+SETUP:
+PFADD myhll "a"
+RUN:
+PFDEBUG INVALID myhll
+EXPECT:
+(error) ERR Unknown subcommand
+CLEANUP:
+DEL myhll
+
+=== TEST: PFDEBUG no arguments
+RUN:
+PFDEBUG
+EXPECT:
+(error) ERR wrong number of arguments for 'pfdebug' command

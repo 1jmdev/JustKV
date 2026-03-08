@@ -1,0 +1,90 @@
+# SUBSTR command tests - Deprecated alias for GETRANGE
+@name SUBSTR
+@group strings
+@since 1.0.0
+
+=== TEST: SUBSTR basic range
+SETUP:
+SET mykey "This is a string"
+RUN:
+SUBSTR mykey 0 3
+EXPECT:
+"This"
+CLEANUP:
+DEL mykey
+
+=== TEST: SUBSTR middle range
+SETUP:
+SET mykey "This is a string"
+RUN:
+SUBSTR mykey 5 6
+EXPECT:
+"is"
+CLEANUP:
+DEL mykey
+
+=== TEST: SUBSTR full string
+SETUP:
+SET mykey "Hello"
+RUN:
+SUBSTR mykey 0 -1
+EXPECT:
+"Hello"
+CLEANUP:
+DEL mykey
+
+=== TEST: SUBSTR negative indices
+SETUP:
+SET mykey "Hello World"
+RUN:
+SUBSTR mykey -5 -1
+EXPECT:
+"World"
+CLEANUP:
+DEL mykey
+
+=== TEST: SUBSTR out of range
+SETUP:
+SET mykey "Hello"
+RUN:
+SUBSTR mykey 10 20
+EXPECT:
+""
+CLEANUP:
+DEL mykey
+
+=== TEST: SUBSTR non-existing key
+RUN:
+SUBSTR nonexistent 0 10
+EXPECT:
+""
+
+=== TEST: SUBSTR empty string
+SETUP:
+SET emptykey ""
+RUN:
+SUBSTR emptykey 0 10
+EXPECT:
+""
+CLEANUP:
+DEL emptykey
+
+=== TEST: SUBSTR wrong number of arguments
+SETUP:
+SET mykey "value"
+RUN:
+SUBSTR mykey 0
+EXPECT:
+(error) ERR wrong number of arguments for 'substr' command
+CLEANUP:
+DEL mykey
+
+=== TEST: SUBSTR non-integer arguments
+SETUP:
+SET mykey "value"
+RUN:
+SUBSTR mykey notint 5
+EXPECT:
+(error) ERR value is not an integer or out of range
+CLEANUP:
+DEL mykey

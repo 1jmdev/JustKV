@@ -1,0 +1,96 @@
+# ZREVRANK command tests - Get reverse rank of member in sorted set
+@name ZREVRANK
+@group sorted_sets
+@since 2.8.9
+
+=== TEST: ZREVRANK existing member
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZREVRANK myzset "one"
+EXPECT:
+(integer) 2
+CLEANUP:
+DEL myzset
+
+=== TEST: ZREVRANK middle member
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZREVRANK myzset "two"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL myzset
+
+=== TEST: ZREVRANK highest score
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZREVRANK myzset "three"
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL myzset
+
+=== TEST: ZREVRANK non-existing member
+SETUP:
+ZADD myzset 1 "one" 2 "two"
+RUN:
+ZREVRANK myzset "nonexistent"
+EXPECT:
+(nil)
+CLEANUP:
+DEL myzset
+
+=== TEST: ZREVRANK non-existing key
+RUN:
+ZREVRANK nonexistent "member"
+EXPECT:
+(nil)
+
+=== TEST: ZREVRANK single member
+SETUP:
+ZADD myzset 1 "one"
+RUN:
+ZREVRANK myzset "one"
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL myzset
+
+=== TEST: ZREVRANK float scores
+SETUP:
+ZADD myzset 1.5 "one" 2.7 "two" 3.14 "three"
+RUN:
+ZREVRANK myzset "one"
+EXPECT:
+(integer) 2
+CLEANUP:
+DEL myzset
+
+=== TEST: ZREVRANK wrong type
+SETUP:
+SET mystring "value"
+RUN:
+ZREVRANK mystring "member"
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring
+
+=== TEST: ZREVRANK wrong number of arguments
+RUN:
+ZREVRANK key
+EXPECT:
+(error) ERR wrong number of arguments for 'zrevrank' command
+
+=== TEST: ZREVRANK duplicate scores same rank
+SETUP:
+ZADD myzset 1 "one" 1 "two" 2 "three"
+RUN:
+ZREVRANK myzset "one"
+EXPECT:
+(any)
+CLEANUP:
+DEL myzset

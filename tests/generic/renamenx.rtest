@@ -1,0 +1,68 @@
+# RENAMENX command tests - Rename key only if new key doesn't exist
+@name RENAMENX
+@group generic
+@since 1.0.0
+
+=== TEST: RENAMENX to non-existing key
+SETUP:
+SET mykey "Hello"
+RUN:
+RENAMENX mykey mynewkey
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL mynewkey
+
+=== TEST: RENAMENX to existing key
+SETUP:
+SET mykey "Hello"
+SET mynewkey "World"
+RUN:
+RENAMENX mykey mynewkey
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL mykey mynewkey
+
+=== TEST: RENAMENX non-existing source
+RUN:
+RENAMENX nonexistent newkey
+EXPECT:
+(error) ERR no such key
+
+=== TEST: RENAMENX to itself
+SETUP:
+SET mykey "value"
+RUN:
+RENAMENX mykey mykey
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL mykey
+
+=== TEST: RENAMENX different types
+SETUP:
+SET mykey "string"
+RPUSH mynewkey "list"
+RUN:
+RENAMENX mykey mynewkey
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL mykey mynewkey
+
+=== TEST: RENAMENX wrong number of arguments
+RUN:
+RENAMENX key
+EXPECT:
+(error) ERR wrong number of arguments for 'renamenx' command
+
+=== TEST: RENAMENX preserves value
+SETUP:
+SET mykey "Hello"
+RUN:
+RENAMENX mykey mynewkey
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL mynewkey

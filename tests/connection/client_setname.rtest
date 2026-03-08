@@ -1,0 +1,58 @@
+# CLIENT SETNAME and CLIENT GETNAME command tests
+@name CLIENT-SETNAME-GETNAME
+@group connection
+@since 2.6.9
+
+=== TEST: CLIENT SETNAME
+RUN:
+CLIENT SETNAME "myclient"
+EXPECT:
+OK
+
+=== TEST: CLIENT GETNAME returns name
+RUN:
+CLIENT SETNAME "myclient"
+EXPECT:
+OK
+
+=== TEST: CLIENT GETNAME without SETNAME
+RUN:
+CLIENT GETNAME
+EXPECT:
+(any)
+
+=== TEST: CLIENT SETNAME empty string
+RUN:
+CLIENT SETNAME ""
+EXPECT:
+OK
+
+=== TEST: CLIENT SETNAME long name
+RUN:
+CLIENT SETNAME "this-is-a-very-long-client-name-with-many-characters"
+EXPECT:
+OK
+
+=== TEST: CLIENT SETNAME overwrite
+RUN:
+CLIENT SETNAME "first"
+EXPECT:
+OK
+
+=== TEST: CLIENT GETNAME wrong number of arguments
+RUN:
+CLIENT GETNAME extra
+EXPECT:
+(error) ERR wrong number of arguments for 'client|getname' command
+
+=== TEST: CLIENT SETNAME wrong number of arguments
+RUN:
+CLIENT SETNAME
+EXPECT:
+(error) ERR wrong number of arguments for 'client|setname' command
+
+=== TEST: CLIENT SETNAME multiple arguments
+RUN:
+CLIENT SETNAME name1 name2
+EXPECT:
+(error) ERR wrong number of arguments for 'client|setname' command

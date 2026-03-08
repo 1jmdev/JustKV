@@ -1,0 +1,65 @@
+# SCRIPT command tests - Manage Lua scripts
+@name SCRIPT
+@group scripting
+@since 2.6.0
+
+=== TEST: SCRIPT FLUSH
+RUN:
+SCRIPT FLUSH
+EXPECT:
+OK
+
+=== TEST: SCRIPT LOAD
+RUN:
+SCRIPT LOAD "return 1"
+EXPECT:
+(match) [a-f0-9]{40}
+
+=== TEST: SCRIPT EXISTS
+RUN:
+SCRIPT EXISTS "abc123def456abc123def456abc123def456abcd"
+EXPECT:
+1) (integer) 0
+
+=== TEST: SCRIPT EXISTS multiple
+RUN:
+SCRIPT EXISTS "abc123def456abc123def456abc123def456abcd" "def123abc456def123abc456def123abc456defc"
+EXPECT:
+1) (integer) 0
+2) (integer) 0
+
+=== TEST: SCRIPT LOAD and EXISTS
+RUN:
+SCRIPT LOAD "return 1"
+EXPECT:
+(match) [a-f0-9]{40}
+
+=== TEST: SCRIPT KILL no running script
+RUN:
+SCRIPT KILL
+EXPECT:
+(error) NOTBUSY No scripts in execution right now
+
+=== TEST: SCRIPT DEBUG OFF
+RUN:
+SCRIPT DEBUG OFF
+EXPECT:
+OK
+
+=== TEST: SCRIPT DEBUG ON
+RUN:
+SCRIPT DEBUG ON
+EXPECT:
+OK
+
+=== TEST: SCRIPT invalid subcommand
+RUN:
+SCRIPT INVALID
+EXPECT:
+(error) ERR Unknown subcommand
+
+=== TEST: SCRIPT no subcommand
+RUN:
+SCRIPT
+EXPECT:
+(error) ERR wrong number of arguments for 'script' command

@@ -1,0 +1,77 @@
+# FLUSHDB and FLUSHALL command tests - Clear database
+@name FLUSHDB-FLUSHALL
+@group server
+@since 1.0.0
+
+=== TEST: FLUSHDB removes keys
+SETUP:
+SET key1 "value1"
+SET key2 "value2"
+RUN:
+FLUSHDB
+EXPECT:
+OK
+
+=== TEST: FLUSHDB ASYNC
+SETUP:
+SET mykey "value"
+RUN:
+FLUSHDB ASYNC
+EXPECT:
+OK
+
+=== TEST: FLUSHDB SYNC
+SETUP:
+SET mykey "value"
+RUN:
+FLUSHDB SYNC
+EXPECT:
+OK
+
+=== TEST: FLUSHALL removes all databases
+SETUP:
+SET mykey "value"
+RUN:
+FLUSHALL
+EXPECT:
+OK
+
+=== TEST: FLUSHALL ASYNC
+SETUP:
+SET mykey "value"
+RUN:
+FLUSHALL ASYNC
+EXPECT:
+OK
+
+=== TEST: FLUSHALL SYNC
+SETUP:
+SET mykey "value"
+RUN:
+FLUSHALL SYNC
+EXPECT:
+OK
+
+=== TEST: FLUSHDB wrong argument
+RUN:
+FLUSHDB INVALID
+EXPECT:
+(error) ERR syntax error
+
+=== TEST: FLUSHALL wrong argument
+RUN:
+FLUSHALL INVALID
+EXPECT:
+(error) ERR syntax error
+
+=== TEST: FLUSHDB extra arguments
+RUN:
+FLUSHDB ASYNC extra
+EXPECT:
+(error) ERR syntax error
+
+=== TEST: FLUSHALL extra arguments
+RUN:
+FLUSHALL SYNC extra
+EXPECT:
+(error) ERR syntax error

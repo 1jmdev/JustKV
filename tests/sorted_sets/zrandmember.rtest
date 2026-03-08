@@ -1,0 +1,98 @@
+# ZRANDMEMBER command tests - Get random members from sorted set
+@name ZRANDMEMBER
+@group sorted_sets
+@since 6.2.0
+
+=== TEST: ZRANDMEMBER single member
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZRANDMEMBER myzset
+EXPECT:
+(any)
+CLEANUP:
+DEL myzset
+
+=== TEST: ZRANDMEMBER specific count
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three" 4 "four" 5 "five"
+RUN:
+ZRANDMEMBER myzset 2
+EXPECT:
+(any)
+CLEANUP:
+DEL myzset
+
+=== TEST: ZRANDMEMBER with scores
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZRANDMEMBER myzset 2 WITHSCORES
+EXPECT:
+(any)
+CLEANUP:
+DEL myzset
+
+=== TEST: ZRANDMEMBER negative count (with replacement)
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZRANDMEMBER myzset -5
+EXPECT:
+(any)
+CLEANUP:
+DEL myzset
+
+=== TEST: ZRANDMEMBER zero count
+SETUP:
+ZADD myzset 1 "one" 2 "two"
+RUN:
+ZRANDMEMBER myzset 0
+EXPECT:
+(empty array)
+CLEANUP:
+DEL myzset
+
+=== TEST: ZRANDMEMBER non-existing key
+RUN:
+ZRANDMEMBER nonexistent
+EXPECT:
+(nil)
+
+=== TEST: ZRANDMEMBER count exceeds members
+SETUP:
+ZADD myzset 1 "one" 2 "two"
+RUN:
+ZRANDMEMBER myzset 5
+EXPECT:
+(any)
+CLEANUP:
+DEL myzset
+
+=== TEST: ZRANDMEMBER wrong type
+SETUP:
+SET mystring "value"
+RUN:
+ZRANDMEMBER mystring
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring
+
+=== TEST: ZRANDMEMBER invalid count
+SETUP:
+ZADD myzset 1 "one"
+RUN:
+ZRANDMEMBER myzset notcount
+EXPECT:
+(error) ERR value is not an integer or out of range
+CLEANUP:
+DEL myzset
+
+=== TEST: ZRANDMEMBER empty set
+SETUP:
+DEL myzset
+RUN:
+ZRANDMEMBER myzset
+EXPECT:
+(nil)

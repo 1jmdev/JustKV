@@ -1,0 +1,96 @@
+# ZSCAN command tests - Iterate sorted set members and scores
+@name ZSCAN
+@group sorted_sets
+@since 2.8.0
+
+=== TEST: ZSCAN basic iteration
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZSCAN myzset 0
+EXPECT:
+(any)
+CLEANUP:
+DEL myzset
+
+=== TEST: ZSCAN empty sorted set
+SETUP:
+DEL myzset
+RUN:
+ZSCAN myzset 0
+EXPECT:
+1) "0"
+2) (empty array)
+
+=== TEST: ZSCAN with MATCH pattern
+SETUP:
+ZADD myzset 1 "apple" 2 "apricot" 3 "banana"
+RUN:
+ZSCAN myzset 0 MATCH "a*"
+EXPECT:
+(any)
+CLEANUP:
+DEL myzset
+
+=== TEST: ZSCAN with COUNT option
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three" 4 "four" 5 "five"
+RUN:
+ZSCAN myzset 0 COUNT 2
+EXPECT:
+(any)
+CLEANUP:
+DEL myzset
+
+=== TEST: ZSCAN with MATCH and COUNT
+SETUP:
+ZADD myzset 1 "field1" 2 "field2" 3 "field3" 4 "other"
+RUN:
+ZSCAN myzset 0 MATCH "field*" COUNT 2
+EXPECT:
+(any)
+CLEANUP:
+DEL myzset
+
+=== TEST: ZSCAN non-existing key
+RUN:
+ZSCAN nonexistent 0
+EXPECT:
+1) "0"
+2) (empty array)
+
+=== TEST: ZSCAN wrong type
+SETUP:
+SET mystring "value"
+RUN:
+ZSCAN mystring 0
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring
+
+=== TEST: ZSCAN invalid cursor
+SETUP:
+ZADD myzset 1 "one" 2 "two"
+RUN:
+ZSCAN myzset notcursor
+EXPECT:
+(error) ERR invalid cursor
+CLEANUP:
+DEL myzset
+
+=== TEST: ZSCAN no cursor
+RUN:
+ZSCAN key
+EXPECT:
+(error) ERR wrong number of arguments for 'zscan' command
+
+=== TEST: ZSCAN with large set
+SETUP:
+ZADD myzset 1 "a" 2 "b" 3 "c" 4 "d" 5 "e" 6 "f" 7 "g" 8 "h"
+RUN:
+ZSCAN myzset 0
+EXPECT:
+(any)
+CLEANUP:
+DEL myzset

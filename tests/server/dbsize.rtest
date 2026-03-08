@@ -1,0 +1,71 @@
+# DBSIZE command tests - Get number of keys in database
+@name DBSIZE
+@group server
+@since 1.0.0
+
+=== TEST: DBSIZE on empty database
+SETUP:
+FLUSHDB
+RUN:
+DBSIZE
+EXPECT:
+(integer) 0
+
+=== TEST: DBSIZE with one key
+SETUP:
+FLUSHDB
+SET mykey "value"
+RUN:
+DBSIZE
+EXPECT:
+(integer) 1
+
+=== TEST: DBSIZE with multiple keys
+SETUP:
+FLUSHDB
+SET key1 "value1"
+SET key2 "value2"
+SET key3 "value3"
+RUN:
+DBSIZE
+EXPECT:
+(integer) 3
+
+=== TEST: DBSIZE with different types
+SETUP:
+FLUSHDB
+SET mystring "value"
+RPUSH mylist "a" "b"
+SADD myset "x" "y" "z"
+RUN:
+DBSIZE
+EXPECT:
+(integer) 3
+
+=== TEST: DBSIZE after DEL
+SETUP:
+FLUSHDB
+SET key1 "value1"
+SET key2 "value2"
+DEL key1
+RUN:
+DBSIZE
+EXPECT:
+(integer) 1
+
+=== TEST: DBSIZE wrong number of arguments
+RUN:
+DBSIZE extra
+EXPECT:
+(error) ERR wrong number of arguments for 'dbsize' command
+
+=== TEST: DBSIZE consistency
+SETUP:
+FLUSHDB
+SET a "1"
+SET b "2"
+SET c "3"
+RUN:
+DBSIZE
+EXPECT:
+(integer) 3

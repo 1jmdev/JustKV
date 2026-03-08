@@ -1,0 +1,77 @@
+# MSETNX command tests - Set multiple keys only if none exist
+@name MSETNX
+@group strings
+@since 1.0.1
+
+=== TEST: MSETNX all new keys
+RUN:
+MSETNX key1 "value1" key2 "value2" key3 "value3"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL key1 key2 key3
+
+=== TEST: MSETNX one key exists
+SETUP:
+SET existingkey "value"
+RUN:
+MSETNX existingkey "newvalue" newkey "value"
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL existingkey newkey
+
+=== TEST: MSETNX multiple keys exist
+SETUP:
+SET key1 "value1"
+SET key2 "value2"
+RUN:
+MSETNX key1 "newvalue1" key2 "newvalue2"
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL key1 key2
+
+=== TEST: MSETNX empty value
+RUN:
+MSETNX emptykey ""
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL emptykey
+
+=== TEST: MSETNX single key-value pair
+RUN:
+MSETNX singlekey "singlevalue"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL singlekey
+
+=== TEST: MSETNX odd number of arguments
+RUN:
+MSETNX key1 "value1" key2
+EXPECT:
+(error) ERR wrong number of arguments for 'msetnx' command
+
+=== TEST: MSETNX no arguments
+RUN:
+MSETNX
+EXPECT:
+(error) ERR wrong number of arguments for 'msetnx' command
+
+=== TEST: MSETNX verify values set
+RUN:
+MSETNX testkey1 "testvalue1" testkey2 "testvalue2"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL testkey1 testkey2
+
+=== TEST: MSETNX large number of keys
+RUN:
+MSETNX k1 "v1" k2 "v2" k3 "v3" k4 "v4" k5 "v5" k6 "v6" k7 "v7" k8 "v8" k9 "v9" k10 "v10"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL k1 k2 k3 k4 k5 k6 k7 k8 k9 k10

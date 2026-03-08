@@ -8,23 +8,23 @@ Tests are organized in folders by command category with `.rtest` files containin
 
 ```
 tests/
-├── strings/             (13 test files) - String operations
-├── hashes/              (11 test files) - Hash/Map operations
-├── lists/               (8 test files)  - List operations
-├── sets/                (6 test files)  - Set operations
-├── sorted_sets/         (9 test files)  - Sorted set operations
-├── streams/             (2 test files)  - Stream operations
-├── bitmaps/             (2 test files)  - Bitmap operations
-├── hyperloglog/         (1 test file)   - HyperLogLog operations
-├── geo/                 (2 test files)  - Geospatial operations
-├── generic/             (5 test files)  - Generic key operations
-├── transactions/        (2 test files)  - Transaction operations
-├── connection/          (3 test files)  - Connection management
-├── pubsub/              (1 test file)   - Pub/Sub messaging
-├── scripting/           (1 test file)   - Lua scripting
-└── server/              (1 test file)   - Server commands
+├── strings/             (16 test files) - String operations
+├── hashes/              (12 test files) - Hash/Map operations
+├── lists/               (12 test files) - List operations
+├── sets/                (9 test files)  - Set operations
+├── sorted_sets/         (15 test files) - Sorted set operations
+├── streams/             (4 test files)  - Stream operations
+├── bitmaps/             (5 test files)  - Bitmap operations
+├── hyperloglog/         (4 test files)  - HyperLogLog operations
+├── geo/                 (4 test files)  - Geospatial operations
+├── generic/             (11 test files) - Generic key operations
+├── transactions/        (4 test files)  - Transaction operations
+├── connection/          (7 test files)  - Connection management
+├── pubsub/              (2 test files)  - Pub/Sub messaging
+├── scripting/           (2 test files)  - Lua scripting
+└── server/              (6 test files)  - Server commands
 
-Total: 67 test files with 600+ individual test cases
+Total: 119 test files with 800+ individual test cases
 ```
 
 ## Test Format
@@ -59,49 +59,49 @@ EXPECT:        # expected output
 
 ## Command Categories
 
-### String Commands (13 files)
-- SET, GET, APPEND, INCR, DECR, GETDEL, GETEX, GETRANGE, GETSET, MGET, MSET, MSETNX, PSETEX, SETEX, SETNX, SETRANGE, STRLEN
+### String Commands (16 files)
+- SET, GET, APPEND, INCR, DECR, DECRBY, GETDEL, GETEX, GETRANGE, GETSET, INCRBYFLOAT, MGET, MSET, MSETNX, PSETEX, SETEX, SETNX, SETRANGE, STRLEN, SUBSTR
 
-### Hash Commands (11 files)
+### Hash Commands (12 files)
 - HDEL, HEXISTS, HGET, HGETALL, HINCRBY, HINCRBYFLOAT, HKEYS, HLEN, HMGET, HMSET, HRANDFIELD, HSCAN, HSET, HSETNX, HSTRLEN, HVALS
 
-### List Commands (8 files)
+### List Commands (12 files)
 - BLMOVE, BLPOP, BRPOP, BRPOPLPUSH, LINDEX, LINSERT, LLEN, LMOVE, LPOP, LPOS, LPUSH, LPUSHX, LRANGE, LREM, LSET, LTRIM, RPOP, RPOPLPUSH, RPUSH, RPUSHX
 
-### Set Commands (6 files)
+### Set Commands (9 files)
 - SADD, SCARD, SDIFF, SDIFFSTORE, SINTER, SINTERSTORE, SISMEMBER, SMEMBERS, SMISMEMBER, SMOVE, SPOP, SRANDMEMBER, SREM, SSCAN, SUNION, SUNIONSTORE
 
-### Sorted Set Commands (9 files)
-- ZADD, ZCARD, ZCOUNT, ZDIFF, ZDIFFSTORE, ZINCRBY, ZINTER, ZINTERSTORE, ZLEXCOUNT, ZMSCORE, ZPOPMAX, ZPOPMIN, ZRANDMEMBER, ZRANGE, ZRANGEBYLEX, ZRANGEBYSCORE, ZRANGESTORE, ZRANK, ZREM, ZREMRANGEBYLEX, ZREMRANGEBYRANK, ZREMRANGEBYSCORE, ZREVRANGE, ZREVRANGEBYLEX, ZREVRANGEBYSCORE, ZREVRANK, ZSCAN, ZSCORE, ZUNION, ZUNIONSTORE
+### Sorted Set Commands (15 files)
+- BZPOPMIN, BZPOPMAX, ZADD, ZCARD, ZCOUNT, ZDIFF, ZDIFFSTORE, ZINCRBY, ZINTER, ZINTERSTORE, ZLEXCOUNT, ZMSCORE, ZPOPMAX, ZPOPMIN, ZRANDMEMBER, ZRANGE, ZRANGEBYLEX, ZRANGEBYSCORE, ZRANGESTORE, ZRANK, ZREM, ZREMRANGEBYLEX, ZREMRANGEBYRANK, ZREMRANGEBYSCORE, ZREVRANGE, ZREVRANGEBYLEX, ZREVRANGEBYSCORE, ZREVRANK, ZSCAN, ZSCORE, ZUNION, ZUNIONSTORE
 
-### Stream Commands (2 files)
+### Stream Commands (4 files)
 - XACK, XADD, XAUTOCLAIM, XCLAIM, XDEL, XGROUP, XINFO, XLEN, XPENDING, XRANGE, XREAD, XREADGROUP, XREVRANGE, XSETID, XTRIM
 
-### Bitmap Commands (2 files)
+### Bitmap Commands (5 files)
 - BITCOUNT, BITFIELD, BITFIELD_RO, BITOP, BITPOS, GETBIT, SETBIT
 
-### HyperLogLog Commands (1 file)
+### HyperLogLog Commands (4 files)
 - PFADD, PFCOUNT, PFDEBUG, PFMERGE, PFSELFTEST
 
-### Geospatial Commands (2 files)
+### Geospatial Commands (4 files)
 - GEOADD, GEODIST, GEOHASH, GEOPOS, GEORADIUS, GEORADIUSBYMEMBER, GEOSEARCH, GEOSEARCHSTORE
 
-### Generic Commands (5 files)
+### Generic Commands (11 files)
 - COPY, DEL, DUMP, EXISTS, EXPIRE, EXPIREAT, KEYS, MIGRATE, MOVE, PERSIST, PEXPIRE, PEXPIREAT, PTTL, RANDOMKEY, RENAME, RENAMENX, RESTORE, SCAN, SORT, TOUCH, TTL, TYPE, UNLINK, WAIT
 
-### Transaction Commands (2 files)
+### Transaction Commands (4 files)
 - DISCARD, EXEC, MULTI, UNWATCH, WATCH
 
-### Connection Commands (3 files)
-- AUTH, CLIENT, ECHO, HELLO, PING, QUIT, RESET, SELECT
+### Connection Commands (7 files)
+- AUTH, CLIENT, ECHO, HELLO, PING, QUIT, RESET, SELECT, CLIENT ID, CLIENT SETNAME, CLIENT GETNAME
 
-### Pub/Sub Commands (1 file)
+### Pub/Sub Commands (2 files)
 - PSUBSCRIBE, PUBLISH, PUBSUB, PUNSUBSCRIBE, SUBSCRIBE, UNSUBSCRIBE
 
-### Scripting Commands (1 file)
-- EVAL, EVALSHA, SCRIPT
+### Scripting Commands (2 files)
+- EVAL, EVALSHA, SCRIPT LOAD, SCRIPT EXISTS, SCRIPT FLUSH, SCRIPT KILL, SCRIPT DEBUG
 
-### Server Commands (1 file)
+### Server Commands (6 files)
 - ACL, BGREWRITEAOF, BGSAVE, COMMAND, CONFIG, DBSIZE, FAILOVER, FLUSHALL, FLUSHDB, INFO, LASTSAVE, LATENCY, LOLWUT, MEMORY, MODULE, MONITOR, PSYNC, REPLCONF, REPLICAOF, RESTORE-ASKING, ROLE, SAVE, SHUTDOWN, SLAVEOF, SLOWLOG, SWAPDB, SYNC, TIME
 
 ## Test Coverage

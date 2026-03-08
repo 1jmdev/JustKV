@@ -1,0 +1,66 @@
+# GEOPOS command tests - Get longitude and latitude of members
+@name GEOPOS
+@group geo
+@since 3.2.0
+
+=== TEST: GEOPOS single member
+SETUP:
+GEOADD mygeo 13.361389 38.115556 "Palermo"
+RUN:
+GEOPOS mygeo "Palermo"
+EXPECT:
+(any)
+CLEANUP:
+DEL mygeo
+
+=== TEST: GEOPOS multiple members
+SETUP:
+GEOADD mygeo 13.361389 38.115556 "Palermo" 15.087269 37.502669 "Catania"
+RUN:
+GEOPOS mygeo "Palermo" "Catania"
+EXPECT:
+(any)
+CLEANUP:
+DEL mygeo
+
+=== TEST: GEOPOS non-existing member
+SETUP:
+GEOADD mygeo 13.361389 38.115556 "Palermo"
+RUN:
+GEOPOS mygeo "NonExistent"
+EXPECT:
+(any)
+CLEANUP:
+DEL mygeo
+
+=== TEST: GEOPOS non-existing key
+RUN:
+GEOPOS nonexistent "member"
+EXPECT:
+(any)
+
+=== TEST: GEOPOS wrong type
+SETUP:
+SET mystring "value"
+RUN:
+GEOPOS mystring "member"
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring
+
+=== TEST: GEOPOS wrong number of arguments
+RUN:
+GEOPOS key
+EXPECT:
+(error) ERR wrong number of arguments for 'geopos' command
+
+=== TEST: GEOPOS mixed existing and non-existing
+SETUP:
+GEOADD mygeo 13.361389 38.115556 "Palermo"
+RUN:
+GEOPOS mygeo "Palermo" "NonExistent"
+EXPECT:
+(any)
+CLEANUP:
+DEL mygeo

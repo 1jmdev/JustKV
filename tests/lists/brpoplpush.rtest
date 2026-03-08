@@ -1,0 +1,103 @@
+# BRPOPLPUSH command tests - Blocking pop and push between lists
+@name BRPOPLPUSH
+@group lists
+@since 2.2.0
+
+=== TEST: BRPOPLPUSH basic operation
+SETUP:
+RPUSH source "a" "b" "c"
+RUN:
+BRPOPLPUSH source destination 1
+EXPECT:
+"c"
+CLEANUP:
+DEL source destination
+
+=== TEST: BRPOPLPUSH empty source
+SETUP:
+DEL source
+RPUSH destination "existing"
+RUN:
+BRPOPLPUSH source destination 0
+EXPECT:
+(any)
+CLEANUP:
+DEL source destination
+
+=== TEST: BRPOPLPUSH to self
+SETUP:
+RPUSH mylist "a" "b" "c"
+RUN:
+BRPOPLPUSH mylist mylist 1
+EXPECT:
+"c"
+CLEANUP:
+DEL mylist
+
+=== TEST: BRPOPLPUSH multiple times
+SETUP:
+RPUSH source "a" "b"
+RUN:
+BRPOPLPUSH source dest 1
+EXPECT:
+"b"
+CLEANUP:
+DEL source dest
+
+=== TEST: BRPOPLPUSH destination exists
+SETUP:
+RPUSH source "a" "b"
+RPUSH dest "x" "y"
+RUN:
+BRPOPLPUSH source dest 1
+EXPECT:
+"b"
+CLEANUP:
+DEL source dest
+
+=== TEST: BRPOPLPUSH wrong type source
+SETUP:
+SET mysource "value"
+RUN:
+BRPOPLPUSH mysource destination 1
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mysource
+
+=== TEST: BRPOPLPUSH wrong type destination
+SETUP:
+RPUSH source "a"
+SET mydest "value"
+RUN:
+BRPOPLPUSH source mydest 1
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL source mydest
+
+=== TEST: BRPOPLPUSH invalid timeout
+SETUP:
+RPUSH source "a"
+RUN:
+BRPOPLPUSH source dest notimeout
+EXPECT:
+(error) ERR timeout is not a float or out of range
+CLEANUP:
+DEL source dest
+
+=== TEST: BRPOPLPUSH wrong number of arguments
+RUN:
+BRPOPLPUSH key1 key2
+EXPECT:
+(error) ERR wrong number of arguments for 'brpoplpush' command
+
+=== TEST: BRPOPLPUSH zero timeout
+SETUP:
+RPUSH source "value"
+RUN:
+BRPOPLPUSH source dest 0
+EXPECT:
+"value"
+CLEANUP:
+DEL source dest

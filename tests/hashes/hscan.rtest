@@ -1,0 +1,96 @@
+# HSCAN command tests - Iterate hash fields and values
+@name HSCAN
+@group hashes
+@since 2.8.0
+
+=== TEST: HSCAN basic iteration
+SETUP:
+HSET myhash field1 "value1" field2 "value2" field3 "value3"
+RUN:
+HSCAN myhash 0
+EXPECT:
+(any)
+CLEANUP:
+DEL myhash
+
+=== TEST: HSCAN empty hash
+SETUP:
+DEL myhash
+RUN:
+HSCAN myhash 0
+EXPECT:
+1) "0"
+2) (empty array)
+
+=== TEST: HSCAN with MATCH pattern
+SETUP:
+HSET myhash field1 "value1" field2 "value2" othername "othervalue"
+RUN:
+HSCAN myhash 0 MATCH "field*"
+EXPECT:
+(any)
+CLEANUP:
+DEL myhash
+
+=== TEST: HSCAN with COUNT option
+SETUP:
+HSET myhash f1 "v1" f2 "v2" f3 "v3" f4 "v4" f5 "v5"
+RUN:
+HSCAN myhash 0 COUNT 2
+EXPECT:
+(any)
+CLEANUP:
+DEL myhash
+
+=== TEST: HSCAN with MATCH and COUNT
+SETUP:
+HSET myhash field1 "value1" field2 "value2" field3 "value3" other "value"
+RUN:
+HSCAN myhash 0 MATCH "field*" COUNT 2
+EXPECT:
+(any)
+CLEANUP:
+DEL myhash
+
+=== TEST: HSCAN cursor progression
+SETUP:
+HSET myhash f1 "v1" f2 "v2" f3 "v3" f4 "v4" f5 "v5"
+RUN:
+HSCAN myhash 0
+EXPECT:
+(any)
+CLEANUP:
+DEL myhash
+
+=== TEST: HSCAN non-existing hash
+RUN:
+HSCAN nonexistent 0
+EXPECT:
+1) "0"
+2) (empty array)
+
+=== TEST: HSCAN wrong type
+SETUP:
+SET mystring "value"
+RUN:
+HSCAN mystring 0
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring
+
+=== TEST: HSCAN invalid cursor
+SETUP:
+HSET myhash field "value"
+RUN:
+HSCAN myhash notcursor
+EXPECT:
+(error) ERR invalid cursor
+CLEANUP:
+DEL myhash
+
+=== TEST: HSCAN no arguments
+RUN:
+HSCAN key
+EXPECT:
+(error) ERR wrong number of arguments for 'hscan' command

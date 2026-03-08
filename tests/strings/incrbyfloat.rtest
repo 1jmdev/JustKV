@@ -1,0 +1,98 @@
+# INCRBYFLOAT command tests - Increment float value
+@name INCRBYFLOAT
+@group strings
+@since 2.6.0
+
+=== TEST: INCRBYFLOAT positive float
+SETUP:
+SET myfloat "10.50"
+RUN:
+INCRBYFLOAT myfloat 0.1
+EXPECT:
+"10.6"
+CLEANUP:
+DEL myfloat
+
+=== TEST: INCRBYFLOAT on non-existing key
+RUN:
+INCRBYFLOAT newfloat 2.5
+EXPECT:
+"2.5"
+CLEANUP:
+DEL newfloat
+
+=== TEST: INCRBYFLOAT negative float
+SETUP:
+SET myfloat "10.5"
+RUN:
+INCRBYFLOAT myfloat -2.3
+EXPECT:
+"8.2"
+CLEANUP:
+DEL myfloat
+
+=== TEST: INCRBYFLOAT integer with float increment
+SETUP:
+SET myint "5"
+RUN:
+INCRBYFLOAT myint 2.5
+EXPECT:
+"7.5"
+CLEANUP:
+DEL myint
+
+=== TEST: INCRBYFLOAT zero increment
+SETUP:
+SET myfloat "5.5"
+RUN:
+INCRBYFLOAT myfloat 0
+EXPECT:
+"5.5"
+CLEANUP:
+DEL myfloat
+
+=== TEST: INCRBYFLOAT scientific notation
+SETUP:
+SET myfloat "1e2"
+RUN:
+INCRBYFLOAT myfloat 1e2
+EXPECT:
+"200"
+CLEANUP:
+DEL myfloat
+
+=== TEST: INCRBYFLOAT wrong type
+SETUP:
+SET mystring "hello"
+RUN:
+INCRBYFLOAT mystring 1.5
+EXPECT:
+(error) ERR value is not a valid float
+CLEANUP:
+DEL mystring
+
+=== TEST: INCRBYFLOAT non-float increment
+SETUP:
+SET myfloat "5.5"
+RUN:
+INCRBYFLOAT myfloat "notfloat"
+EXPECT:
+(error) ERR value is not a valid float
+CLEANUP:
+DEL myfloat
+
+=== TEST: INCRBYFLOAT wrong number of arguments
+RUN:
+INCRBYFLOAT key
+EXPECT:
+(error) ERR wrong number of arguments for 'incrbyfloat' command
+
+=== TEST: INCRBYFLOAT hash type error
+SETUP:
+HSET myhash field "value"
+RUN:
+INCRBYFLOAT myhash 1.5
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL myhash

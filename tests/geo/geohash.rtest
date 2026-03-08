@@ -1,0 +1,66 @@
+# GEOHASH command tests - Get geohash of members
+@name GEOHASH
+@group geo
+@since 3.2.0
+
+=== TEST: GEOHASH single member
+SETUP:
+GEOADD mygeo 13.361389 38.115556 "Palermo" 15.087269 37.502669 "Catania"
+RUN:
+GEOHASH mygeo "Palermo"
+EXPECT:
+(any)
+CLEANUP:
+DEL mygeo
+
+=== TEST: GEOHASH multiple members
+SETUP:
+GEOADD mygeo 13.361389 38.115556 "Palermo" 15.087269 37.502669 "Catania"
+RUN:
+GEOHASH mygeo "Palermo" "Catania"
+EXPECT:
+(any)
+CLEANUP:
+DEL mygeo
+
+=== TEST: GEOHASH non-existing member
+SETUP:
+GEOADD mygeo 13.361389 38.115556 "Palermo"
+RUN:
+GEOHASH mygeo "NonExistent"
+EXPECT:
+(any)
+CLEANUP:
+DEL mygeo
+
+=== TEST: GEOHASH non-existing key
+RUN:
+GEOHASH nonexistent "member"
+EXPECT:
+(any)
+
+=== TEST: GEOHASH wrong type
+SETUP:
+SET mystring "value"
+RUN:
+GEOHASH mystring "member"
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring
+
+=== TEST: GEOHASH wrong number of arguments
+RUN:
+GEOHASH key
+EXPECT:
+(error) ERR wrong number of arguments for 'geohash' command
+
+=== TEST: GEOHASH mixed existing and non-existing
+SETUP:
+GEOADD mygeo 13.361389 38.115556 "Palermo"
+RUN:
+GEOHASH mygeo "Palermo" "NonExistent"
+EXPECT:
+(any)
+CLEANUP:
+DEL mygeo

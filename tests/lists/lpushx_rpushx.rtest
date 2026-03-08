@@ -1,0 +1,108 @@
+# LPUSHX and RPUSHX command tests - Push to list only if exists
+@name LPUSHX-RPUSHX
+@group lists
+@since 2.2.0
+
+=== TEST: LPUSHX on existing list
+SETUP:
+RPUSH mylist "a" "b" "c"
+RUN:
+LPUSHX mylist "x"
+EXPECT:
+(integer) 4
+CLEANUP:
+DEL mylist
+
+=== TEST: LPUSHX on non-existing list
+RUN:
+LPUSHX nonexistent "value"
+EXPECT:
+(integer) 0
+
+=== TEST: LPUSHX multiple values
+SETUP:
+RPUSH mylist "a" "b"
+RUN:
+LPUSHX mylist "x" "y" "z"
+EXPECT:
+(integer) 5
+CLEANUP:
+DEL mylist
+
+=== TEST: RPUSHX on existing list
+SETUP:
+LPUSH mylist "a" "b" "c"
+RUN:
+RPUSHX mylist "z"
+EXPECT:
+(integer) 4
+CLEANUP:
+DEL mylist
+
+=== TEST: RPUSHX on non-existing list
+RUN:
+RPUSHX nonexistent "value"
+EXPECT:
+(integer) 0
+
+=== TEST: RPUSHX multiple values
+SETUP:
+LPUSH mylist "a" "b"
+RUN:
+RPUSHX mylist "x" "y" "z"
+EXPECT:
+(integer) 5
+CLEANUP:
+DEL mylist
+
+=== TEST: LPUSHX wrong type
+SETUP:
+SET mystring "value"
+RUN:
+LPUSHX mystring "element"
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring
+
+=== TEST: RPUSHX wrong type
+SETUP:
+SET mystring "value"
+RUN:
+RPUSHX mystring "element"
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring
+
+=== TEST: LPUSHX no values
+RUN:
+LPUSHX mylist
+EXPECT:
+(error) ERR wrong number of arguments for 'lpushx' command
+
+=== TEST: RPUSHX no values
+RUN:
+RPUSHX mylist
+EXPECT:
+(error) ERR wrong number of arguments for 'rpushx' command
+
+=== TEST: LPUSHX empty value
+SETUP:
+RPUSH mylist "a"
+RUN:
+LPUSHX mylist ""
+EXPECT:
+(integer) 2
+CLEANUP:
+DEL mylist
+
+=== TEST: RPUSHX empty value
+SETUP:
+RPUSH mylist "a"
+RUN:
+RPUSHX mylist ""
+EXPECT:
+(integer) 2
+CLEANUP:
+DEL mylist

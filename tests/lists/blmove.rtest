@@ -1,0 +1,111 @@
+# BLMOVE command tests - Blocking list move between lists
+@name BLMOVE
+@group lists
+@since 6.2.0
+
+=== TEST: BLMOVE LEFT RIGHT
+SETUP:
+RPUSH source "a" "b" "c"
+RUN:
+BLMOVE source destination LEFT RIGHT 1
+EXPECT:
+"a"
+CLEANUP:
+DEL source destination
+
+=== TEST: BLMOVE RIGHT LEFT
+SETUP:
+RPUSH source "a" "b" "c"
+RUN:
+BLMOVE source destination RIGHT LEFT 1
+EXPECT:
+"c"
+CLEANUP:
+DEL source destination
+
+=== TEST: BLMOVE LEFT LEFT
+SETUP:
+RPUSH source "a" "b" "c"
+RUN:
+BLMOVE source destination LEFT LEFT 1
+EXPECT:
+"a"
+CLEANUP:
+DEL source destination
+
+=== TEST: BLMOVE RIGHT RIGHT
+SETUP:
+RPUSH source "a" "b" "c"
+RUN:
+BLMOVE source destination RIGHT RIGHT 1
+EXPECT:
+"c"
+CLEANUP:
+DEL source destination
+
+=== TEST: BLMOVE to self
+SETUP:
+RPUSH mylist "a" "b" "c"
+RUN:
+BLMOVE mylist mylist LEFT RIGHT 1
+EXPECT:
+"a"
+CLEANUP:
+DEL mylist
+
+=== TEST: BLMOVE empty source
+SETUP:
+DEL source
+RUN:
+BLMOVE source destination LEFT RIGHT 0
+EXPECT:
+(any)
+CLEANUP:
+DEL source destination
+
+=== TEST: BLMOVE wrong direction
+SETUP:
+RPUSH source "a"
+RUN:
+BLMOVE source destination INVALID RIGHT 1
+EXPECT:
+(error) ERR syntax error
+CLEANUP:
+DEL source
+
+=== TEST: BLMOVE wrong type source
+SETUP:
+SET mysource "value"
+RUN:
+BLMOVE mysource destination LEFT RIGHT 1
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mysource
+
+=== TEST: BLMOVE wrong type destination
+SETUP:
+RPUSH source "a"
+SET mydest "value"
+RUN:
+BLMOVE source mydest LEFT RIGHT 1
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL source mydest
+
+=== TEST: BLMOVE invalid timeout
+SETUP:
+RPUSH source "a"
+RUN:
+BLMOVE source destination LEFT RIGHT notimeout
+EXPECT:
+(error) ERR timeout is not a float or out of range
+CLEANUP:
+DEL source
+
+=== TEST: BLMOVE wrong number of arguments
+RUN:
+BLMOVE key1 key2
+EXPECT:
+(error) ERR wrong number of arguments for 'blmove' command

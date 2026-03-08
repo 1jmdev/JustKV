@@ -1,0 +1,95 @@
+# ZDIFFSTORE command tests - Store difference between sorted sets
+@name ZDIFFSTORE
+@group sorted_sets
+@since 6.2.0
+
+=== TEST: ZDIFFSTORE basic difference
+SETUP:
+ZADD zset1 1 "one" 2 "two" 3 "three"
+ZADD zset2 1 "one" 2 "two"
+RUN:
+ZDIFFSTORE out 2 zset1 zset2
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL zset1 zset2 out
+
+=== TEST: ZDIFFSTORE verify stored elements
+SETUP:
+ZADD zset1 1 "one" 2 "two" 3 "three"
+ZADD zset2 1 "one" 2 "two"
+RUN:
+ZDIFFSTORE out 2 zset1 zset2
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL zset1 zset2 out
+
+=== TEST: ZDIFFSTORE no differences
+SETUP:
+ZADD zset1 1 "one" 2 "two"
+ZADD zset2 1 "one" 2 "two"
+RUN:
+ZDIFFSTORE out 2 zset1 zset2
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL zset1 zset2 out
+
+=== TEST: ZDIFFSTORE multiple sets
+SETUP:
+ZADD zset1 1 "one" 2 "two" 3 "three" 4 "four"
+ZADD zset2 1 "one" 2 "two"
+ZADD zset3 3 "three"
+RUN:
+ZDIFFSTORE out 3 zset1 zset2 zset3
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL zset1 zset2 zset3 out
+
+=== TEST: ZDIFFSTORE destination overwrites
+SETUP:
+ZADD zset1 1 "one" 2 "two" 3 "three"
+ZADD zset2 1 "one"
+ZADD out 9 "old"
+RUN:
+ZDIFFSTORE out 2 zset1 zset2
+EXPECT:
+(integer) 2
+CLEANUP:
+DEL zset1 zset2 out
+
+=== TEST: ZDIFFSTORE empty result
+SETUP:
+ZADD zset1 1 "one"
+ZADD zset2 1 "one"
+RUN:
+ZDIFFSTORE out 2 zset1 zset2
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL zset1 zset2 out
+
+=== TEST: ZDIFFSTORE wrong type source
+SETUP:
+SET mystring "value"
+ZADD zset2 1 "one"
+RUN:
+ZDIFFSTORE out 2 mystring zset2
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring zset2
+
+=== TEST: ZDIFFSTORE invalid numkeys
+RUN:
+ZDIFFSTORE out notnum key1 key2
+EXPECT:
+(error) ERR value is not an integer or out of range
+
+=== TEST: ZDIFFSTORE wrong number of arguments
+RUN:
+ZDIFFSTORE out 2 key1
+EXPECT:
+(error) ERR syntax error

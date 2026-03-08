@@ -1,0 +1,28 @@
+# LASTSAVE command tests - Get Unix timestamp of last DB save
+@name LASTSAVE
+@group server
+@since 1.0.0
+
+=== TEST: LASTSAVE returns integer
+RUN:
+LASTSAVE
+EXPECT:
+(match) \\d+
+
+=== TEST: LASTSAVE returns positive timestamp
+RUN:
+LASTSAVE
+EXPECT:
+(match) [1-9]\\d{9,}
+
+=== TEST: LASTSAVE wrong number of arguments
+RUN:
+LASTSAVE extra
+EXPECT:
+(error) ERR wrong number of arguments for 'lastsave' command
+
+=== TEST: LASTSAVE is consistent
+RUN:
+LASTSAVE
+EXPECT:
+(match) \\d+

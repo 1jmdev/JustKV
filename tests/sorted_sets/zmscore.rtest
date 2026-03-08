@@ -1,0 +1,96 @@
+# ZMSCORE command tests - Get scores of multiple members
+@name ZMSCORE
+@group sorted_sets
+@since 6.2.0
+
+=== TEST: ZMSCORE single member
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZMSCORE myzset "one"
+EXPECT:
+1) "1"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZMSCORE multiple members
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+ZMSCORE myzset "one" "two" "three"
+EXPECT:
+1) "1"
+2) "2"
+3) "3"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZMSCORE non-existing member
+SETUP:
+ZADD myzset 1 "one" 2 "two"
+RUN:
+ZMSCORE myzset "one" "nonexistent" "two"
+EXPECT:
+1) "1"
+2) (nil)
+3) "2"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZMSCORE non-existing key
+RUN:
+ZMSCORE nonexistent "one" "two"
+EXPECT:
+1) (nil)
+2) (nil)
+
+=== TEST: ZMSCORE empty result
+SETUP:
+ZADD myzset 1 "one"
+RUN:
+ZMSCORE myzset "notexist1" "notexist2"
+EXPECT:
+1) (nil)
+2) (nil)
+CLEANUP:
+DEL myzset
+
+=== TEST: ZMSCORE float scores
+SETUP:
+ZADD myzset 1.5 "one" 2.7 "two" 3.14 "three"
+RUN:
+ZMSCORE myzset "one" "two" "three"
+EXPECT:
+1) "1.5"
+2) "2.7"
+3) "3.14"
+CLEANUP:
+DEL myzset
+
+=== TEST: ZMSCORE wrong type
+SETUP:
+SET mystring "value"
+RUN:
+ZMSCORE mystring "one"
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring
+
+=== TEST: ZMSCORE wrong number of arguments
+RUN:
+ZMSCORE key
+EXPECT:
+(error) ERR wrong number of arguments for 'zmscore' command
+
+=== TEST: ZMSCORE duplicate members
+SETUP:
+ZADD myzset 1 "one" 2 "two"
+RUN:
+ZMSCORE myzset "one" "one" "two"
+EXPECT:
+1) "1"
+2) "1"
+3) "2"
+CLEANUP:
+DEL myzset

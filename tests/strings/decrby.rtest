@@ -1,0 +1,88 @@
+# DECRBY command tests - Decrement integer by amount
+@name DECRBY
+@group strings
+@since 1.0.0
+
+=== TEST: DECRBY positive integer
+SETUP:
+SET counter 10
+RUN:
+DECRBY counter 3
+EXPECT:
+(integer) 7
+CLEANUP:
+DEL counter
+
+=== TEST: DECRBY on non-existing key
+RUN:
+DECRBY newcounter 5
+EXPECT:
+(integer) -5
+CLEANUP:
+DEL newcounter
+
+=== TEST: DECRBY by negative value
+SETUP:
+SET counter 10
+RUN:
+DECRBY counter -5
+EXPECT:
+(integer) 15
+CLEANUP:
+DEL counter
+
+=== TEST: DECRBY zero
+SETUP:
+SET counter 10
+RUN:
+DECRBY counter 0
+EXPECT:
+(integer) 10
+CLEANUP:
+DEL counter
+
+=== TEST: DECRBY large number
+SETUP:
+SET counter 1000000
+RUN:
+DECRBY counter 999999
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL counter
+
+=== TEST: DECRBY non-integer value
+SETUP:
+SET mykey "hello"
+RUN:
+DECRBY mykey 1
+EXPECT:
+(error) ERR value is not an integer or out of range
+CLEANUP:
+DEL mykey
+
+=== TEST: DECRBY wrong type
+SETUP:
+LPUSH mylist "value"
+RUN:
+DECRBY mylist 1
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mylist
+
+=== TEST: DECRBY wrong number of arguments
+RUN:
+DECRBY key
+EXPECT:
+(error) ERR wrong number of arguments for 'decrby' command
+
+=== TEST: DECRBY overflow
+SETUP:
+SET counter 9223372036854775807
+RUN:
+DECRBY counter -1
+EXPECT:
+(error) ERR increment or decrement would overflow
+CLEANUP:
+DEL counter

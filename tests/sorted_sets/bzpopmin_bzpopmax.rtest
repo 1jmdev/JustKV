@@ -1,0 +1,126 @@
+# BZPOPMIN and BZPOPMAX command tests - Blocking sorted set pop
+@name BZPOPMIN-BZPOPMAX
+@group sorted_sets
+@since 5.0.0
+
+=== TEST: BZPOPMIN with existing elements
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+BZPOPMIN myzset 1
+EXPECT:
+1) "myzset"
+2) "one"
+3) "1"
+CLEANUP:
+DEL myzset
+
+=== TEST: BZPOPMIN multiple keys
+SETUP:
+ZADD zset1 1 "one"
+ZADD zset2 2 "two"
+RUN:
+BZPOPMIN zset1 zset2 1
+EXPECT:
+1) "zset1"
+2) "one"
+3) "1"
+CLEANUP:
+DEL zset1 zset2
+
+=== TEST: BZPOPMIN timeout
+SETUP:
+DEL myzset
+RUN:
+BZPOPMIN myzset 0
+EXPECT:
+(any)
+CLEANUP:
+DEL myzset
+
+=== TEST: BZPOPMAX with existing elements
+SETUP:
+ZADD myzset 1 "one" 2 "two" 3 "three"
+RUN:
+BZPOPMAX myzset 1
+EXPECT:
+1) "myzset"
+2) "three"
+3) "3"
+CLEANUP:
+DEL myzset
+
+=== TEST: BZPOPMAX multiple keys
+SETUP:
+ZADD zset1 1 "one"
+ZADD zset2 2 "two"
+RUN:
+BZPOPMAX zset1 zset2 1
+EXPECT:
+1) "zset1"
+2) "one"
+3) "1"
+CLEANUP:
+DEL zset1 zset2
+
+=== TEST: BZPOPMAX timeout
+SETUP:
+DEL myzset
+RUN:
+BZPOPMAX myzset 0
+EXPECT:
+(any)
+CLEANUP:
+DEL myzset
+
+=== TEST: BZPOPMIN wrong type
+SETUP:
+SET mystring "value"
+RUN:
+BZPOPMIN mystring 1
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring
+
+=== TEST: BZPOPMAX wrong type
+SETUP:
+SET mystring "value"
+RUN:
+BZPOPMAX mystring 1
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring
+
+=== TEST: BZPOPMIN invalid timeout
+SETUP:
+ZADD myzset 1 "one"
+RUN:
+BZPOPMIN myzset notimeout
+EXPECT:
+(error) ERR timeout is not a float or out of range
+CLEANUP:
+DEL myzset
+
+=== TEST: BZPOPMAX invalid timeout
+SETUP:
+ZADD myzset 1 "one"
+RUN:
+BZPOPMAX myzset notimeout
+EXPECT:
+(error) ERR timeout is not a float or out of range
+CLEANUP:
+DEL myzset
+
+=== TEST: BZPOPMIN wrong number of arguments
+RUN:
+BZPOPMIN key
+EXPECT:
+(error) ERR wrong number of arguments for 'bzpopmin' command
+
+=== TEST: BZPOPMAX wrong number of arguments
+RUN:
+BZPOPMAX key
+EXPECT:
+(error) ERR wrong number of arguments for 'bzpopmax' command

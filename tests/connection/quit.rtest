@@ -1,0 +1,16 @@
+# QUIT command tests - Close connection
+@name QUIT
+@group connection
+@since 1.0.0
+
+=== TEST: QUIT returns OK
+RUN:
+QUIT
+EXPECT:
+OK
+
+=== TEST: QUIT wrong number of arguments
+RUN:
+QUIT extra
+EXPECT:
+(error) ERR wrong number of arguments for 'quit' command

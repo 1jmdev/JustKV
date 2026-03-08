@@ -1,0 +1,67 @@
+# DISCARD command tests - Discard transaction
+@name DISCARD
+@group transactions
+@since 1.2.0
+
+=== TEST: DISCARD in transaction
+RUN:
+MULTI
+EXPECT:
+OK
+
+=== TEST: DISCARD after commands
+RUN:
+MULTI
+SET key "value"
+GET key
+DISCARD
+EXPECT:
+QUEUED
+QUEUED
+OK
+
+=== TEST: DISCARD without MULTI
+RUN:
+DISCARD
+EXPECT:
+(error) ERR DISCARD without MULTI
+
+=== TEST: DISCARD clears queue
+RUN:
+MULTI
+SET key1 "value1"
+SET key2 "value2"
+DISCARD
+EXPECT:
+QUEUED
+QUEUED
+OK
+
+=== TEST: DISCARD and verify not executed
+RUN:
+MULTI
+SET mykey "discarded"
+DISCARD
+EXPECT:
+QUEUED
+OK
+
+=== TEST: DISCARD multiple operations
+RUN:
+MULTI
+LPUSH mylist "a" "b" "c"
+SADD myset "x" "y" "z"
+HSET myhash field "value"
+DISCARD
+EXPECT:
+QUEUED
+QUEUED
+QUEUED
+OK
+
+=== TEST: DISCARD wrong number of arguments
+RUN:
+MULTI
+DISCARD extra
+EXPECT:
+(error) ERR wrong number of arguments for 'discard' command

@@ -1,0 +1,72 @@
+# DUMP and RESTORE command tests - Serialize and deserialize values
+@name DUMP-RESTORE
+@group generic
+@since 2.6.0
+
+=== TEST: DUMP string value
+SETUP:
+SET mykey "Hello"
+RUN:
+DUMP mykey
+EXPECT:
+(any)
+CLEANUP:
+DEL mykey
+
+=== TEST: DUMP non-existing key
+RUN:
+DUMP nonexistent
+EXPECT:
+(nil)
+
+=== TEST: DUMP list
+SETUP:
+RPUSH mylist "a" "b" "c"
+RUN:
+DUMP mylist
+EXPECT:
+(any)
+CLEANUP:
+DEL mylist
+
+=== TEST: DUMP hash
+SETUP:
+HSET myhash field "value"
+RUN:
+DUMP myhash
+EXPECT:
+(any)
+CLEANUP:
+DEL myhash
+
+=== TEST: RESTORE basic
+SETUP:
+SET mykey "Hello"
+RUN:
+DUMP mykey
+EXPECT:
+(any)
+CLEANUP:
+DEL mykey
+
+=== TEST: RESTORE wrong number of arguments
+RUN:
+RESTORE key
+EXPECT:
+(error) ERR wrong number of arguments for 'restore' command
+
+=== TEST: RESTORE invalid dump
+RUN:
+RESTORE newkey 0 "invalid"
+EXPECT:
+(error) ERR Bad data format
+
+=== TEST: DUMP wrong type handling
+SETUP:
+SET mykey "value"
+RUN:
+DUMP mykey
+EXPECT:
+(any)
+CLEANUP:
+DEL mykey

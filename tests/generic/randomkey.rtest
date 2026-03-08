@@ -1,0 +1,48 @@
+# RANDOMKEY command tests - Get random key from database
+@name RANDOMKEY
+@group generic
+@since 1.0.0
+
+=== TEST: RANDOMKEY on non-empty database
+SETUP:
+FLUSHDB
+SET key1 "value1"
+SET key2 "value2"
+RUN:
+RANDOMKEY
+EXPECT:
+(any)
+
+=== TEST: RANDOMKEY on empty database
+SETUP:
+FLUSHDB
+RUN:
+RANDOMKEY
+EXPECT:
+(nil)
+
+=== TEST: RANDOMKEY single key
+SETUP:
+FLUSHDB
+SET onlykey "value"
+RUN:
+RANDOMKEY
+EXPECT:
+"onlykey"
+
+=== TEST: RANDOMKEY wrong number of arguments
+RUN:
+RANDOMKEY extra
+EXPECT:
+(error) ERR wrong number of arguments for 'randomkey' command
+
+=== TEST: RANDOMKEY multiple keys
+SETUP:
+FLUSHDB
+SET key1 "v1"
+SET key2 "v2"
+SET key3 "v3"
+RUN:
+RANDOMKEY
+EXPECT:
+(any)

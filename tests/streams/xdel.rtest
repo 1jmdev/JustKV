@@ -1,0 +1,64 @@
+# XDEL command tests - Delete entries from stream
+@name XDEL
+@group streams
+@since 5.0.0
+
+=== TEST: XDEL existing entry
+SETUP:
+XADD mystream "*" field "value"
+RUN:
+XLEN mystream
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL mystream
+
+=== TEST: XDEL non-existing entry
+SETUP:
+XADD mystream "*" field "value"
+RUN:
+XDEL mystream "999-0"
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL mystream
+
+=== TEST: XDEL non-existing stream
+RUN:
+XDEL nonexistent "1-0"
+EXPECT:
+(integer) 0
+
+=== TEST: XDEL multiple entries
+SETUP:
+XADD mystream "*" f1 "v1"
+XADD mystream "*" f2 "v2"
+XADD mystream "*" f3 "v3"
+RUN:
+XLEN mystream
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL mystream
+
+=== TEST: XDEL wrong type
+SETUP:
+SET mystring "value"
+RUN:
+XDEL mystring "1-0"
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring
+
+=== TEST: XDEL wrong number of arguments
+RUN:
+XDEL key
+EXPECT:
+(error) ERR wrong number of arguments for 'xdel' command
+
+=== TEST: XDEL no entries specified
+RUN:
+XDEL mystream
+EXPECT:
+(error) ERR wrong number of arguments for 'xdel' command

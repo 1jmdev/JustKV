@@ -1,0 +1,16 @@
+# PFSELFTEST command tests - Self-test HyperLogLog
+@name PFSELFTEST
+@group hyperloglog
+@since 2.8.9
+
+=== TEST: PFSELFTEST execution
+RUN:
+PFSELFTEST
+EXPECT:
+(any)
+
+=== TEST: PFSELFTEST is read-only
+RUN:
+PFSELFTEST
+EXPECT:
+(any)

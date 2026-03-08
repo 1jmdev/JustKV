@@ -1,0 +1,98 @@
+# HINCRBYFLOAT command tests - Increment float field in hash
+@name HINCRBYFLOAT
+@group hashes
+@since 2.6.0
+
+=== TEST: HINCRBYFLOAT positive increment
+SETUP:
+HSET myhash field 10.50
+RUN:
+HINCRBYFLOAT myhash field 0.1
+EXPECT:
+"10.6"
+CLEANUP:
+DEL myhash
+
+=== TEST: HINCRBYFLOAT on non-existing field
+SETUP:
+HSET myhash field1 "value1"
+RUN:
+HINCRBYFLOAT myhash newfield 2.5
+EXPECT:
+"2.5"
+CLEANUP:
+DEL myhash
+
+=== TEST: HINCRBYFLOAT negative increment
+SETUP:
+HSET myhash field 10.5
+RUN:
+HINCRBYFLOAT myhash field -2.3
+EXPECT:
+"8.2"
+CLEANUP:
+DEL myhash
+
+=== TEST: HINCRBYFLOAT on non-existing hash
+RUN:
+HINCRBYFLOAT newhash field 5.5
+EXPECT:
+"5.5"
+CLEANUP:
+DEL newhash
+
+=== TEST: HINCRBYFLOAT integer value with float increment
+SETUP:
+HSET myhash field 5
+RUN:
+HINCRBYFLOAT myhash field 2.5
+EXPECT:
+"7.5"
+CLEANUP:
+DEL myhash
+
+=== TEST: HINCRBYFLOAT zero increment
+SETUP:
+HSET myhash field 5.5
+RUN:
+HINCRBYFLOAT myhash field 0
+EXPECT:
+"5.5"
+CLEANUP:
+DEL myhash
+
+=== TEST: HINCRBYFLOAT invalid float value
+SETUP:
+HSET myhash field "notfloat"
+RUN:
+HINCRBYFLOAT myhash field 1.5
+EXPECT:
+(error) ERR hash value is not a float
+CLEANUP:
+DEL myhash
+
+=== TEST: HINCRBYFLOAT invalid increment
+SETUP:
+HSET myhash field 5.5
+RUN:
+HINCRBYFLOAT myhash field "notincrement"
+EXPECT:
+(error) ERR value is not a valid float
+CLEANUP:
+DEL myhash
+
+=== TEST: HINCRBYFLOAT wrong type key
+SETUP:
+SET mystring "value"
+RUN:
+HINCRBYFLOAT mystring field 1.5
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring
+
+=== TEST: HINCRBYFLOAT wrong number of arguments
+RUN:
+HINCRBYFLOAT key field
+EXPECT:
+(error) ERR wrong number of arguments for 'hincrbyfloat' command

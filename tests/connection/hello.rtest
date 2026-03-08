@@ -1,0 +1,46 @@
+# HELLO command tests - Redis 6.0 handshake protocol
+@name HELLO
+@group connection
+@since 6.0.0
+
+=== TEST: HELLO basic
+RUN:
+HELLO 2
+EXPECT:
+(any)
+
+=== TEST: HELLO version 3
+RUN:
+HELLO 3
+EXPECT:
+(any)
+
+=== TEST: HELLO AUTH
+RUN:
+HELLO 2 AUTH default password
+EXPECT:
+(error)
+
+=== TEST: HELLO SETNAME
+RUN:
+HELLO 2 SETNAME "myconnection"
+EXPECT:
+(any)
+
+=== TEST: HELLO invalid version
+RUN:
+HELLO 99
+EXPECT:
+(error) ERR Protocol version not supported
+
+=== TEST: HELLO wrong type argument
+RUN:
+HELLO notversion
+EXPECT:
+(error) ERR value is not an integer or out of range
+
+=== TEST: HELLO with NAME
+RUN:
+HELLO 2 SETNAME "test-client"
+EXPECT:
+(any)

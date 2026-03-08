@@ -1,0 +1,98 @@
+# ZDIFF command tests - Difference between sorted sets
+@name ZDIFF
+@group sorted_sets
+@since 6.2.0
+
+=== TEST: ZDIFF basic difference
+SETUP:
+ZADD zset1 1 "one" 2 "two" 3 "three"
+ZADD zset2 1 "one" 2 "two"
+RUN:
+ZDIFF 2 zset1 zset2
+EXPECT:
+1) "three"
+CLEANUP:
+DEL zset1 zset2
+
+=== TEST: ZDIFF with WITHSCORES
+SETUP:
+ZADD zset1 1 "one" 2 "two" 3 "three"
+ZADD zset2 1 "one"
+RUN:
+ZDIFF 2 zset1 zset2 WITHSCORES
+EXPECT:
+1) "two"
+2) "2"
+3) "three"
+4) "3"
+CLEANUP:
+DEL zset1 zset2
+
+=== TEST: ZDIFF no differences
+SETUP:
+ZADD zset1 1 "one" 2 "two"
+ZADD zset2 1 "one" 2 "two"
+RUN:
+ZDIFF 2 zset1 zset2
+EXPECT:
+(empty array)
+CLEANUP:
+DEL zset1 zset2
+
+=== TEST: ZDIFF first set empty
+SETUP:
+DEL zset1
+ZADD zset2 1 "one" 2 "two"
+RUN:
+ZDIFF 2 zset1 zset2
+EXPECT:
+(empty array)
+CLEANUP:
+DEL zset1 zset2
+
+=== TEST: ZDIFF second set empty
+SETUP:
+ZADD zset1 1 "one" 2 "two"
+DEL zset2
+RUN:
+ZDIFF 2 zset1 zset2
+EXPECT:
+1) "one"
+2) "two"
+CLEANUP:
+DEL zset1 zset2
+
+=== TEST: ZDIFF multiple sets
+SETUP:
+ZADD zset1 1 "one" 2 "two" 3 "three" 4 "four"
+ZADD zset2 1 "one" 2 "two"
+ZADD zset3 3 "three"
+RUN:
+ZDIFF 3 zset1 zset2 zset3
+EXPECT:
+1) "four"
+CLEANUP:
+DEL zset1 zset2 zset3
+
+=== TEST: ZDIFF wrong type
+SETUP:
+SET mystring "value"
+ZADD zset2 1 "one"
+RUN:
+ZDIFF 2 mystring zset2
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring zset2
+
+=== TEST: ZDIFF invalid numkeys
+RUN:
+ZDIFF notnum key1 key2
+EXPECT:
+(error) ERR value is not an integer or out of range
+
+=== TEST: ZDIFF wrong number of arguments
+RUN:
+ZDIFF 2 key1
+EXPECT:
+(error) ERR syntax error

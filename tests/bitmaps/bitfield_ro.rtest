@@ -1,0 +1,95 @@
+# BITFIELD_RO command tests - Read-only bitfield operations
+@name BITFIELD_RO
+@group bitmaps
+@since 6.0.0
+
+=== TEST: BITFIELD_RO GET
+SETUP:
+BITFIELD mykey SET u8 0 255
+RUN:
+BITFIELD_RO mykey GET u8 0
+EXPECT:
+1) (integer) 255
+CLEANUP:
+DEL mykey
+
+=== TEST: BITFIELD_RO multiple GETs
+SETUP:
+BITFIELD mykey SET u8 0 100 SET u8 8 200
+RUN:
+BITFIELD_RO mykey GET u8 0 GET u8 8
+EXPECT:
+1) (integer) 100
+2) (integer) 200
+CLEANUP:
+DEL mykey
+
+=== TEST: BITFIELD_RO non-existing key
+RUN:
+BITFIELD_RO nonexistent GET u8 0
+EXPECT:
+1) (integer) 0
+
+=== TEST: BITFIELD_RO different widths
+SETUP:
+BITFIELD mykey SET u16 0 65535
+RUN:
+BITFIELD_RO mykey GET u16 0
+EXPECT:
+1) (integer) 65535
+CLEANUP:
+DEL mykey
+
+=== TEST: BITFIELD_RO signed integers
+SETUP:
+BITFIELD mykey SET i8 0 -128
+RUN:
+BITFIELD_RO mykey GET i8 0
+EXPECT:
+1) (integer) -128
+CLEANUP:
+DEL mykey
+
+=== TEST: BITFIELD_RO empty key
+SETUP:
+DEL mykey
+RUN:
+BITFIELD_RO mykey GET u8 0
+EXPECT:
+1) (integer) 0
+
+=== TEST: BITFIELD_RO SET not allowed
+SETUP:
+DEL mykey
+RUN:
+BITFIELD_RO mykey SET u8 0 255
+EXPECT:
+(error) ERR syntax error
+CLEANUP:
+DEL mykey
+
+=== TEST: BITFIELD_RO INCRBY not allowed
+SETUP:
+BITFIELD mykey SET u8 0 100
+RUN:
+BITFIELD_RO mykey INCRBY u8 0 50
+EXPECT:
+(error) ERR syntax error
+CLEANUP:
+DEL mykey
+
+=== TEST: BITFIELD_RO wrong type
+SETUP:
+LPUSH mylist "value"
+RUN:
+BITFIELD_RO mylist GET u8 0
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mylist
+
+=== TEST: BITFIELD_RO no operations
+RUN:
+BITFIELD_RO key
+EXPECT:
+(error) ERR wrong number of arguments for 'bitfield_ro' command

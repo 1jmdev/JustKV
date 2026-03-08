@@ -1,0 +1,34 @@
+# TIME command tests - Get server time
+@name TIME
+@group server
+@since 2.6.0
+
+=== TEST: TIME returns array
+RUN:
+TIME
+EXPECT:
+(any)
+
+=== TEST: TIME returns seconds and microseconds
+RUN:
+TIME
+EXPECT:
+(any)
+
+=== TEST: TIME positive values
+RUN:
+TIME
+EXPECT:
+(any)
+
+=== TEST: TIME format
+RUN:
+TIME
+EXPECT:
+(any)
+
+=== TEST: TIME wrong number of arguments
+RUN:
+TIME extra
+EXPECT:
+(error) ERR wrong number of arguments for 'time' command

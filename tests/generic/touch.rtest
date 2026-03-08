@@ -1,0 +1,90 @@
+# TOUCH command tests - Update last access time of keys
+@name TOUCH
+@group generic
+@since 3.2.1
+
+=== TEST: TOUCH single existing key
+SETUP:
+SET mykey "Hello"
+RUN:
+TOUCH mykey
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL mykey
+
+=== TEST: TOUCH multiple existing keys
+SETUP:
+SET key1 "Hello"
+SET key2 "World"
+RUN:
+TOUCH key1 key2
+EXPECT:
+(integer) 2
+CLEANUP:
+DEL key1 key2
+
+=== TEST: TOUCH non-existing key
+RUN:
+TOUCH nonexistent
+EXPECT:
+(integer) 0
+
+=== TEST: TOUCH mixed existing and non-existing
+SETUP:
+SET key1 "Hello"
+RUN:
+TOUCH key1 nonexistent
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL key1
+
+=== TEST: TOUCH different data types
+SETUP:
+SET mystring "Hello"
+RPUSH mylist "a" "b"
+HSET myhash field "value"
+RUN:
+TOUCH mystring mylist myhash
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL mystring mylist myhash
+
+=== TEST: TOUCH multiple calls
+SETUP:
+SET mykey "Hello"
+RUN:
+TOUCH mykey mykey
+EXPECT:
+(integer) 2
+CLEANUP:
+DEL mykey
+
+=== TEST: TOUCH no arguments
+RUN:
+TOUCH
+EXPECT:
+(error) ERR wrong number of arguments for 'touch' command
+
+=== TEST: TOUCH updates access time
+SETUP:
+SET mykey "Hello"
+RUN:
+TOUCH mykey
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL mykey
+
+=== TEST: TOUCH with expired key
+SETUP:
+SET mykey "Hello"
+PEXPIRE mykey 10
+RUN:
+TOUCH mykey
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL mykey

@@ -1,0 +1,52 @@
+# PUBSUB command tests - Introspect Pub/Sub system
+@name PUBSUB
+@group pubsub
+@since 2.8.0
+
+=== TEST: PUBSUB CHANNELS
+RUN:
+PUBSUB CHANNELS
+EXPECT:
+(any)
+
+=== TEST: PUBSUB CHANNELS with pattern
+RUN:
+PUBSUB CHANNELS "test*"
+EXPECT:
+(any)
+
+=== TEST: PUBSUB NUMSUB
+RUN:
+PUBSUB NUMSUB channel1 channel2
+EXPECT:
+(any)
+
+=== TEST: PUBSUB NUMSUB no channels
+RUN:
+PUBSUB NUMSUB
+EXPECT:
+(any)
+
+=== TEST: PUBSUB NUMPAT
+RUN:
+PUBSUB NUMPAT
+EXPECT:
+(match) \\d+
+
+=== TEST: PUBSUB invalid subcommand
+RUN:
+PUBSUB INVALID
+EXPECT:
+(error) ERR Unknown subcommand
+
+=== TEST: PUBSUB no subcommand
+RUN:
+PUBSUB
+EXPECT:
+(error) ERR wrong number of arguments for 'pubsub' command
+
+=== TEST: PUBSUB CHANNELS non-matching
+RUN:
+PUBSUB CHANNELS "nomatchpattern*"
+EXPECT:
+(any)

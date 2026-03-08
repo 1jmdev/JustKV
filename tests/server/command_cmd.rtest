@@ -1,0 +1,46 @@
+# COMMAND command tests - Get command information
+@name COMMAND
+@group server
+@since 2.8.13
+
+=== TEST: COMMAND returns info
+RUN:
+COMMAND
+EXPECT:
+(any)
+
+=== TEST: COMMAND COUNT
+RUN:
+COMMAND COUNT
+EXPECT:
+(match) \\d+
+
+=== TEST: COMMAND INFO GET
+RUN:
+COMMAND INFO GET
+EXPECT:
+(any)
+
+=== TEST: COMMAND INFO multiple commands
+RUN:
+COMMAND INFO GET SET DEL
+EXPECT:
+(any)
+
+=== TEST: COMMAND INFO non-existing command
+RUN:
+COMMAND INFO NOSUCHCOMMAND
+EXPECT:
+(any)
+
+=== TEST: COMMAND GETKEYS
+RUN:
+COMMAND GETKEYS MSET a b c d
+EXPECT:
+(any)
+
+=== TEST: COMMAND invalid subcommand
+RUN:
+COMMAND INVALID
+EXPECT:
+(error) ERR Unknown subcommand

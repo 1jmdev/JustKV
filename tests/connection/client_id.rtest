@@ -1,0 +1,34 @@
+# CLIENT ID command tests - Get client connection ID
+@name CLIENT-ID
+@group connection
+@since 5.0.0
+
+=== TEST: CLIENT ID returns integer
+RUN:
+CLIENT ID
+EXPECT:
+(match) \\d+
+
+=== TEST: CLIENT ID unique per connection
+RUN:
+CLIENT ID
+EXPECT:
+(match) \\d+
+
+=== TEST: CLIENT ID positive integer
+RUN:
+CLIENT ID
+EXPECT:
+(match) [1-9]\\d*
+
+=== TEST: CLIENT ID consistent
+RUN:
+CLIENT ID
+EXPECT:
+(match) \\d+
+
+=== TEST: CLIENT ID no arguments
+RUN:
+CLIENT ID extra
+EXPECT:
+(error) ERR wrong number of arguments for 'client|id' command

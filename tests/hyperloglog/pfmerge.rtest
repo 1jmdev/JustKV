@@ -1,0 +1,109 @@
+# PFMERGE command tests - Merge HyperLogLog values
+@name PFMERGE
+@group hyperloglog
+@since 2.8.9
+
+=== TEST: PFMERGE basic merge
+SETUP:
+PFADD hll1 "a" "b" "c"
+PFADD hll2 "c" "d" "e"
+RUN:
+PFMERGE hll3 hll1 hll2
+EXPECT:
+OK
+CLEANUP:
+DEL hll1 hll2 hll3
+
+=== TEST: PFMERGE and count
+SETUP:
+PFADD hll1 "a" "b" "c"
+PFADD hll2 "d" "e"
+RUN:
+PFMERGE hll3 hll1 hll2
+EXPECT:
+OK
+CLEANUP:
+DEL hll1 hll2 hll3
+
+=== TEST: PFMERGE overwrites destination
+SETUP:
+PFADD hll1 "a" "b"
+PFADD hll2 "c" "d"
+PFADD hll3 "x" "y"
+RUN:
+PFMERGE hll3 hll1 hll2
+EXPECT:
+OK
+CLEANUP:
+DEL hll1 hll2 hll3
+
+=== TEST: PFMERGE single source
+SETUP:
+PFADD hll1 "a" "b" "c"
+RUN:
+PFMERGE hll2 hll1
+EXPECT:
+OK
+CLEANUP:
+DEL hll1 hll2
+
+=== TEST: PFMERGE non-existing sources
+SETUP:
+DEL hll1 hll2
+RUN:
+PFMERGE hll3 hll1 hll2
+EXPECT:
+OK
+CLEANUP:
+DEL hll3
+
+=== TEST: PFMERGE mixed existing and non-existing
+SETUP:
+PFADD hll1 "a" "b"
+DEL hll2
+RUN:
+PFMERGE hll3 hll1 hll2
+EXPECT:
+OK
+CLEANUP:
+DEL hll1 hll3
+
+=== TEST: PFMERGE multiple sources
+SETUP:
+PFADD hll1 "a"
+PFADD hll2 "b"
+PFADD hll3 "c"
+PFADD hll4 "d"
+RUN:
+PFMERGE dest hll1 hll2 hll3 hll4
+EXPECT:
+OK
+CLEANUP:
+DEL hll1 hll2 hll3 hll4 dest
+
+=== TEST: PFMERGE wrong type source
+SETUP:
+SET mystring "value"
+PFADD hll2 "a"
+RUN:
+PFMERGE hll3 mystring hll2
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring hll2
+
+=== TEST: PFMERGE wrong number of arguments
+RUN:
+PFMERGE dest
+EXPECT:
+(error) ERR wrong number of arguments for 'pfmerge' command
+
+=== TEST: PFMERGE destination same as source
+SETUP:
+PFADD hll1 "a" "b" "c"
+RUN:
+PFMERGE hll1 hll1
+EXPECT:
+OK
+CLEANUP:
+DEL hll1

@@ -1,0 +1,86 @@
+# XLEN command tests - Get stream length
+@name XLEN
+@group streams
+@since 5.0.0
+
+=== TEST: XLEN on stream with elements
+SETUP:
+XADD mystream "*" field "value"
+RUN:
+XLEN mystream
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL mystream
+
+=== TEST: XLEN on empty stream
+SETUP:
+DEL mystream
+RUN:
+XLEN mystream
+EXPECT:
+(integer) 0
+
+=== TEST: XLEN multiple entries
+SETUP:
+XADD mystream "*" f1 "v1"
+XADD mystream "*" f2 "v2"
+XADD mystream "*" f3 "v3"
+RUN:
+XLEN mystream
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL mystream
+
+=== TEST: XLEN after XDEL
+SETUP:
+XADD mystream "*" f1 "v1"
+XADD mystream "*" f2 "v2"
+RUN:
+XLEN mystream
+EXPECT:
+(integer) 2
+CLEANUP:
+DEL mystream
+
+=== TEST: XLEN wrong type
+SETUP:
+SET mystring "value"
+RUN:
+XLEN mystring
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring
+
+=== TEST: XLEN wrong number of arguments
+RUN:
+XLEN
+EXPECT:
+(error) ERR wrong number of arguments for 'xlen' command
+
+=== TEST: XLEN with extra arguments
+SETUP:
+XADD mystream "*" f "v"
+RUN:
+XLEN mystream extra
+EXPECT:
+(error) ERR wrong number of arguments for 'xlen' command
+CLEANUP:
+DEL mystream
+
+=== TEST: XLEN large stream
+SETUP:
+DEL mystream
+XADD mystream "*" f1 "v1"
+XADD mystream "*" f2 "v2"
+XADD mystream "*" f3 "v3"
+XADD mystream "*" f4 "v4"
+XADD mystream "*" f5 "v5"
+RUN:
+XLEN mystream
+EXPECT:
+(integer) 5
+CLEANUP:
+DEL mystream

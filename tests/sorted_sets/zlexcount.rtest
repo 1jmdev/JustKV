@@ -1,0 +1,96 @@
+# ZLEXCOUNT command tests - Count members in lexicographical range
+@name ZLEXCOUNT
+@group sorted_sets
+@since 3.0.6
+
+=== TEST: ZLEXCOUNT basic range
+SETUP:
+ZADD myzset 0 "a" 0 "b" 0 "c" 0 "d" 0 "e"
+RUN:
+ZLEXCOUNT myzset "[a" "[c"
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL myzset
+
+=== TEST: ZLEXCOUNT exclusive range
+SETUP:
+ZADD myzset 0 "a" 0 "b" 0 "c" 0 "d" 0 "e"
+RUN:
+ZLEXCOUNT myzset "(a" "(d"
+EXPECT:
+(integer) 2
+CLEANUP:
+DEL myzset
+
+=== TEST: ZLEXCOUNT full range
+SETUP:
+ZADD myzset 0 "a" 0 "b" 0 "c" 0 "d"
+RUN:
+ZLEXCOUNT myzset "-" "+"
+EXPECT:
+(integer) 4
+CLEANUP:
+DEL myzset
+
+=== TEST: ZLEXCOUNT empty result
+SETUP:
+ZADD myzset 0 "a" 0 "b" 0 "c"
+RUN:
+ZLEXCOUNT myzset "(b" "(b"
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL myzset
+
+=== TEST: ZLEXCOUNT non-existing key
+RUN:
+ZLEXCOUNT nonexistent "[a" "[z"
+EXPECT:
+(integer) 0
+
+=== TEST: ZLEXCOUNT single element
+SETUP:
+ZADD myzset 0 "a" 0 "b" 0 "c"
+RUN:
+ZLEXCOUNT myzset "[b" "[b"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL myzset
+
+=== TEST: ZLEXCOUNT wrong type
+SETUP:
+SET mystring "value"
+RUN:
+ZLEXCOUNT mystring "[a" "[z"
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring
+
+=== TEST: ZLEXCOUNT invalid range
+SETUP:
+ZADD myzset 0 "a" 0 "b" 0 "c"
+RUN:
+ZLEXCOUNT myzset "[z" "[a"
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL myzset
+
+=== TEST: ZLEXCOUNT wrong number of arguments
+RUN:
+ZLEXCOUNT key "[a"
+EXPECT:
+(error) ERR wrong number of arguments for 'zlexcount' command
+
+=== TEST: ZLEXCOUNT integer scores not equal
+SETUP:
+ZADD myzset 1 "a" 2 "b" 3 "c"
+RUN:
+ZLEXCOUNT myzset "[a" "[c"
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL myzset

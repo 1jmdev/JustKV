@@ -1,0 +1,96 @@
+# SSCAN command tests - Iterate set members
+@name SSCAN
+@group sets
+@since 2.8.0
+
+=== TEST: SSCAN basic iteration
+SETUP:
+SADD myset "a" "b" "c" "d" "e"
+RUN:
+SSCAN myset 0
+EXPECT:
+(any)
+CLEANUP:
+DEL myset
+
+=== TEST: SSCAN empty set
+SETUP:
+DEL myset
+RUN:
+SSCAN myset 0
+EXPECT:
+1) "0"
+2) (empty array)
+
+=== TEST: SSCAN with MATCH pattern
+SETUP:
+SADD myset "apple" "apricot" "banana" "blueberry"
+RUN:
+SSCAN myset 0 MATCH "a*"
+EXPECT:
+(any)
+CLEANUP:
+DEL myset
+
+=== TEST: SSCAN with COUNT option
+SETUP:
+SADD myset "a" "b" "c" "d" "e" "f" "g" "h"
+RUN:
+SSCAN myset 0 COUNT 2
+EXPECT:
+(any)
+CLEANUP:
+DEL myset
+
+=== TEST: SSCAN with MATCH and COUNT
+SETUP:
+SADD myset "field1" "field2" "field3" "other"
+RUN:
+SSCAN myset 0 MATCH "field*" COUNT 2
+EXPECT:
+(any)
+CLEANUP:
+DEL myset
+
+=== TEST: SSCAN non-existing set
+RUN:
+SSCAN nonexistent 0
+EXPECT:
+1) "0"
+2) (empty array)
+
+=== TEST: SSCAN wrong type
+SETUP:
+SET mystring "value"
+RUN:
+SSCAN mystring 0
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mystring
+
+=== TEST: SSCAN invalid cursor
+SETUP:
+SADD myset "a" "b"
+RUN:
+SSCAN myset notcursor
+EXPECT:
+(error) ERR invalid cursor
+CLEANUP:
+DEL myset
+
+=== TEST: SSCAN no cursor
+RUN:
+SSCAN key
+EXPECT:
+(error) ERR wrong number of arguments for 'sscan' command
+
+=== TEST: SSCAN cursor zero iteration
+SETUP:
+SADD myset "one" "two" "three"
+RUN:
+SSCAN myset 0
+EXPECT:
+(any)
+CLEANUP:
+DEL myset

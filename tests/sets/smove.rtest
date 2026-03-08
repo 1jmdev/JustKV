@@ -1,0 +1,108 @@
+# SMOVE command tests - Move member from one set to another
+@name SMOVE
+@group sets
+@since 1.0.0
+
+=== TEST: SMOVE existing member
+SETUP:
+SADD set1 "a" "b" "c"
+SADD set2 "x" "y"
+RUN:
+SMOVE set1 set2 "b"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL set1 set2
+
+=== TEST: SMOVE non-existing member
+SETUP:
+SADD set1 "a" "b"
+SADD set2 "x" "y"
+RUN:
+SMOVE set1 set2 "z"
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL set1 set2
+
+=== TEST: SMOVE from empty set
+SETUP:
+DEL set1
+SADD set2 "a"
+RUN:
+SMOVE set1 set2 "b"
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL set1 set2
+
+=== TEST: SMOVE to self
+SETUP:
+SADD myset "a" "b" "c"
+RUN:
+SMOVE myset myset "b"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL myset
+
+=== TEST: SMOVE destination non-existing
+SETUP:
+SADD set1 "a" "b"
+DEL set2
+RUN:
+SMOVE set1 set2 "a"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL set1 set2
+
+=== TEST: SMOVE source non-existing key
+SETUP:
+DEL source
+SADD dest "a"
+RUN:
+SMOVE source dest "value"
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL source dest
+
+=== TEST: SMOVE wrong type source
+SETUP:
+SET mysource "value"
+SADD dest "a"
+RUN:
+SMOVE mysource dest "value"
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mysource dest
+
+=== TEST: SMOVE wrong type destination
+SETUP:
+SADD source "a"
+SET mydest "value"
+RUN:
+SMOVE source mydest "a"
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL source mydest
+
+=== TEST: SMOVE wrong number of arguments
+RUN:
+SMOVE set1 set2
+EXPECT:
+(error) ERR wrong number of arguments for 'smove' command
+
+=== TEST: SMOVE duplicate member already in destination
+SETUP:
+SADD set1 "a" "b"
+SADD set2 "a" "c"
+RUN:
+SMOVE set1 set2 "a"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL set1 set2

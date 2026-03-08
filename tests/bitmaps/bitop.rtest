@@ -1,0 +1,112 @@
+# BITOP command tests - Bitwise operations on strings
+@name BITOP
+@group bitmaps
+@since 2.6.0
+
+=== TEST: BITOP AND
+SETUP:
+SET key1 "foo"
+SET key2 "bar"
+RUN:
+BITOP AND dest key1 key2
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL key1 key2 dest
+
+=== TEST: BITOP OR
+SETUP:
+SET key1 "foo"
+SET key2 "bar"
+RUN:
+BITOP OR dest key1 key2
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL key1 key2 dest
+
+=== TEST: BITOP XOR
+SETUP:
+SET key1 "foo"
+SET key2 "bar"
+RUN:
+BITOP XOR dest key1 key2
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL key1 key2 dest
+
+=== TEST: BITOP NOT
+SETUP:
+SET key1 "foo"
+RUN:
+BITOP NOT dest key1
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL key1 dest
+
+=== TEST: BITOP with non-existing keys
+SETUP:
+SET key1 "foo"
+RUN:
+BITOP AND dest key1 nonexistent
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL key1 dest
+
+=== TEST: BITOP multiple keys
+SETUP:
+SET key1 "foo"
+SET key2 "bar"
+SET key3 "baz"
+RUN:
+BITOP AND dest key1 key2 key3
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL key1 key2 key3 dest
+
+=== TEST: BITOP wrong type
+SETUP:
+LPUSH mylist "value"
+SET key2 "bar"
+RUN:
+BITOP AND dest mylist key2
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mylist key2
+
+=== TEST: BITOP NOT multiple keys not allowed
+SETUP:
+SET key1 "foo"
+SET key2 "bar"
+RUN:
+BITOP NOT dest key1 key2
+EXPECT:
+(error) ERR BITOP NOT must be called with a single source key
+CLEANUP:
+DEL key1 key2
+
+=== TEST: BITOP operation case insensitive
+SETUP:
+SET key1 "foo"
+SET key2 "bar"
+RUN:
+BITOP and dest key1 key2
+EXPECT:
+(integer) 3
+CLEANUP:
+DEL key1 key2 dest
+
+=== TEST: BITOP invalid operation
+SETUP:
+SET key1 "foo"
+RUN:
+BITOP INVALID dest key1
+EXPECT:
+(error) ERR syntax error
+CLEANUP:
+DEL key1
