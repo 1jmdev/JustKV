@@ -4,28 +4,8 @@ use protocol::types::{BulkData, RespFrame};
 use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
 
-#[derive(Clone, Debug)]
-pub enum ExpectedResponse {
-    Simple(&'static str),
-    Bulk(Option<Vec<u8>>),
-    Array(Vec<ExpectedResponse>),
-}
-
-pub fn encode_resp_parts(parts: &[&[u8]]) -> Vec<u8> {
-    let mut out = Vec::with_capacity(parts.iter().map(|part| part.len() + 16).sum::<usize>() + 16);
-    out.push(b'*');
-    append_u64(&mut out, parts.len() as u64);
-    out.extend_from_slice(b"\r\n");
-
-    for part in parts {
-        out.push(b'$');
-        append_u64(&mut out, part.len() as u64);
-        out.extend_from_slice(b"\r\n");
-        out.extend_from_slice(part);
-        out.extend_from_slice(b"\r\n");
-    }
-    out
-}
+use super::ExpectedResponse;
+use super::skip::try_skip_frame;
 
 pub async fn consume_response(
     stream: &mut TcpStream,
@@ -142,39 +122,6 @@ async fn skip_one_response(stream: &mut TcpStream, parse_buf: &mut BytesMut) -> 
     }
 }
 
-pub fn encode_expected_response(expected: &ExpectedResponse) -> Option<Vec<u8>> {
-    let mut out = Vec::new();
-    append_expected_response(&mut out, expected)?;
-    Some(out)
-}
-
-fn append_expected_response(out: &mut Vec<u8>, expected: &ExpectedResponse) -> Option<()> {
-    match expected {
-        ExpectedResponse::Simple(value) => {
-            out.push(b'+');
-            out.extend_from_slice(value.as_bytes());
-            out.extend_from_slice(b"\r\n");
-        }
-        ExpectedResponse::Bulk(None) => out.extend_from_slice(b"$-1\r\n"),
-        ExpectedResponse::Bulk(Some(value)) => {
-            out.push(b'$');
-            append_u64(out, value.len() as u64);
-            out.extend_from_slice(b"\r\n");
-            out.extend_from_slice(value);
-            out.extend_from_slice(b"\r\n");
-        }
-        ExpectedResponse::Array(items) => {
-            out.push(b'*');
-            append_u64(out, items.len() as u64);
-            out.extend_from_slice(b"\r\n");
-            for item in items {
-                append_expected_response(out, item)?;
-            }
-        }
-    }
-    Some(())
-}
-
 fn validate_response(expected: &ExpectedResponse, actual: &RespFrame) -> Result<(), String> {
     match (expected, actual) {
         (ExpectedResponse::Simple(expected), RespFrame::Simple(actual)) => {
@@ -228,93 +175,4 @@ fn validate_bytes(expected: &[u8], actual: &[u8]) -> Result<(), String> {
             String::from_utf8_lossy(actual)
         ))
     }
-}
-
-fn try_skip_frame(buf: &mut BytesMut) -> Result<Option<()>, String> {
-    let Some(consumed) = frame_len(buf.as_ref(), 0)? else {
-        return Ok(None);
-    };
-    buf.advance(consumed);
-    Ok(Some(()))
-}
-
-fn frame_len(src: &[u8], start: usize) -> Result<Option<usize>, String> {
-    if start >= src.len() {
-        return Ok(None);
-    }
-
-    match src[start] {
-        b'+' | b'-' | b':' => line_frame_len(src, start),
-        b'$' => bulk_frame_len(src, start),
-        b'*' => aggregate_frame_len(src, start, 1),
-        b'%' => aggregate_frame_len(src, start, 2),
-        other => Err(format!("unsupported RESP type byte: {other:?}")),
-    }
-}
-
-fn line_frame_len(src: &[u8], start: usize) -> Result<Option<usize>, String> {
-    let Some(end) = find_crlf(src, start + 1) else {
-        return Ok(None);
-    };
-    Ok(Some(end + 2 - start))
-}
-
-fn bulk_frame_len(src: &[u8], start: usize) -> Result<Option<usize>, String> {
-    let Some(end) = find_crlf(src, start + 1) else {
-        return Ok(None);
-    };
-    let len = parse_i64_ascii(&src[start + 1..end])?;
-    if len < 0 {
-        return Ok(Some(end + 2 - start));
-    }
-    let total = end + 2 + len as usize + 2;
-    if src.len() < total {
-        return Ok(None);
-    }
-    Ok(Some(total - start))
-}
-
-fn aggregate_frame_len(
-    src: &[u8],
-    start: usize,
-    multiplier: usize,
-) -> Result<Option<usize>, String> {
-    let Some(end) = find_crlf(src, start + 1) else {
-        return Ok(None);
-    };
-    let count = parse_i64_ascii(&src[start + 1..end])?;
-    if count < 0 {
-        return Ok(Some(end + 2 - start));
-    }
-
-    let mut cursor = end + 2;
-    for _ in 0..(count as usize * multiplier) {
-        let Some(len) = frame_len(src, cursor)? else {
-            return Ok(None);
-        };
-        cursor += len;
-    }
-    Ok(Some(cursor - start))
-}
-
-fn find_crlf(src: &[u8], start: usize) -> Option<usize> {
-    let mut index = start;
-    while index + 1 < src.len() {
-        if src[index] == b'\r' && src[index + 1] == b'\n' {
-            return Some(index);
-        }
-        index += 1;
-    }
-    None
-}
-
-fn parse_i64_ascii(raw: &[u8]) -> Result<i64, String> {
-    let text = std::str::from_utf8(raw).map_err(|err| format!("invalid integer bytes: {err}"))?;
-    text.parse::<i64>()
-        .map_err(|err| format!("invalid integer {text:?}: {err}"))
-}
-
-fn append_u64(out: &mut Vec<u8>, value: u64) {
-    let mut tmp = itoa::Buffer::new();
-    out.extend_from_slice(tmp.format(value).as_bytes());
 }

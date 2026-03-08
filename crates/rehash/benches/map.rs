@@ -1,6 +1,6 @@
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
-use std::hint::black_box;
 use rehash::RehashingMap;
+use std::hint::black_box;
 
 fn make_keys(n: usize, key_len: usize) -> Vec<Vec<u8>> {
     (0..n)

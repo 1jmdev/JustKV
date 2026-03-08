@@ -1,18 +1,14 @@
-mod args;
-mod bench;
-mod render;
-mod resp;
-mod spec;
-
 use std::io::Read;
 use std::process::ExitCode;
 
 use clap::Parser;
 
-use args::{Args, help_text, validate_args};
-use bench::{maybe_warn_about_server_config, run_idle_mode, run_single_benchmark};
-use render::render_result;
-use spec::resolve_workload;
+use betterkv_benchmark::benchmark::{
+    maybe_warn_about_server_config, run_idle_mode, run_single_benchmark,
+};
+use betterkv_benchmark::cli::Args;
+use betterkv_benchmark::output::render_result;
+use betterkv_benchmark::workload::resolve_workload;
 
 #[global_allocator]
 static GLOBAL_ALLOCATOR: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
@@ -20,20 +16,11 @@ static GLOBAL_ALLOCATOR: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemall
 fn main() -> ExitCode {
     let mut args = Args::parse();
 
-    if args.show_help {
-        println!("{}", help_text(env!("CARGO_BIN_NAME")));
-        return ExitCode::SUCCESS;
-    }
-    if args.show_version {
-        println!("{} {}", env!("CARGO_BIN_NAME"), env!("CARGO_PKG_VERSION"));
-        return ExitCode::SUCCESS;
-    }
-
     if let Err(err) = args.apply_connection_overrides() {
         eprintln!("betterkv-benchmark: {err}");
         return ExitCode::FAILURE;
     }
-    if let Err(err) = validate_args(&args) {
+    if let Err(err) = args.validate_runtime_features() {
         eprintln!("betterkv-benchmark: {err}");
         return ExitCode::FAILURE;
     }

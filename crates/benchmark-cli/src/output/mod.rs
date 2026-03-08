@@ -1,5 +1,5 @@
-use crate::args::Args;
-use crate::bench::{BenchResult, CumulativeBucket};
+use crate::benchmark::{BenchResult, CumulativeBucket};
+use crate::cli::Args;
 
 const PERCENTILES: &[f64] = &[
     0.0, 50.0, 75.0, 87.5, 93.75, 96.875, 98.438, 99.219, 99.609, 99.805, 99.902, 99.951, 99.976,
@@ -8,7 +8,7 @@ const PERCENTILES: &[f64] = &[
 
 pub fn render_result(args: &Args, result: &BenchResult) {
     if args.csv {
-        println!("\"{}\",{:.2}", result.name, result.req_per_sec,);
+        println!("\"{}\",{:.2}", result.name, result.req_per_sec);
         return;
     }
 

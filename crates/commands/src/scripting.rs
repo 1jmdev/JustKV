@@ -1,5 +1,5 @@
 use crate::dispatcher;
-use crate::util::{int_error, parse_i64_bytes, wrong_args, Args};
+use crate::util::{Args, int_error, parse_i64_bytes, wrong_args};
 use engine::store::Store;
 use mlua::{HookTriggers, Lua, Table, Value, Variadic, VmState};
 use parking_lot::Mutex;

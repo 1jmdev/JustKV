@@ -1,7 +1,5 @@
 use bytes::BytesMut;
-use criterion::{
-    BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main,
-};
+use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use protocol::{
     encoder::Encoder,
     parser,
