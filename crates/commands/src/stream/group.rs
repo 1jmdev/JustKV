@@ -1,5 +1,5 @@
 use crate::stream::parse::parse_stream_id;
-use crate::util::{Args, wrong_args, wrong_type};
+use crate::util::{wrong_args, wrong_type, Args};
 use engine::store::Store;
 use protocol::types::RespFrame;
 
@@ -47,6 +47,16 @@ pub(crate) fn xgroup(store: &Store, args: &Args) -> RespFrame {
             return wrong_args("XGROUP");
         }
         return match store.xgroup_destroy(&args[2], &args[3]) {
+            Ok(value) => RespFrame::Integer(value),
+            Err(_) => wrong_type(),
+        };
+    }
+
+    if args[1].eq_ignore_ascii_case(b"CREATECONSUMER") {
+        if args.len() != 5 {
+            return wrong_args("XGROUP");
+        }
+        return match store.xgroup_createconsumer(&args[2], &args[3], &args[4]) {
             Ok(value) => RespFrame::Integer(value),
             Err(_) => wrong_type(),
         };

@@ -81,4 +81,24 @@ impl Store {
         let stream = get_stream_mut(entry).ok_or(())?;
         Ok(i64::from(stream.groups.remove(group).is_some()))
     }
+
+    pub fn xgroup_createconsumer(
+        &self,
+        key: &[u8],
+        group: &[u8],
+        _consumer: &[u8],
+    ) -> Result<i64, ()> {
+        let _trace = profiler::scope("engine::stream::group::xgroup_createconsumer");
+        let idx = self.shard_index(key);
+        let mut shard = self.shards[idx].write();
+        let now_ms = monotonic_now_ms();
+        if purge_if_expired(&mut shard, key, now_ms) {
+            return Ok(0);
+        }
+        let Some(entry) = shard.entries.get_mut(key) else {
+            return Ok(0);
+        };
+        let stream = get_stream_mut(entry).ok_or(())?;
+        Ok(i64::from(stream.groups.contains_key(group)))
+    }
 }

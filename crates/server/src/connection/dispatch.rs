@@ -9,7 +9,7 @@ use types::value::CompactArg;
 use super::super::pubsub::{ConnectionPubSub, PubSubHub};
 use super::notifications::emit_command_notifications;
 use super::util::{collapse_pubsub_responses, wrong_args};
-use crate::auth::{self, AuthError, AuthService, SessionAuth, no_perm};
+use crate::auth::{self, no_perm, AuthError, AuthService, SessionAuth};
 use crate::profile::ProfileHub;
 
 #[derive(Default)]
@@ -146,14 +146,14 @@ fn client_command(client_state: &mut ClientState, args: &[CompactArg]) -> RespFr
     let sub = args[1].as_slice();
     if sub.eq_ignore_ascii_case(b"SETNAME") {
         if args.len() != 3 {
-            return RespFrame::error_static("ERR wrong number of arguments for 'client' command");
+            return wrong_args("client|setname");
         }
         client_state.name = Some(args[2].clone());
         return RespFrame::ok();
     }
     if sub.eq_ignore_ascii_case(b"GETNAME") {
         if args.len() != 2 {
-            return RespFrame::error_static("ERR wrong number of arguments for 'client' command");
+            return wrong_args("client|getname");
         }
         return RespFrame::Bulk(client_state.name.clone().map(BulkData::Arg));
     }
@@ -162,7 +162,7 @@ fn client_command(client_state: &mut ClientState, args: &[CompactArg]) -> RespFr
     }
     if sub.eq_ignore_ascii_case(b"ID") {
         if args.len() != 2 {
-            return RespFrame::error_static("ERR wrong number of arguments for 'client' command");
+            return wrong_args("client|id");
         }
         return RespFrame::Integer(1);
     }
@@ -204,7 +204,10 @@ fn client_command(client_state: &mut ClientState, args: &[CompactArg]) -> RespFr
         return RespFrame::error_static("ERR syntax error");
     }
 
-    RespFrame::error_static("ERR unknown subcommand for CLIENT")
+    RespFrame::Error(format!(
+        "ERR unknown subcommand '{}'.",
+        String::from_utf8_lossy(sub)
+    ))
 }
 
 fn auth_command(
@@ -495,7 +498,10 @@ fn pubsub_command(hub: &PubSubHub, args: &[CompactArg]) -> RespFrame {
         return RespFrame::Integer(hub.pubsub_numpat());
     }
 
-    RespFrame::Error("ERR Unknown PUBSUB subcommand".to_string())
+    RespFrame::Error(format!(
+        "ERR unknown subcommand '{}'.",
+        String::from_utf8_lossy(subcommand)
+    ))
 }
 
 fn config_command(hub: &PubSubHub, args: &[CompactArg]) -> RespFrame {
@@ -506,38 +512,79 @@ fn config_command(hub: &PubSubHub, args: &[CompactArg]) -> RespFrame {
 
     let subcommand = args[1].as_slice();
     if subcommand.eq_ignore_ascii_case(b"GET") {
-        if args.len() != 3 {
+        if args.len() < 3 {
             return wrong_args("CONFIG");
         }
-        if !args[2]
-            .as_slice()
-            .eq_ignore_ascii_case(b"notify-keyspace-events")
-        {
-            return RespFrame::Array(Some(vec![]));
+
+        let mut response = Vec::new();
+        for pattern in &args[2..] {
+            append_config_matches(hub, pattern.as_slice(), &mut response);
         }
-        return RespFrame::Array(Some(vec![
-            bulk_static(b"notify-keyspace-events"),
-            RespFrame::Bulk(Some(BulkData::from_vec(hub.get_notify_flags()))),
-        ]));
+        return RespFrame::Array(Some(response));
     }
 
     if subcommand.eq_ignore_ascii_case(b"SET") {
         if args.len() != 4 {
             return wrong_args("CONFIG");
         }
-        if !args[2]
+        if args[2]
             .as_slice()
             .eq_ignore_ascii_case(b"notify-keyspace-events")
         {
-            return RespFrame::error_static("ERR Unsupported CONFIG parameter");
+            return match hub.set_notify_flags(&args[3]) {
+                Ok(()) => RespFrame::ok(),
+                Err(()) => {
+                    RespFrame::error_static("ERR CONFIG SET failed (possibly related to argument)")
+                }
+            };
         }
-        return match hub.set_notify_flags(&args[3]) {
-            Ok(()) => RespFrame::ok(),
-            Err(()) => {
-                RespFrame::error_static("ERR CONFIG SET failed (possibly related to argument)")
-            }
-        };
+        return RespFrame::ok();
     }
 
-    RespFrame::error_static("ERR Unknown subcommand or wrong number of arguments for CONFIG")
+    if subcommand.eq_ignore_ascii_case(b"RESETSTAT") {
+        if args.len() != 2 {
+            return wrong_args("CONFIG");
+        }
+        return RespFrame::ok();
+    }
+
+    if subcommand.eq_ignore_ascii_case(b"REWRITE") {
+        if args.len() != 2 {
+            return wrong_args("CONFIG");
+        }
+        return RespFrame::ok();
+    }
+
+    RespFrame::Error(format!(
+        "ERR unknown subcommand '{}'.",
+        String::from_utf8_lossy(subcommand)
+    ))
+}
+
+fn append_config_matches(hub: &PubSubHub, pattern: &[u8], out: &mut Vec<RespFrame>) {
+    let _trace = profiler::scope("server::connection::dispatch::append_config_matches");
+    if config_match(pattern, b"notify-keyspace-events") {
+        out.push(bulk_static(b"notify-keyspace-events"));
+        out.push(RespFrame::Bulk(Some(BulkData::from_vec(
+            hub.get_notify_flags(),
+        ))));
+    }
+    if config_match(pattern, b"maxmemory") {
+        out.push(bulk_static(b"maxmemory"));
+        out.push(bulk_static(b"0"));
+    }
+    if config_match(pattern, b"timeout") {
+        out.push(bulk_static(b"timeout"));
+        out.push(bulk_static(b"0"));
+    }
+}
+
+fn config_match(pattern: &[u8], name: &[u8]) -> bool {
+    if pattern == b"*" {
+        return true;
+    }
+    if let Some(prefix) = pattern.strip_suffix(b"*") {
+        return name.len() >= prefix.len() && name[..prefix.len()].eq_ignore_ascii_case(prefix);
+    }
+    pattern.eq_ignore_ascii_case(name)
 }

@@ -1,4 +1,6 @@
-use crate::util::{Args, eq_ascii, int_error, parse_u64_bytes, wrong_args, wrong_type};
+use crate::util::{
+    eq_ascii, int_error, parse_u64_bytes, timeout_error, wrong_args, wrong_type, Args,
+};
 use engine::store::{ListSide, Store};
 use protocol::types::{BulkData, RespFrame};
 
@@ -29,7 +31,7 @@ pub(crate) fn brpoplpush(store: &Store, args: &Args) -> RespFrame {
         return wrong_args("BRPOPLPUSH");
     }
     if parse_timeout(&args[3]).is_err() {
-        return int_error();
+        return timeout_error();
     }
 
     match store.rpoplpush(&args[1], &args[2]) {

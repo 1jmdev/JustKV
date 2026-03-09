@@ -12,8 +12,14 @@ use super::write_entry;
 
 const HLL_MAGIC: &[u8] = b"JKVHLL1";
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HyperLogLogError {
+    WrongType,
+    InvalidHyperLogLog,
+}
+
 impl Store {
-    pub fn pfadd(&self, key: &[u8], elements: &[CompactArg]) -> Result<i64, ()> {
+    pub fn pfadd(&self, key: &[u8], elements: &[CompactArg]) -> Result<i64, HyperLogLogError> {
         let _trace = profiler::scope("engine::strings::hyperlog::pfadd");
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
@@ -24,8 +30,8 @@ impl Store {
         } else {
             match shard.entries.get::<[u8]>(key) {
                 Some(entry) => {
-                    let data = entry.as_string().ok_or(())?;
-                    decode_hll(data.as_slice()).ok_or(())?
+                    let data = entry.as_string().ok_or(HyperLogLogError::WrongType)?;
+                    decode_hll(data.as_slice()).ok_or(HyperLogLogError::InvalidHyperLogLog)?
                 }
                 None => HashSet::with_hasher(RandomState::new()),
             }
@@ -46,32 +52,44 @@ impl Store {
         Ok(0)
     }
 
-    pub fn pfcount(&self, keys: &[CompactArg]) -> Result<i64, ()> {
+    pub fn pfcount(&self, keys: &[CompactArg]) -> Result<i64, HyperLogLogError> {
         let _trace = profiler::scope("engine::strings::hyperlog::pfcount");
         let mut union = HashSet::with_hasher(RandomState::new());
         for key in keys {
-            let Some(value) = self.get(key.as_slice())? else {
+            let Some(value) = self
+                .get(key.as_slice())
+                .map_err(|_| HyperLogLogError::WrongType)?
+            else {
                 continue;
             };
-            let decoded = decode_hll(value.as_slice()).ok_or(())?;
+            let decoded =
+                decode_hll(value.as_slice()).ok_or(HyperLogLogError::InvalidHyperLogLog)?;
             union.extend(decoded);
         }
 
         Ok(union.len() as i64)
     }
 
-    pub fn pfmerge(&self, destination: &[u8], keys: &[CompactArg]) -> Result<(), ()> {
+    pub fn pfmerge(&self, destination: &[u8], keys: &[CompactArg]) -> Result<(), HyperLogLogError> {
         let _trace = profiler::scope("engine::strings::hyperlog::pfmerge");
         let mut union = HashSet::with_hasher(RandomState::new());
-        if let Some(value) = self.get(destination)? {
-            let decoded = decode_hll(value.as_slice()).ok_or(())?;
+        if let Some(value) = self
+            .get(destination)
+            .map_err(|_| HyperLogLogError::WrongType)?
+        {
+            let decoded =
+                decode_hll(value.as_slice()).ok_or(HyperLogLogError::InvalidHyperLogLog)?;
             union.extend(decoded);
         }
         for key in keys {
-            let Some(value) = self.get(key.as_slice())? else {
+            let Some(value) = self
+                .get(key.as_slice())
+                .map_err(|_| HyperLogLogError::WrongType)?
+            else {
                 continue;
             };
-            let decoded = decode_hll(value.as_slice()).ok_or(())?;
+            let decoded =
+                decode_hll(value.as_slice()).ok_or(HyperLogLogError::InvalidHyperLogLog)?;
             union.extend(decoded);
         }
 

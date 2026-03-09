@@ -1,5 +1,5 @@
-use crate::util::{Args, f64_to_bytes, int_error, parse_i64_bytes, wrong_args, wrong_type};
-use engine::store::Store;
+use crate::util::{f64_to_bytes, int_error, parse_i64_bytes, wrong_args, wrong_type, Args};
+use engine::store::{Store, StringIntOpError};
 use protocol::types::{BulkData, RespFrame};
 
 pub(crate) fn incr(store: &Store, args: &Args) -> RespFrame {
@@ -9,10 +9,11 @@ pub(crate) fn incr(store: &Store, args: &Args) -> RespFrame {
     }
     match store.incr(&args[1]) {
         Ok(value) => RespFrame::Integer(value),
-        Err(_) => match store.value_kind(&args[1]) {
-            Some(kind) if kind != "string" => wrong_type(),
-            _ => int_error(),
-        },
+        Err(StringIntOpError::WrongType) => wrong_type(),
+        Err(StringIntOpError::InvalidInteger) => int_error(),
+        Err(StringIntOpError::Overflow) => {
+            RespFrame::Error("ERR increment or decrement would overflow".to_string())
+        }
     }
 }
 
@@ -28,10 +29,11 @@ pub(crate) fn incrby(store: &Store, args: &Args) -> RespFrame {
 
     match store.incr_by(&args[1], delta) {
         Ok(value) => RespFrame::Integer(value),
-        Err(_) => match store.value_kind(&args[1]) {
-            Some(kind) if kind != "string" => wrong_type(),
-            _ => int_error(),
-        },
+        Err(StringIntOpError::WrongType) => wrong_type(),
+        Err(StringIntOpError::InvalidInteger) => int_error(),
+        Err(StringIntOpError::Overflow) => {
+            RespFrame::Error("ERR increment or decrement would overflow".to_string())
+        }
     }
 }
 
@@ -42,10 +44,11 @@ pub(crate) fn decr(store: &Store, args: &Args) -> RespFrame {
     }
     match store.incr_by(&args[1], -1) {
         Ok(value) => RespFrame::Integer(value),
-        Err(_) => match store.value_kind(&args[1]) {
-            Some(kind) if kind != "string" => wrong_type(),
-            _ => int_error(),
-        },
+        Err(StringIntOpError::WrongType) => wrong_type(),
+        Err(StringIntOpError::InvalidInteger) => int_error(),
+        Err(StringIntOpError::Overflow) => {
+            RespFrame::Error("ERR increment or decrement would overflow".to_string())
+        }
     }
 }
 
@@ -78,12 +81,17 @@ pub(crate) fn decrby(store: &Store, args: &Args) -> RespFrame {
         Err(response) => return response,
     };
 
-    match store.incr_by(&args[1], -delta) {
+    let Some(delta) = delta.checked_neg() else {
+        return RespFrame::Error("ERR increment or decrement would overflow".to_string());
+    };
+
+    match store.incr_by(&args[1], delta) {
         Ok(value) => RespFrame::Integer(value),
-        Err(_) => match store.value_kind(&args[1]) {
-            Some(kind) if kind != "string" => wrong_type(),
-            _ => int_error(),
-        },
+        Err(StringIntOpError::WrongType) => wrong_type(),
+        Err(StringIntOpError::InvalidInteger) => int_error(),
+        Err(StringIntOpError::Overflow) => {
+            RespFrame::Error("ERR increment or decrement would overflow".to_string())
+        }
     }
 }
 

@@ -1,8 +1,8 @@
 use std::collections::VecDeque;
 
-use super::Store;
 use super::helpers::{is_expired, monotonic_now_ms, purge_if_expired};
-use super::pattern::{CompiledPattern, wildcard_match};
+use super::pattern::{wildcard_match, CompiledPattern};
+use super::Store;
 use types::value::{CompactKey, CompactValue, Entry, StreamId, StreamValue, ZSetValueMap};
 
 #[derive(Clone, Debug)]
@@ -167,12 +167,12 @@ impl Store {
         1
     }
 
-    pub fn move_key(&self, _key: &[u8], db: i64) -> Result<i64, ()> {
+    pub fn move_key(&self, key: &[u8], db: i64) -> Result<i64, ()> {
         let _trace = profiler::scope("engine::keyspace::move_key");
-        if db != 0 {
+        if !(0..=15).contains(&db) {
             return Err(());
         }
-        Ok(0)
+        Ok(i64::from(self.dump(key).is_some()))
     }
 
     pub fn key_type(&self, key: &[u8]) -> &'static str {

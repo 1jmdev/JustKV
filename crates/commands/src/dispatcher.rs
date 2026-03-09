@@ -1,4 +1,4 @@
-use crate::command::{CommandId, identify};
+use crate::command::{identify, CommandId};
 use crate::{connection, geo, hash, keyspace, list, scripting, set, stream, string, ttl, zset};
 use engine::store::Store;
 use protocol::types::{BulkData, RespFrame};
@@ -43,10 +43,31 @@ pub fn dispatch_with_id(store: &Store, command: CommandId, args: &[CompactArg]) 
         CommandId::Hello => connection::hello(args),
         CommandId::Client => connection::client(args),
         CommandId::Command => {
-            if args.len() == 2 && args[1].eq_ignore_ascii_case(b"COUNT") {
-                RespFrame::Integer(0)
-            } else {
+            if args.len() == 1 {
                 RespFrame::Array(Some(vec![]))
+            } else if args.len() == 2 && args[1].eq_ignore_ascii_case(b"COUNT") {
+                RespFrame::Integer(0)
+            } else if args[1].eq_ignore_ascii_case(b"INFO") {
+                let infos = if args.len() <= 2 {
+                    vec![]
+                } else {
+                    args[2..]
+                        .iter()
+                        .map(|command| {
+                            RespFrame::Array(Some(vec![RespFrame::Bulk(Some(BulkData::Arg(
+                                command.clone(),
+                            )))]))
+                        })
+                        .collect()
+                };
+                RespFrame::Array(Some(infos))
+            } else if args[1].eq_ignore_ascii_case(b"GETKEYS") {
+                RespFrame::Array(Some(vec![]))
+            } else {
+                RespFrame::Error(format!(
+                    "ERR unknown subcommand '{}'.",
+                    String::from_utf8_lossy(args[1].as_slice())
+                ))
             }
         }
         CommandId::Select => connection::select_db(args),

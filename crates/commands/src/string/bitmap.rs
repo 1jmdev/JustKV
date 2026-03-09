@@ -1,4 +1,4 @@
-use crate::util::{Args, int_error, parse_i64_bytes, parse_u64_bytes, wrong_args, wrong_type};
+use crate::util::{int_error, parse_i64_bytes, parse_u64_bytes, wrong_args, wrong_type, Args};
 use engine::store::{BitFieldEncoding, BitFieldOp, BitFieldOverflow, BitOp, Store};
 use protocol::types::RespFrame;
 
@@ -209,7 +209,9 @@ fn bitfield_impl(store: &Store, args: &Args, read_only: bool) -> RespFrame {
 
         if token.eq_ignore_ascii_case(b"SET") {
             if read_only {
-                return crate::util::syntax_error();
+                return RespFrame::Error(
+                    "ERR BITFIELD_RO only supports the GET subcommand".to_string(),
+                );
             }
             if index + 3 >= args.len() {
                 return crate::util::syntax_error();
@@ -237,7 +239,9 @@ fn bitfield_impl(store: &Store, args: &Args, read_only: bool) -> RespFrame {
 
         if token.eq_ignore_ascii_case(b"INCRBY") {
             if read_only {
-                return crate::util::syntax_error();
+                return RespFrame::Error(
+                    "ERR BITFIELD_RO only supports the GET subcommand".to_string(),
+                );
             }
             if index + 3 >= args.len() {
                 return crate::util::syntax_error();
@@ -268,7 +272,7 @@ fn bitfield_impl(store: &Store, args: &Args, read_only: bool) -> RespFrame {
     }
 
     if operations.is_empty() {
-        return crate::util::syntax_error();
+        return RespFrame::Array(Some(Vec::new()));
     }
 
     match store.bitfield(&args[1], &operations) {

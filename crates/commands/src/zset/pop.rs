@@ -1,5 +1,5 @@
 use crate::util::{
-    Args, eq_ascii, f64_to_bytes, int_error, parse_u64_bytes, wrong_args, wrong_type,
+    eq_ascii, f64_to_bytes, int_error, parse_u64_bytes, timeout_error, wrong_args, wrong_type, Args,
 };
 use engine::store::Store;
 use protocol::types::{BulkData, RespFrame};
@@ -36,7 +36,7 @@ pub(crate) fn bzpop(store: &Store, args: &Args, max: bool) -> RespFrame {
         return wrong_args(if max { "BZPOPMAX" } else { "BZPOPMIN" });
     }
     if parse_timeout(&args[args.len() - 1]).is_err() {
-        return int_error();
+        return timeout_error();
     }
     let keys = &args[1..args.len() - 1];
     match store.bzpop_edge(keys, max) {
@@ -102,7 +102,7 @@ pub(crate) fn bzmpop(store: &Store, args: &Args) -> RespFrame {
         return wrong_args("BZMPOP");
     }
     if parse_timeout(&args[1]).is_err() {
-        return int_error();
+        return timeout_error();
     }
     let num_keys = match parse_usize(&args[2]) {
         Ok(value) => value,

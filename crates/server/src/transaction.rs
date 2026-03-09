@@ -37,7 +37,7 @@ impl TransactionState {
                     return RespFrame::error_static("ERR DISCARD without MULTI");
                 }
                 CommandId::Watch => return self.watch(store, args.as_slice()),
-                CommandId::Unwatch => return self.unwatch(args.as_slice()),
+                CommandId::Unwatch => return self.unwatch(args.as_slice(), false),
                 _ => {}
             }
             return execute(store, command, args.as_slice());
@@ -49,7 +49,7 @@ impl TransactionState {
             TransactionCommand::Exec => self.exec_with(store, args.as_slice(), execute),
             TransactionCommand::Discard => self.discard(args.as_slice()),
             TransactionCommand::Watch => self.watch(store, args.as_slice()),
-            TransactionCommand::Unwatch => self.unwatch(args.as_slice()),
+            TransactionCommand::Unwatch => self.unwatch(args.as_slice(), true),
             TransactionCommand::Other => {
                 self.queued.push((command, std::mem::take(args)));
                 RespFrame::simple_static("QUEUED")
@@ -60,7 +60,7 @@ impl TransactionState {
     fn multi(&mut self, args: &[CompactArg]) -> RespFrame {
         let _trace = profiler::scope("server::transaction::multi");
         if args.len() != 1 {
-            return RespFrame::error_static("ERR wrong number of arguments for 'MULTI' command");
+            return RespFrame::error_static("ERR wrong number of arguments for 'multi' command");
         }
         if self.in_multi {
             return RespFrame::error_static("ERR MULTI calls can not be nested");
@@ -77,7 +77,7 @@ impl TransactionState {
     {
         let _trace = profiler::scope("server::transaction::exec_with");
         if args.len() != 1 {
-            return RespFrame::error_static("ERR wrong number of arguments for 'EXEC' command");
+            return RespFrame::error_static("ERR wrong number of arguments for 'exec' command");
         }
         if !self.in_multi {
             return RespFrame::error_static("ERR EXEC without MULTI");
@@ -102,7 +102,7 @@ impl TransactionState {
     fn discard(&mut self, args: &[CompactArg]) -> RespFrame {
         let _trace = profiler::scope("server::transaction::discard");
         if args.len() != 1 {
-            return RespFrame::error_static("ERR wrong number of arguments for 'DISCARD' command");
+            return RespFrame::error_static("ERR wrong number of arguments for 'discard' command");
         }
         if !self.in_multi {
             return RespFrame::error_static("ERR DISCARD without MULTI");
@@ -117,7 +117,7 @@ impl TransactionState {
     fn watch(&mut self, store: &Store, args: &[CompactArg]) -> RespFrame {
         let _trace = profiler::scope("server::transaction::watch");
         if args.len() < 2 {
-            return RespFrame::error_static("ERR wrong number of arguments for 'WATCH' command");
+            return RespFrame::error_static("ERR wrong number of arguments for 'watch' command");
         }
         if self.in_multi {
             return RespFrame::error_static("ERR WATCH inside MULTI is not allowed");
@@ -129,10 +129,13 @@ impl TransactionState {
         RespFrame::ok()
     }
 
-    fn unwatch(&mut self, args: &[CompactArg]) -> RespFrame {
+    fn unwatch(&mut self, args: &[CompactArg], queue_in_multi: bool) -> RespFrame {
         let _trace = profiler::scope("server::transaction::unwatch");
         if args.len() != 1 {
-            return RespFrame::error_static("ERR wrong number of arguments for 'UNWATCH' command");
+            return RespFrame::error_static("ERR wrong number of arguments for 'unwatch' command");
+        }
+        if queue_in_multi && self.in_multi {
+            return RespFrame::simple_static("QUEUED");
         }
         self.watched.clear();
         RespFrame::ok()

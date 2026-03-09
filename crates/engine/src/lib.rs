@@ -17,6 +17,7 @@ pub mod store {
     pub use super::keyspace::{
         PreDecodedRestoreEntry, RestoreError, SortError, SortOptions, SortOrder, SortResult,
     };
+    pub use super::strings::{HyperLogLogError, StringIntOpError};
     pub use super::stream::{StreamRangeItem, XPendingSummary};
     pub use super::zset::LexBound;
     pub use super::{

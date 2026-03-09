@@ -1,4 +1,6 @@
-use crate::util::{Args, eq_ascii, int_error, parse_u64_bytes, wrong_args, wrong_type};
+use crate::util::{
+    eq_ascii, int_error, parse_u64_bytes, timeout_error, wrong_args, wrong_type, Args,
+};
 use engine::store::{ListSide, Store};
 use protocol::types::{BulkData, RespFrame};
 
@@ -22,7 +24,7 @@ fn block_pop(store: &Store, args: &Args, side: ListSide) -> RespFrame {
         });
     }
     if parse_timeout(&args[args.len() - 1]).is_err() {
-        return int_error();
+        return timeout_error();
     }
     let keys = &args[1..args.len() - 1];
     match store.list_pop_first(keys, side) {
@@ -41,7 +43,7 @@ pub(crate) fn blmpop(store: &Store, args: &Args) -> RespFrame {
         return wrong_args("BLMPOP");
     }
     if parse_timeout(&args[1]).is_err() {
-        return int_error();
+        return timeout_error();
     }
     let num_keys = match parse_usize(&args[2]) {
         Ok(value) => value,

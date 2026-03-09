@@ -1,5 +1,6 @@
 use crate::util::{
-    Args, eq_ascii, int_error, parse_u64_bytes, u64_to_bytes, wrong_args, wrong_type,
+    eq_ascii, int_error, invalid_cursor, parse_u64_bytes, u64_to_bytes, wrong_args, wrong_type,
+    Args,
 };
 use engine::store::Store;
 use protocol::types::{BulkData, RespFrame};
@@ -54,7 +55,7 @@ pub(crate) fn sscan(store: &Store, args: &Args) -> RespFrame {
 }
 
 fn parse_u64(raw: &[u8]) -> Result<u64, RespFrame> {
-    parse_u64_bytes(raw).ok_or_else(int_error)
+    parse_u64_bytes(raw).ok_or_else(invalid_cursor)
 }
 
 fn parse_usize(raw: &[u8]) -> Result<usize, RespFrame> {

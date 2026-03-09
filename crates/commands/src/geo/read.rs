@@ -1,12 +1,15 @@
 use crate::geo::parse::{parse_distance_unit, parse_f64};
-use crate::util::{Args, f64_to_bytes, wrong_args, wrong_type};
+use crate::util::{f64_to_bytes, wrong_args, wrong_type, Args};
 use engine::store::Store;
 use protocol::types::{BulkData, RespFrame};
 
 pub(crate) fn geopos(store: &Store, args: &Args) -> RespFrame {
     let _trace = profiler::scope("commands::geo::read::geopos");
-    if args.len() < 3 {
+    if args.len() < 2 {
         return wrong_args("GEOPOS");
+    }
+    if args.len() == 2 {
+        return RespFrame::Array(Some(Vec::new()));
     }
 
     match store.geopos(&args[1], &args[2..]) {
@@ -28,8 +31,11 @@ pub(crate) fn geopos(store: &Store, args: &Args) -> RespFrame {
 
 pub(crate) fn geohash(store: &Store, args: &Args) -> RespFrame {
     let _trace = profiler::scope("commands::geo::read::geohash");
-    if args.len() < 3 {
+    if args.len() < 2 {
         return wrong_args("GEOHASH");
+    }
+    if args.len() == 2 {
+        return RespFrame::Array(Some(Vec::new()));
     }
 
     match store.geohash(&args[1], &args[2..]) {

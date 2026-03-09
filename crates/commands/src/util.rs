@@ -261,6 +261,16 @@ pub fn syntax_error() -> RespFrame {
 }
 
 #[inline(always)]
+pub fn invalid_cursor() -> RespFrame {
+    RespFrame::error_static("ERR invalid cursor")
+}
+
+#[inline(always)]
+pub fn timeout_error() -> RespFrame {
+    RespFrame::error_static("ERR timeout is not a float or out of range")
+}
+
+#[inline(always)]
 pub fn int_error() -> RespFrame {
     RespFrame::error_static("ERR value is not an integer or out of range")
 }

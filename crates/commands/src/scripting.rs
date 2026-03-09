@@ -1,5 +1,5 @@
 use crate::dispatcher;
-use crate::util::{Args, int_error, parse_i64_bytes, wrong_args};
+use crate::util::{int_error, parse_i64_bytes, wrong_args, Args};
 use engine::store::Store;
 use mlua::{HookTriggers, Lua, Table, Value, Variadic, VmState};
 use parking_lot::Mutex;
@@ -323,7 +323,10 @@ pub(crate) fn script(store: &Store, args: &Args) -> RespFrame {
         ]));
     }
 
-    RespFrame::Error("ERR Unknown subcommand or wrong number of arguments for SCRIPT".to_string())
+    RespFrame::Error(format!(
+        "ERR unknown subcommand '{}'.",
+        String::from_utf8_lossy(sub)
+    ))
 }
 
 fn parse_numkeys(raw: &[u8]) -> Result<usize, RespFrame> {

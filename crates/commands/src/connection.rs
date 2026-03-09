@@ -1,4 +1,4 @@
-use crate::util::{Args, eq_ascii, parse_i64_bytes, parse_u64_bytes, wrong_args};
+use crate::util::{eq_ascii, parse_i64_bytes, parse_u64_bytes, wrong_args, Args};
 use protocol::types::{BulkData, RespFrame};
 
 pub(crate) fn auth(args: &Args) -> RespFrame {
@@ -15,11 +15,12 @@ pub(crate) fn hello(args: &Args) -> RespFrame {
         return hello_response(2);
     }
 
-    let version =
-        parse_u64_bytes(&args[1]).and_then(|v| if v <= 255 { Some(v as u8) } else { None });
+    let Some(version) = parse_u64_bytes(&args[1]) else {
+        return RespFrame::error_static("ERR Protocol version is not an integer or out of range");
+    };
 
     match version {
-        Some(proto) if proto == 2 || proto == 3 => hello_response(proto),
+        2 | 3 => hello_response(version as u8),
         _ => RespFrame::error_static("NOPROTO unsupported protocol version"),
     }
 }
@@ -112,11 +113,8 @@ pub(crate) fn select_db(args: &Args) -> RespFrame {
     }
 }
 
-pub(crate) fn quit(args: &Args) -> RespFrame {
+pub(crate) fn quit(_args: &Args) -> RespFrame {
     let _trace = profiler::scope("commands::connection::quit");
-    if args.len() != 1 {
-        return wrong_args("QUIT");
-    }
     RespFrame::ok()
 }
 

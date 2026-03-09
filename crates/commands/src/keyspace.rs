@@ -1,6 +1,6 @@
 use crate::util::{
-    Args, eq_ascii, int_error, parse_i64_bytes, parse_u64_bytes, u64_to_bytes, wrong_args,
-    wrong_type,
+    eq_ascii, int_error, invalid_cursor, parse_i64_bytes, parse_u64_bytes, u64_to_bytes,
+    wrong_args, wrong_type, Args,
 };
 use engine::store::{RestoreError, SortError, SortOptions, SortOrder, SortResult, Store};
 use protocol::types::{BulkData, RespFrame};
@@ -156,6 +156,10 @@ pub(crate) fn move_key(store: &Store, args: &Args) -> RespFrame {
         Err(response) => return response,
     };
 
+    if !(0..=15).contains(&db) {
+        return RespFrame::Error("ERR DB index is out of range".to_string());
+    }
+
     match store.move_key(&args[1], db) {
         Ok(value) => RespFrame::Integer(value),
         Err(_) => RespFrame::Error("ERR DB index is out of range".to_string()),
@@ -295,7 +299,7 @@ pub(crate) fn copy(store: &Store, args: &Args) -> RespFrame {
         index += 1;
     }
 
-    if db != 0 {
+    if !(0..=15).contains(&db) {
         return RespFrame::Error("ERR DB index is out of range".to_string());
     }
 
@@ -304,8 +308,11 @@ pub(crate) fn copy(store: &Store, args: &Args) -> RespFrame {
 
 pub(crate) fn flushdb(store: &Store, args: &Args) -> RespFrame {
     let _trace = profiler::scope("commands::keyspace::flushdb");
-    if args.len() != 1 {
-        return wrong_args("FLUSHDB");
+    if args.len() > 2 {
+        return crate::util::syntax_error();
+    }
+    if args.len() == 2 && !eq_ascii(&args[1], b"ASYNC") && !eq_ascii(&args[1], b"SYNC") {
+        return crate::util::syntax_error();
     }
     let _ = store.flushdb();
     RespFrame::ok()
@@ -313,15 +320,18 @@ pub(crate) fn flushdb(store: &Store, args: &Args) -> RespFrame {
 
 pub(crate) fn flushall(store: &Store, args: &Args) -> RespFrame {
     let _trace = profiler::scope("commands::keyspace::flushall");
-    if args.len() != 1 {
-        return wrong_args("FLUSHALL");
+    if args.len() > 2 {
+        return crate::util::syntax_error();
+    }
+    if args.len() == 2 && !eq_ascii(&args[1], b"ASYNC") && !eq_ascii(&args[1], b"SYNC") {
+        return crate::util::syntax_error();
     }
     let _ = store.flushdb();
     RespFrame::ok()
 }
 
 fn parse_u64(raw: &[u8]) -> Result<u64, RespFrame> {
-    parse_u64_bytes(raw).ok_or_else(int_error)
+    parse_u64_bytes(raw).ok_or_else(invalid_cursor)
 }
 
 fn parse_i64(raw: &[u8]) -> Result<i64, RespFrame> {
