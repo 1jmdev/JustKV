@@ -48,9 +48,6 @@ pub fn dispatch_safe(input: &[u8]) -> Option<CommandId> {
                 if eq(input, b"AUTH") {
                     return Some(CommandId::Auth);
                 }
-                if eq(input, b"ECHO") {
-                    return Some(CommandId::Echo);
-                }
             }
             b'c' => {
                 if eq(input, b"COPY") {
@@ -66,6 +63,9 @@ pub fn dispatch_safe(input: &[u8]) -> Option<CommandId> {
                 }
             }
             b'e' => {
+                if eq(input, b"ECHO") {
+                    return Some(CommandId::Echo);
+                }
                 if eq(input, b"EVAL") {
                     return Some(CommandId::Eval);
                 }
