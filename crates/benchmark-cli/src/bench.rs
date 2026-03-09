@@ -503,7 +503,7 @@ async fn run_worker(
                     .map(encode_expected_response)
                     .collect::<Vec<_>>()
             } else {
-                Vec::new()
+                vec![None; batch]
             };
             if track {
                 mark_counted_phase_started(&cfg.progress, cfg.started);
