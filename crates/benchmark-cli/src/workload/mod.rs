@@ -35,6 +35,7 @@ pub struct BenchSpec {
     pub key: &'static str,
     pub name: &'static str,
     pub kind: BenchKind,
+    pub template: Option<&'static [&'static [u8]]>,
 }
 
 #[derive(Clone, Debug)]
@@ -97,7 +98,7 @@ pub fn resolve_workload(
             keep_alive: args.keep_alive_enabled(),
             key_prefix: "betterkv-benchmark".to_string(),
             seed: args.random_seed(),
-            command: None,
+            command: spec.template.map(template::build_builtin_command),
         })
         .collect())
 }
@@ -154,7 +155,7 @@ mod tests {
     #[test]
     fn resolves_default_tests_when_no_selection_is_given() {
         let runs = resolve_workload(&sample_args(), None).expect("resolve workload");
-        assert_eq!(runs.len(), builtin::TESTS.len());
+        assert_eq!(runs.len(), builtin::tests().len());
         assert_eq!(runs[0].name, "PING_INLINE");
     }
 

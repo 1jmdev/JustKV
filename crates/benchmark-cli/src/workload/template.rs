@@ -8,6 +8,9 @@ pub struct CommandTemplate {
 #[derive(Clone, Debug)]
 pub enum ArgTemplate {
     Literal(Vec<u8>),
+    Key,
+    KeySuffix(Vec<u8>),
+    Data,
     RandomInt,
 }
 
@@ -27,14 +30,32 @@ pub(crate) fn build_custom_command(
 
     let parts = raw
         .into_iter()
-        .map(|arg| {
-            if arg == "__rand_int__" {
-                ArgTemplate::RandomInt
-            } else {
-                ArgTemplate::Literal(arg.into_bytes())
-            }
-        })
+        .map(|arg| parse_template_arg(arg.into_bytes()))
         .collect();
 
     Ok(CommandTemplate { parts })
+}
+
+pub(crate) fn build_builtin_command(parts: &'static [&'static [u8]]) -> CommandTemplate {
+    CommandTemplate {
+        parts: parts
+            .iter()
+            .map(|part| parse_template_arg(part.to_vec()))
+            .collect(),
+    }
+}
+
+fn parse_template_arg(arg: Vec<u8>) -> ArgTemplate {
+    match arg.as_slice() {
+        b"__rand_int__" => ArgTemplate::RandomInt,
+        b"__key__" => ArgTemplate::Key,
+        b"__data__" => ArgTemplate::Data,
+        _ => {
+            if let Some(suffix) = arg.strip_prefix(b"__key__") {
+                ArgTemplate::KeySuffix(suffix.to_vec())
+            } else {
+                ArgTemplate::Literal(arg)
+            }
+        }
+    }
 }

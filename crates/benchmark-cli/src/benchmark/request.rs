@@ -1,4 +1,4 @@
-use crate::resp::{ExpectedResponse, encode_expected_response, encode_resp_parts};
+use crate::resp::{encode_expected_response, encode_resp_parts, ExpectedResponse};
 use crate::workload::{ArgTemplate, BenchKind, BenchRun, CommandTemplate};
 
 use super::model::{RandomSource, RequestGroup};
@@ -94,89 +94,64 @@ fn build_command(
     value: &[u8],
     random: &mut RandomSource,
 ) -> Result<Vec<u8>, String> {
+    if run.kind != BenchKind::PingInline {
+        if let Some(template) = run.command.as_ref() {
+            return build_custom_command(
+                template,
+                key_base,
+                slot,
+                value,
+                random,
+                run.random_keyspace_len,
+            );
+        }
+    }
+
     Ok(match run.kind {
         BenchKind::PingInline => b"PING\r\n".to_vec(),
-        BenchKind::PingMbulk => encode_resp_parts(&[b"PING"]),
-        BenchKind::Set => {
-            let key = make_key(key_base, slot);
-            encode_resp_parts(&[b"SET", key.as_slice(), value])
-        }
-        BenchKind::Get => {
-            let key = make_key(key_base, slot);
-            encode_resp_parts(&[b"GET", key.as_slice()])
-        }
-        BenchKind::Incr => {
-            let key = make_key(key_base, slot);
-            encode_resp_parts(&[b"INCR", key.as_slice()])
-        }
-        BenchKind::Lpush => {
-            let key = make_key(key_base, slot);
-            encode_resp_parts(&[b"LPUSH", key.as_slice(), value])
-        }
-        BenchKind::Rpush => {
-            let key = make_key(key_base, slot);
-            encode_resp_parts(&[b"RPUSH", key.as_slice(), value])
-        }
-        BenchKind::Lpop => {
-            let key = make_key(key_base, slot);
-            encode_resp_parts(&[b"LPOP", key.as_slice()])
-        }
-        BenchKind::Rpop => {
-            let key = make_key(key_base, slot);
-            encode_resp_parts(&[b"RPOP", key.as_slice()])
-        }
-        BenchKind::Sadd => {
-            let key = make_key(key_base, slot);
-            let member = if run.random_keyspace_len.is_some() {
-                random.next().to_string().into_bytes()
-            } else {
-                value.to_vec()
-            };
-            encode_resp_parts(&[b"SADD", key.as_slice(), member.as_slice()])
-        }
-        BenchKind::Hset => {
-            let key = make_key(key_base, slot);
-            encode_resp_parts(&[b"HSET", key.as_slice(), b"field", value])
-        }
-        BenchKind::Spop => {
-            let key = make_key(key_base, slot);
-            encode_resp_parts(&[b"SPOP", key.as_slice()])
-        }
-        BenchKind::Zadd => {
-            let key = make_key(key_base, slot);
-            encode_resp_parts(&[b"ZADD", key.as_slice(), b"1", value])
-        }
-        BenchKind::ZpopMin => {
-            let key = make_key(key_base, slot);
-            encode_resp_parts(&[b"ZPOPMIN", key.as_slice()])
-        }
-        BenchKind::Lrange100
+        BenchKind::PingMbulk
+        | BenchKind::Set
+        | BenchKind::Get
+        | BenchKind::Incr
+        | BenchKind::Lpush
+        | BenchKind::Rpush
+        | BenchKind::Lpop
+        | BenchKind::Rpop
+        | BenchKind::Sadd
+        | BenchKind::Hset
+        | BenchKind::Spop
+        | BenchKind::Zadd
+        | BenchKind::ZpopMin
+        | BenchKind::Lrange100
         | BenchKind::Lrange300
         | BenchKind::Lrange500
-        | BenchKind::Lrange600 => {
-            let key = make_key(key_base, slot);
-            let stop = (lrange_target(run.kind) - 1).to_string();
-            encode_resp_parts(&[b"LRANGE", key.as_slice(), b"0", stop.as_bytes()])
-        }
-        BenchKind::Mset => build_mset_command(key_base, slot, value),
-        BenchKind::Custom => build_custom_command(
-            run.command.as_ref().expect("custom command"),
-            random,
-            run.random_keyspace_len,
-        )?,
+        | BenchKind::Lrange600
+        | BenchKind::Mset
+        | BenchKind::Custom => unreachable!("command template missing for benchmark"),
     })
 }
 
 fn build_custom_command(
     template: &CommandTemplate,
+    key_base: &[u8],
+    slot: u64,
+    value: &[u8],
     random: &mut RandomSource,
     keyspace: Option<u64>,
 ) -> Result<Vec<u8>, String> {
     let mut parts = Vec::with_capacity(template.parts.len());
     let mut owned = Vec::with_capacity(template.parts.len());
+    let key = make_key(key_base, slot);
     for part in &template.parts {
         match part {
             ArgTemplate::Literal(value) => owned.push(value.clone()),
+            ArgTemplate::Key => owned.push(key.clone()),
+            ArgTemplate::KeySuffix(suffix) => {
+                let mut derived = key.clone();
+                derived.extend_from_slice(suffix);
+                owned.push(derived);
+            }
+            ArgTemplate::Data => owned.push(value.to_vec()),
             ArgTemplate::RandomInt => {
                 let range =
                     keyspace.ok_or_else(|| "__rand_int__ requires -r <keyspacelen>".to_string())?;
