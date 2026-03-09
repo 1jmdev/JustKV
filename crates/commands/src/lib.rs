@@ -1,5 +1,6 @@
 pub mod command;
 pub mod connection;
+pub mod dispatch;
 pub mod dispatcher;
 pub mod geo;
 pub mod hash;
