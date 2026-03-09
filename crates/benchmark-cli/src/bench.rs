@@ -4,9 +4,8 @@ use std::thread;
 use std::time::Duration;
 use std::time::Instant;
 
-use std::io::{self, Write};
-
 use bytes::BytesMut;
+use indicatif::{ProgressBar, ProgressStyle};
 use protocol::parser::{self, ParseError};
 use protocol::types::{BulkData, RespFrame};
 use tokio::io::AsyncReadExt;
@@ -27,7 +26,13 @@ const SETUP_BATCH: usize = 64;
 #[derive(Default)]
 struct WorkerStats {
     completed: u64,
-    lat_samples_ns: Vec<u64>,
+    latencies: Vec<LatencyObservation>,
+}
+
+#[derive(Clone, Copy)]
+pub struct LatencyObservation {
+    pub per_request_ns: u64,
+    pub request_count: u64,
 }
 
 pub struct BenchResult {
@@ -43,11 +48,21 @@ pub struct BenchResult {
     pub p95_ms: f64,
     pub p99_ms: f64,
     pub max_ms: f64,
-    pub samples_ns: Vec<u64>,
+    pub latencies: Vec<LatencyObservation>,
     pub data_size: usize,
     pub pipeline: usize,
     pub random_keys: bool,
     pub keyspace: u64,
+}
+
+#[derive(Clone, Copy)]
+struct ProgressSnapshot {
+    completed: u64,
+    current_rps: f64,
+    overall_rps: f64,
+    current_avg_ms: f64,
+    overall_avg_ms: f64,
+    elapsed_secs: f64,
 }
 
 struct Shared {
@@ -281,7 +296,8 @@ pub async fn run_single_benchmark(
     let progress_handle = if !args.quiet && !args.csv {
         let state = Arc::clone(&progress);
         let name = shared.spec.name.clone();
-        Some(thread::spawn(move || progress_loop(&name, state, start)))
+        let total = shared.spec.requests;
+        Some(thread::spawn(move || progress_loop(&name, total, state, start)))
     } else {
         None
     };
@@ -301,14 +317,19 @@ pub async fn run_single_benchmark(
     }
 
     let mut total_completed = 0u64;
-    let mut samples = Vec::<u64>::new();
+    let mut latencies = Vec::<LatencyObservation>::new();
+    let mut total_latency_ns = 0u64;
     for handle in handles {
         let thread_stats = handle
             .join()
             .map_err(|_| "benchmark thread panicked".to_string())??;
         for stats in thread_stats {
             total_completed += stats.completed;
-            samples.extend(stats.lat_samples_ns);
+            for latency in stats.latencies {
+                total_latency_ns = total_latency_ns
+                    .saturating_add(latency.per_request_ns.saturating_mul(latency.request_count));
+                latencies.push(latency);
+            }
         }
     }
 
@@ -324,13 +345,13 @@ pub async fn run_single_benchmark(
         return Err("benchmark completed with zero successful requests".to_string());
     }
 
-    samples.sort_unstable();
-    let avg_ms = elapsed_secs * 1000.0 / total_completed as f64;
-    let min_ms = samples.first().copied().unwrap_or(0) as f64 / 1_000_000.0;
-    let p50_ms = percentile_ms(&samples, 0.50);
-    let p95_ms = percentile_ms(&samples, 0.95);
-    let p99_ms = percentile_ms(&samples, 0.99);
-    let max_ms = samples.last().copied().unwrap_or(0) as f64 / 1_000_000.0;
+    latencies.sort_unstable_by_key(|entry| entry.per_request_ns);
+    let avg_ms = total_latency_ns as f64 / total_completed as f64 / 1_000_000.0;
+    let min_ms = latencies.first().map_or(0.0, |entry| entry.per_request_ns as f64 / 1_000_000.0);
+    let p50_ms = percentile_ms(&latencies, 0.50);
+    let p95_ms = percentile_ms(&latencies, 0.95);
+    let p99_ms = percentile_ms(&latencies, 0.99);
+    let max_ms = latencies.last().map_or(0.0, |entry| entry.per_request_ns as f64 / 1_000_000.0);
 
     Ok(BenchResult {
         name: shared.spec.name.clone(),
@@ -345,7 +366,7 @@ pub async fn run_single_benchmark(
         p95_ms,
         p99_ms,
         max_ms,
-        samples_ns: samples,
+        latencies,
         data_size: shared.spec.data_size,
         pipeline: shared.spec.pipeline,
         random_keys: shared.spec.random_keys,
@@ -490,7 +511,10 @@ async fn run_worker(
             if track {
                 let elapsed_ns = started.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64;
                 let per_req_ns = (elapsed_ns as u128 / batch as u128).min(u128::from(u64::MAX));
-                stats.lat_samples_ns.push(per_req_ns as u64);
+                stats.latencies.push(LatencyObservation {
+                    per_request_ns: per_req_ns as u64,
+                    request_count: batch as u64,
+                });
                 stats.completed += batch as u64;
                 cfg.progress.completed.fetch_add(batch as u64, Ordering::Relaxed);
                 cfg.progress
@@ -545,7 +569,10 @@ async fn run_worker(
         if track {
             let elapsed_ns = started.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64;
             let per_req_ns = (elapsed_ns as u128 / batch as u128).min(u128::from(u64::MAX));
-            stats.lat_samples_ns.push(per_req_ns as u64);
+            stats.latencies.push(LatencyObservation {
+                per_request_ns: per_req_ns as u64,
+                request_count: batch as u64,
+            });
             stats.completed += batch as u64;
             cfg.progress.completed.fetch_add(batch as u64, Ordering::Relaxed);
             cfg.progress
@@ -560,49 +587,104 @@ async fn run_worker(
     Ok(stats)
 }
 
-fn progress_loop(name: &str, state: Arc<ProgressState>, started: Instant) {
+fn progress_loop(name: &str, total_requests: u64, state: Arc<ProgressState>, started: Instant) {
     let mut last_count = 0u64;
     let mut last_latency = 0u64;
     let mut last_tick = started;
+    let progress = ProgressBar::new(total_requests);
+    progress.enable_steady_tick(Duration::from_millis(120));
+    progress.set_style(
+        ProgressStyle::with_template(
+            "{spinner:.cyan} {msg} [{wide_bar:.cyan/blue}] {pos}/{len} {percent:>3}% | {per_sec} | avg {eta_precise}",
+        )
+        .unwrap()
+        .progress_chars("=> "),
+    );
 
     loop {
-        thread::sleep(Duration::from_millis(1000));
+        thread::sleep(Duration::from_millis(250));
 
-        let total = state.completed.load(Ordering::Relaxed);
-        let total_latency = state.latency_ns.load(Ordering::Relaxed);
-        let now = Instant::now();
+        let snapshot = progress_snapshot(&state, started, last_tick, last_count, last_latency);
+        last_count = snapshot.completed;
+        last_latency = state.latency_ns.load(Ordering::Relaxed);
+        last_tick = Instant::now();
 
-        let dt = now.duration_since(last_tick).as_secs_f64().max(0.000_001);
-        let elapsed = now.duration_since(started).as_secs_f64().max(0.000_001);
-        let delta = total.saturating_sub(last_count);
-        let delta_latency = total_latency.saturating_sub(last_latency);
+        progress.set_position(snapshot.completed.min(total_requests));
+        progress.set_message(format!(
+            "{} | live {} | overall {} | lat {} / {} | elapsed {}",
+            name,
+            format_rps(snapshot.current_rps),
+            format_rps(snapshot.overall_rps),
+            format_latency_brief(snapshot.current_avg_ms),
+            format_latency_brief(snapshot.overall_avg_ms),
+            format_duration(snapshot.elapsed_secs),
+        ));
 
-        let rps = delta as f64 / dt;
-        let overall_rps = total as f64 / elapsed;
-        let avg_ms = if delta == 0 {
+        if state.stop.load(Ordering::Relaxed) {
+            progress.finish_and_clear();
+            break;
+        }
+    }
+}
+
+fn progress_snapshot(
+    state: &ProgressState,
+    started: Instant,
+    last_tick: Instant,
+    last_count: u64,
+    last_latency: u64,
+) -> ProgressSnapshot {
+    let completed = state.completed.load(Ordering::Relaxed);
+    let total_latency = state.latency_ns.load(Ordering::Relaxed);
+    let now = Instant::now();
+    let dt = now.duration_since(last_tick).as_secs_f64().max(0.000_001);
+    let elapsed_secs = now.duration_since(started).as_secs_f64().max(0.000_001);
+    let delta = completed.saturating_sub(last_count);
+    let delta_latency = total_latency.saturating_sub(last_latency);
+
+    ProgressSnapshot {
+        completed,
+        current_rps: delta as f64 / dt,
+        overall_rps: completed as f64 / elapsed_secs,
+        current_avg_ms: if delta == 0 {
             0.0
         } else {
             delta_latency as f64 / delta as f64 / 1_000_000.0
-        };
-        let overall_avg_ms = if total == 0 {
+        },
+        overall_avg_ms: if completed == 0 {
             0.0
         } else {
-            total_latency as f64 / total as f64 / 1_000_000.0
-        };
+            total_latency as f64 / completed as f64 / 1_000_000.0
+        },
+        elapsed_secs,
+    }
+}
 
-        print!(
-            "\rT: rps={:.1} (overall: {:.1}) avg_msec={:.3} (overall: {:.3}) - {}",
-            rps, overall_rps, avg_ms, overall_avg_ms, name
-        );
-        let _ = io::stdout().flush();
+fn format_rps(rps: f64) -> String {
+    if rps >= 1_000_000.0 {
+        format!("{:.2}M rps", rps / 1_000_000.0)
+    } else if rps >= 1_000.0 {
+        format!("{:.2}K rps", rps / 1_000.0)
+    } else {
+        format!("{rps:.0} rps")
+    }
+}
 
-        last_count = total;
-        last_latency = total_latency;
-        last_tick = now;
+fn format_latency_brief(ms: f64) -> String {
+    if ms >= 1.0 {
+        format!("{ms:.3} ms")
+    } else if ms >= 0.001 {
+        format!("{:.2} us", ms * 1_000.0)
+    } else {
+        format!("{:.0} ns", ms * 1_000_000.0)
+    }
+}
 
-        if state.stop.load(Ordering::Relaxed) {
-            break;
-        }
+fn format_duration(seconds: f64) -> String {
+    if seconds >= 60.0 {
+        format!("{:.1}m", seconds / 60.0)
+    } else {
+        format!("{seconds:.1}s")
     }
 }
 
@@ -995,11 +1077,28 @@ fn splitmix64(mut value: u64) -> u64 {
     value ^ (value >> 31)
 }
 
-fn percentile_ms(samples_ns: &[u64], percentile: f64) -> f64 {
-    if samples_ns.is_empty() {
+fn percentile_ms(latencies: &[LatencyObservation], percentile: f64) -> f64 {
+    if latencies.is_empty() {
         return 0.0;
     }
-    let max_index = samples_ns.len() - 1;
-    let rank = (max_index as f64 * percentile).round() as usize;
-    samples_ns[rank.min(max_index)] as f64 / 1_000_000.0
+
+    let total = latencies
+        .iter()
+        .fold(0u64, |sum, entry| sum.saturating_add(entry.request_count));
+    if total == 0 {
+        return 0.0;
+    }
+
+    let rank = ((total - 1) as f64 * percentile).round() as u64;
+    let mut seen = 0u64;
+    for entry in latencies {
+        seen = seen.saturating_add(entry.request_count);
+        if seen > rank {
+            return entry.per_request_ns as f64 / 1_000_000.0;
+        }
+    }
+
+    latencies
+        .last()
+        .map_or(0.0, |entry| entry.per_request_ns as f64 / 1_000_000.0)
 }
