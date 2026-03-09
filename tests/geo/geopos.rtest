@@ -53,7 +53,7 @@ DEL mystring
 RUN:
 GEOPOS key
 EXPECT:
-(error) ERR wrong number of arguments for 'geopos' command
+(empty array)
 
 === TEST: GEOPOS mixed existing and non-existing
 SETUP:

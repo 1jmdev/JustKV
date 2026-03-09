@@ -5,6 +5,7 @@
 
 === TEST: BRPOPLPUSH basic operation
 SETUP:
+DEL source destination
 RPUSH source "a" "b" "c"
 RUN:
 BRPOPLPUSH source destination 1
@@ -15,12 +16,12 @@ DEL source destination
 
 === TEST: BRPOPLPUSH empty source
 SETUP:
-DEL source
+DEL source destination
 RPUSH destination "existing"
 RUN:
-BRPOPLPUSH source destination 0
+BRPOPLPUSH source destination 1
 EXPECT:
-(any)
+(nil)
 CLEANUP:
 DEL source destination
 
@@ -36,6 +37,7 @@ DEL mylist
 
 === TEST: BRPOPLPUSH multiple times
 SETUP:
+DEL source dest
 RPUSH source "a" "b"
 RUN:
 BRPOPLPUSH source dest 1
@@ -46,6 +48,7 @@ DEL source dest
 
 === TEST: BRPOPLPUSH destination exists
 SETUP:
+DEL source dest
 RPUSH source "a" "b"
 RPUSH dest "x" "y"
 RUN:
@@ -67,6 +70,7 @@ DEL mysource
 
 === TEST: BRPOPLPUSH wrong type destination
 SETUP:
+DEL source mydest
 RPUSH source "a"
 SET mydest "value"
 RUN:

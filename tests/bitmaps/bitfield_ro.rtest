@@ -64,7 +64,7 @@ DEL mykey
 RUN:
 BITFIELD_RO mykey SET u8 0 255
 EXPECT:
-(error) ERR syntax error
+(error) ERR BITFIELD_RO only supports the GET subcommand
 CLEANUP:
 DEL mykey
 
@@ -74,7 +74,7 @@ BITFIELD mykey SET u8 0 100
 RUN:
 BITFIELD_RO mykey INCRBY u8 0 50
 EXPECT:
-(error) ERR syntax error
+(error) ERR BITFIELD_RO only supports the GET subcommand
 CLEANUP:
 DEL mykey
 
@@ -92,4 +92,4 @@ DEL mylist
 RUN:
 BITFIELD_RO key
 EXPECT:
-(error) ERR wrong number of arguments for 'bitfield_ro' command
+(empty array)

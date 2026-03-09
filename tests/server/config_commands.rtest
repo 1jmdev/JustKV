@@ -24,7 +24,7 @@ EXPECT:
 RUN:
 CONFIG GET "nonexistentparam"
 EXPECT:
-(empty)
+(empty array)
 
 ---
 

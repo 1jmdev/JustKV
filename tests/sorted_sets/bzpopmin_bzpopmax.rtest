@@ -32,9 +32,9 @@ DEL zset1 zset2
 SETUP:
 DEL myzset
 RUN:
-BZPOPMIN myzset 0
+BZPOPMIN myzset 1
 EXPECT:
-(any)
+(nil)
 CLEANUP:
 DEL myzset
 
@@ -67,9 +67,9 @@ DEL zset1 zset2
 SETUP:
 DEL myzset
 RUN:
-BZPOPMAX myzset 0
+BZPOPMAX myzset 1
 EXPECT:
-(any)
+(nil)
 CLEANUP:
 DEL myzset
 

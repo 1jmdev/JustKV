@@ -6,7 +6,7 @@
 RUN:
 RESET
 EXPECT:
-OK
+RESET
 
 ---
 

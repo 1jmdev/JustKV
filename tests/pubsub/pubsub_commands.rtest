@@ -37,7 +37,7 @@ EXPECT:
 RUN:
 PUBSUB INVALID
 EXPECT:
-(error) ERR Unknown subcommand
+(error) ERR unknown subcommand 'INVALID'.
 
 === TEST: PUBSUB no subcommand
 RUN:

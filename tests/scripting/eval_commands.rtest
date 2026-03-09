@@ -28,11 +28,11 @@ EXPECT:
 @since 6.2.0
 
 === TEST: Load and execute script
-SETUP:
-SCRIPT LOAD "return 42"
 RUN:
-EVALSHA "e0e1f9fabfc9d4800c877a703b823ac0578ff8db" 0
+SCRIPT LOAD "return 42"
+EVALSHA ${sha42} 0
 EXPECT:
+(capture) sha42
 (integer) 42
 
 ---
@@ -56,11 +56,11 @@ EXPECT:
 @since 6.2.0
 
 === TEST: Execute read-only script by SHA
-SETUP:
-SCRIPT LOAD "return 'read-only'"
 RUN:
-EVALSHA_RO "01b69b21dcf4ca65d325b3f0ad0c2a0e0c17ec6d" 0
+SCRIPT LOAD "return 'read-only'"
+EVALSHA_RO ${sha_read_only} 0
 EXPECT:
+(capture) sha_read_only
 "read-only"
 
 ---

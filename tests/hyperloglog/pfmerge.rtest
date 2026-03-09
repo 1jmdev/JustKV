@@ -88,7 +88,7 @@ PFADD hll2 "a"
 RUN:
 PFMERGE hll3 mystring hll2
 EXPECT:
-(error) WRONGTYPE Operation against a key holding the wrong kind of value
+(error) WRONGTYPE Key is not a valid HyperLogLog string value.
 CLEANUP:
 DEL mystring hll2
 
@@ -96,7 +96,7 @@ DEL mystring hll2
 RUN:
 PFMERGE dest
 EXPECT:
-(error) ERR wrong number of arguments for 'pfmerge' command
+OK
 
 === TEST: PFMERGE destination same as source
 SETUP:

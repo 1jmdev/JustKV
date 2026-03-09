@@ -16,6 +16,7 @@ SET key "value"
 GET key
 DISCARD
 EXPECT:
+OK
 QUEUED
 QUEUED
 OK
@@ -33,6 +34,7 @@ SET key1 "value1"
 SET key2 "value2"
 DISCARD
 EXPECT:
+OK
 QUEUED
 QUEUED
 OK
@@ -43,6 +45,7 @@ MULTI
 SET mykey "discarded"
 DISCARD
 EXPECT:
+OK
 QUEUED
 OK
 
@@ -54,6 +57,7 @@ SADD myset "x" "y" "z"
 HSET myhash field "value"
 DISCARD
 EXPECT:
+OK
 QUEUED
 QUEUED
 QUEUED

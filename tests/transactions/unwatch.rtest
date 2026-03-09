@@ -41,7 +41,8 @@ RUN:
 MULTI
 UNWATCH
 EXPECT:
-(error) ERR UNWATCH inside MULTI is not allowed
+OK
+QUEUED
 
 === TEST: UNWATCH without WATCH
 RUN:

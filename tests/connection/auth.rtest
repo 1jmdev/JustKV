@@ -7,7 +7,7 @@
 RUN:
 AUTH mypassword
 EXPECT:
-(error) ERR invalid password
+(error) ERR AUTH <password> called without any password configured for the default user.
 
 === TEST: AUTH wrong number of arguments
 RUN:
@@ -19,16 +19,16 @@ EXPECT:
 RUN:
 AUTH password extra
 EXPECT:
-(error) ERR syntax error
+(error) WRONGPASS invalid username-password pair or user is disabled.
 
 === TEST: AUTH empty password
 RUN:
 AUTH ""
 EXPECT:
-(error) ERR invalid password
+(error) ERR AUTH <password> called without any password configured for the default user.
 
 === TEST: AUTH returns error when no auth configured
 RUN:
 AUTH wrongpassword
 EXPECT:
-(error) ERR invalid password
+(error) ERR AUTH <password> called without any password configured for the default user.

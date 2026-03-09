@@ -24,7 +24,7 @@ EXPECT:
 
 === TEST: Memory usage of large value
 SETUP:
-SET bigkey "x" "x" "x" "x" "x"
+SET bigkey "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 RUN:
 MEMORY USAGE bigkey
 EXPECT:

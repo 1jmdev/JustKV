@@ -37,7 +37,7 @@ EXPECT:
 SETUP:
 XADD stream:id * field value
 RUN:
-XSETID stream:id 1000
+XSETID stream:id 9999999999999-0
 EXPECT:
 OK
 

@@ -42,13 +42,13 @@ EXPECT:
 
 === TEST: SCRIPT DEBUG OFF
 RUN:
-SCRIPT DEBUG OFF
+SCRIPT DEBUG NO
 EXPECT:
 OK
 
 === TEST: SCRIPT DEBUG ON
 RUN:
-SCRIPT DEBUG ON
+SCRIPT DEBUG YES
 EXPECT:
 OK
 
@@ -56,7 +56,7 @@ OK
 RUN:
 SCRIPT INVALID
 EXPECT:
-(error) ERR Unknown subcommand
+(error) ERR unknown subcommand 'INVALID'.
 
 === TEST: SCRIPT no subcommand
 RUN:

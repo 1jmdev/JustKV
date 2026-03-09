@@ -56,9 +56,12 @@ pub struct TestFailure {
 
 #[derive(Debug, Clone)]
 pub struct RunSummary {
+    pub discovered_total: usize,
     pub total: usize,
     pub passed: usize,
+    pub skipped: usize,
     pub failed: usize,
     pub elapsed: Duration,
     pub failures: Vec<TestFailure>,
+    pub warnings: Vec<String>,
 }

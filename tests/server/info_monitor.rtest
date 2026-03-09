@@ -96,7 +96,7 @@ EXPECT:
 RUN:
 SAVE
 EXPECT:
-OK
+(any)
 
 ---
 

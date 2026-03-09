@@ -24,12 +24,28 @@ pub async fn run(args: Args) -> Result<RunSummary, String> {
         .map(|path| parse_test_file(path))
         .collect::<Result<Vec<_>, _>>()?;
 
+    let discovered_total = files.iter().map(|file| file.cases.len()).sum();
+
+    let preflight = filter_cases_by_capability(&args, files).await;
+    let (files, mut warnings, prefiltered_skipped) = match preflight {
+        Ok(report) => (report.files, report.warnings, report.skipped),
+        Err(error) => (
+            paths
+                .iter()
+                .map(|path| parse_test_file(path))
+                .collect::<Result<Vec<_>, _>>()?,
+            vec![format!("failed to probe server capabilities; running without prefiltering: {error}")],
+            0usize,
+        ),
+    };
+
     let total = files.iter().map(|file| file.cases.len()).sum();
     let ui = Ui::new(total, args.quiet);
     ui.set_discovery(files.len(), total);
 
     let mut failures = Vec::new();
     let mut passed = 0usize;
+    let mut skipped = 0usize;
 
     for file in files {
         for case in file.cases {
@@ -44,11 +60,15 @@ pub async fn run(args: Args) -> Result<RunSummary, String> {
             let elapsed = case_started.elapsed();
 
             match result {
-                Ok(()) => {
+                CaseOutcome::Passed => {
                     passed += 1;
                     ui.record_success(&location);
                 }
-                Err(error) => {
+                CaseOutcome::Skipped => {
+                    skipped += 1;
+                    ui.record_success(&location);
+                }
+                CaseOutcome::Failed(error) => {
                     let failure = TestFailure {
                         path: file.path.clone(),
                         test_name: case.name,
@@ -63,11 +83,21 @@ pub async fn run(args: Args) -> Result<RunSummary, String> {
     }
 
     let summary = RunSummary {
+        discovered_total,
         total,
         passed,
+        skipped: skipped + prefiltered_skipped,
         failed: failures.len(),
         elapsed: started.elapsed(),
         failures,
+        warnings: {
+            if prefiltered_skipped != 0 {
+                warnings.push(format!(
+                    "preflight skipped {prefiltered_skipped} test(s) due to unsupported capabilities or unsafe commands"
+                ));
+            }
+            warnings
+        },
     };
 
     ui.finish(&summary);
@@ -76,54 +106,392 @@ pub async fn run(args: Args) -> Result<RunSummary, String> {
     Ok(summary)
 }
 
-async fn run_case(args: &Args, case: &crate::model::TestCase) -> Result<(), String> {
+struct PreflightReport {
+    files: Vec<crate::model::TestFile>,
+    skipped: usize,
+    warnings: Vec<String>,
+}
+
+async fn filter_cases_by_capability(
+    args: &Args,
+    files: Vec<crate::model::TestFile>,
+) -> Result<PreflightReport, String> {
     let mut client = Client::connect(args).await?;
-    client
-        .flush_all()
-        .await
-        .map_err(|err| format!("FLUSHALL failed: {err}"))?;
-    let mut captures = std::collections::HashMap::<String, String>::new();
+    let mut warnings = Vec::new();
 
-    for command in &case.setup {
-        let command = substitute_captures(command, &captures)?;
-        client
-            .execute_raw(&command)
-            .await
-            .map_err(|err| format!("setup command `{command}` failed: {err}"))?;
-    }
-
-    let no_reply = matches!(case.expect, ExpectedValue::NoReply);
-    let mut responses = Vec::with_capacity(case.run.len());
-    let last_index = case.run.len().saturating_sub(1);
-    for (index, command) in case.run.iter().enumerate() {
-        let command = substitute_captures(command, &captures)?;
-        if no_reply && index == last_index {
-            client
-                .execute_raw_no_reply(&command)
-                .await
-                .map_err(|err| format!("run command `{command}` failed: {err}"))?;
-        } else {
-            let frame = client
-                .execute_raw(&command)
-                .await
-                .map_err(|err| format!("run command `{command}` failed: {err}"))?;
-            responses.push(frame);
+    let mut commands = std::collections::BTreeSet::new();
+    for file in &files {
+        for case in &file.cases {
+            for command in case.setup.iter().chain(case.run.iter()).chain(case.cleanup.iter()) {
+                if let Some(name) = command_name(command) {
+                    commands.insert(name);
+                }
+            }
         }
     }
 
-    if !no_reply {
-        validate_run_results(&case.expect, &responses, &mut captures)?;
+    let mut supported = std::collections::HashMap::new();
+    let command_info_usable = match command_supported(&mut client, "PING").await {
+        Ok(true) => true,
+        Ok(false) => {
+            warnings.push(
+                "COMMAND INFO probing is unavailable on this server: `COMMAND INFO PING` returned an empty result, so command-support filtering was disabled"
+                    .to_string(),
+            );
+            false
+        }
+        Err(error) => {
+            warnings.push(format!(
+                "could not probe COMMAND INFO support: {error}; command-support filtering was disabled"
+            ));
+            false
+        }
+    };
+
+    for command in commands {
+        if !command_info_usable {
+            supported.insert(command, None);
+            continue;
+        }
+
+        match command_supported(&mut client, &command).await {
+            Ok(is_supported) => {
+                supported.insert(command.clone(), Some(is_supported));
+            }
+            Err(error) => {
+                warnings.push(format!(
+                    "could not probe COMMAND INFO for `{command}`: {error}; tests using it will still run"
+                ));
+                supported.insert(command.clone(), None);
+            }
+        }
+    }
+
+    let cluster_enabled = probe_bool(
+        &mut client,
+        vec![b"CLUSTER".to_vec(), b"INFO".to_vec()],
+        "ERR This instance has cluster support disabled",
+        "CLUSTER support",
+        &mut warnings,
+    )
+    .await;
+
+    let acl_file_configured = probe_bool(
+        &mut client,
+        vec![b"ACL".to_vec(), b"SAVE".to_vec()],
+        "ERR This Redis instance is not configured to use an ACL file",
+        "ACL file support",
+        &mut warnings,
+    )
+    .await;
+
+    let config_rewrite_supported = probe_bool(
+        &mut client,
+        vec![b"CONFIG".to_vec(), b"REWRITE".to_vec()],
+        "ERR The server is running without a config file",
+        "CONFIG REWRITE support",
+        &mut warnings,
+    )
+    .await;
+
+    let object_freq_supported = match client
+        .execute(vec![b"SET".to_vec(), b"__betterkv_tester_probe__".to_vec(), b"1".to_vec()])
+        .await
+    {
+        Ok(_) => {
+            probe_bool(
+                &mut client,
+                vec![b"OBJECT".to_vec(), b"FREQ".to_vec(), b"__betterkv_tester_probe__".to_vec()],
+                "ERR An LFU maxmemory policy is not selected, access frequency not tracked.",
+                "OBJECT FREQ support",
+                &mut warnings,
+            )
+            .await
+        }
+        Err(error) => {
+            warnings.push(format!(
+                "could not initialize OBJECT FREQ probe: {error}; OBJECT FREQ tests will still run"
+            ));
+            None
+        }
+    };
+    let _ = client.execute(vec![b"DEL".to_vec(), b"__betterkv_tester_probe__".to_vec()]).await;
+
+    let mut filtered = Vec::with_capacity(files.len());
+    let mut skipped = 0usize;
+    for mut file in files {
+        let before = file.cases.len();
+        file.cases.retain(|case| {
+            case_supported(
+                case,
+                &supported,
+                cluster_enabled,
+                acl_file_configured,
+                config_rewrite_supported,
+                object_freq_supported,
+            )
+        });
+        skipped += before - file.cases.len();
+        if !file.cases.is_empty() {
+            filtered.push(file);
+        }
+    }
+
+    Ok(PreflightReport {
+        files: filtered,
+        skipped,
+        warnings,
+    })
+}
+
+async fn command_supported(client: &mut Client, command: &str) -> Result<bool, String> {
+    let frame = client
+        .execute(vec![b"COMMAND".to_vec(), b"INFO".to_vec(), command.as_bytes().to_vec()])
+        .await?;
+    Ok(match frame {
+        RespFrame::Array(Some(items)) if items.is_empty() => false,
+        RespFrame::Array(Some(items)) if items.len() == 1 => !matches!(&items[0], RespFrame::Bulk(None) | RespFrame::Array(None)),
+        RespFrame::BulkOptions(items) if items.len() == 1 => items[0].is_some(),
+        _ => true,
+    })
+}
+
+fn case_supported(
+    case: &crate::model::TestCase,
+    supported: &std::collections::HashMap<String, Option<bool>>,
+    cluster_enabled: Option<bool>,
+    acl_file_configured: Option<bool>,
+    config_rewrite_supported: Option<bool>,
+    object_freq_supported: Option<bool>,
+) -> bool {
+    for command in case.setup.iter().chain(case.run.iter()).chain(case.cleanup.iter()) {
+        if let Some(name) = command_name(command) {
+            if matches!(name.as_str(), "SHUTDOWN" | "REPLICAOF" | "SLAVEOF" | "MIGRATE") {
+                return false;
+            }
+            if matches!(supported.get(&name), Some(Some(false))) {
+                return false;
+            }
+        }
+
+        let upper = command.trim().to_ascii_uppercase();
+        if upper.starts_with("CLUSTER ") && matches!(cluster_enabled, Some(false)) {
+            return false;
+        }
+        if matches!(upper.as_str(), "ASKING" | "READONLY" | "READWRITE")
+            && matches!(cluster_enabled, Some(false))
+        {
+            return false;
+        }
+        if matches!(upper.as_str(), "ACL SAVE" | "ACL LOAD")
+            && matches!(acl_file_configured, Some(false))
+        {
+            return false;
+        }
+        if upper == "CONFIG REWRITE" && matches!(config_rewrite_supported, Some(false)) {
+            return false;
+        }
+        if upper.starts_with("OBJECT FREQ ") && matches!(object_freq_supported, Some(false)) {
+            return false;
+        }
+    }
+
+    true
+}
+
+async fn probe_bool(
+    client: &mut Client,
+    command: Vec<Vec<u8>>,
+    unsupported_prefix: &str,
+    label: &str,
+    warnings: &mut Vec<String>,
+) -> Option<bool> {
+    match client.execute(command).await {
+        Ok(frame) => Some(!frame_error_starts_with(&frame, unsupported_prefix)),
+        Err(error) => {
+            warnings.push(format!(
+                "could not determine {label}: {error}; related tests will still run"
+            ));
+            None
+        }
+    }
+}
+
+fn command_name(command: &str) -> Option<String> {
+    command
+        .split_ascii_whitespace()
+        .next()
+        .map(|value| value.to_ascii_uppercase())
+}
+
+fn frame_error_starts_with(frame: &RespFrame, prefix: &str) -> bool {
+    match frame {
+        RespFrame::Error(value) => value.starts_with(prefix),
+        RespFrame::ErrorStatic(value) => value.starts_with(prefix),
+        _ => false,
+    }
+}
+
+enum CaseOutcome {
+    Passed,
+    Skipped,
+    Failed(String),
+}
+
+async fn run_case(args: &Args, case: &crate::model::TestCase) -> CaseOutcome {
+    if case_skip_reason(case).is_some() {
+        return CaseOutcome::Skipped;
+    }
+
+    let mut client = match Client::connect(args).await {
+        Ok(client) => client,
+        Err(error) => return CaseOutcome::Failed(error),
+    };
+    if let Err(error) = client.flush_all().await {
+        return CaseOutcome::Failed(format!("FLUSHALL failed: {error}"));
+    }
+    let mut captures = std::collections::HashMap::<String, String>::new();
+
+    let mut outcome = CaseOutcome::Passed;
+
+    for command in &case.setup {
+        let command = match substitute_captures(command, &captures) {
+            Ok(command) => command,
+            Err(error) => {
+                outcome = CaseOutcome::Failed(error);
+                break;
+            }
+        };
+        let frame = match client.execute_raw(&command).await {
+            Ok(frame) => frame,
+            Err(error) => {
+                outcome = CaseOutcome::Failed(format!("setup command `{command}` failed: {error}"));
+                break;
+            }
+        };
+        if response_skip_reason(&frame).is_some() {
+            outcome = CaseOutcome::Skipped;
+            break;
+        }
+    }
+
+    if matches!(outcome, CaseOutcome::Passed) {
+        let no_reply = matches!(case.expect, ExpectedValue::NoReply);
+        let sequence_expectations = match &case.expect {
+            ExpectedValue::Sequence(items) if items.len() == case.run.len() => Some(items.as_slice()),
+            _ => None,
+        };
+        let mut responses = Vec::with_capacity(case.run.len());
+        let last_index = case.run.len().saturating_sub(1);
+        for (index, command) in case.run.iter().enumerate() {
+            let command = match substitute_captures(command, &captures) {
+                Ok(command) => command,
+                Err(error) => {
+                    outcome = CaseOutcome::Failed(error);
+                    break;
+                }
+            };
+            if no_reply && index == last_index {
+                if let Err(error) = client.execute_raw_no_reply(&command).await {
+                    outcome = CaseOutcome::Failed(format!("run command `{command}` failed: {error}"));
+                    break;
+                }
+            } else {
+                let frame = match client.execute_raw(&command).await {
+                    Ok(frame) => frame,
+                    Err(error) => {
+                        outcome = CaseOutcome::Failed(format!("run command `{command}` failed: {error}"));
+                        break;
+                    }
+                };
+                if response_skip_reason(&frame).is_some() {
+                    outcome = CaseOutcome::Skipped;
+                    break;
+                }
+                responses.push(frame);
+                if let Some(ExpectedValue::Capture(_)) = sequence_expectations.and_then(|items| items.get(index)) {
+                    if let Err(error) = validate_expected(
+                        sequence_expectations.unwrap().get(index).unwrap(),
+                        responses.last().unwrap(),
+                        &mut captures,
+                    ) {
+                        outcome = CaseOutcome::Failed(error);
+                        break;
+                    }
+                }
+            }
+        }
+
+        if matches!(outcome, CaseOutcome::Passed) && !no_reply {
+            if let Err(error) = validate_run_results(&case.expect, &responses, &mut captures) {
+                outcome = CaseOutcome::Failed(error);
+            }
+        }
     }
 
     for command in &case.cleanup {
-        let command = substitute_captures(command, &captures)?;
-        client
-            .execute_raw(&command)
-            .await
-            .map_err(|err| format!("cleanup command `{command}` failed: {err}"))?;
+        let command = match substitute_captures(command, &captures) {
+            Ok(command) => command,
+            Err(error) => {
+                if matches!(outcome, CaseOutcome::Passed) {
+                    outcome = CaseOutcome::Failed(error);
+                }
+                break;
+            }
+        };
+        let frame = match client.execute_raw(&command).await {
+            Ok(frame) => frame,
+            Err(error) => {
+                if matches!(outcome, CaseOutcome::Passed) {
+                    outcome = CaseOutcome::Failed(format!("cleanup command `{command}` failed: {error}"));
+                }
+                break;
+            }
+        };
+        if response_skip_reason(&frame).is_some() {
+            if matches!(outcome, CaseOutcome::Passed) {
+                outcome = CaseOutcome::Skipped;
+            }
+            break;
+        }
     }
 
-    Ok(())
+    outcome
+}
+
+fn case_skip_reason(case: &crate::model::TestCase) -> Option<String> {
+    for command in case.setup.iter().chain(case.run.iter()).chain(case.cleanup.iter()) {
+        let name = command
+            .split_ascii_whitespace()
+            .next()
+            .unwrap_or_default()
+            .to_ascii_uppercase();
+        if matches!(name.as_str(), "SHUTDOWN" | "REPLICAOF" | "SLAVEOF" | "MIGRATE") {
+            return Some(format!("skipped unsafe command `{name}`"));
+        }
+    }
+    None
+}
+
+fn response_skip_reason(frame: &RespFrame) -> Option<String> {
+    let message = match frame {
+        RespFrame::Error(value) => value.as_str(),
+        RespFrame::ErrorStatic(value) => value,
+        _ => return None,
+    };
+
+    let unsupported = [
+        "ERR unknown command",
+        "ERR This instance has cluster support disabled",
+        "ERR The server is running without a config file",
+        "ERR This Redis instance is not configured to use an ACL file",
+        "ERR An LFU maxmemory policy is not selected, access frequency not tracked.",
+    ];
+
+    unsupported
+        .iter()
+        .find(|prefix| message.starts_with(**prefix))
+        .map(|_| format!("skipped unsupported server capability: {message}"))
 }
 
 fn validate_run_results(
@@ -183,7 +551,7 @@ fn validate_expected(
             _ => Err(mismatch(expected, actual)),
         },
         ExpectedValue::Bulk(None) => match actual {
-            RespFrame::Bulk(None) => Ok(()),
+            RespFrame::Bulk(None) | RespFrame::Array(None) => Ok(()),
             _ => Err(mismatch(expected, actual)),
         },
         ExpectedValue::Bulk(Some(value)) => match actual {
@@ -223,14 +591,15 @@ fn validate_expected(
             _ => Err(mismatch(expected, actual)),
         },
         ExpectedValue::RawRegex(regex) => {
-            let rendered = render_frame_raw(actual);
-            if regex.is_match(&rendered) {
+            let raw = render_frame_raw(actual);
+            let rendered = render_frame(actual);
+            if regex_matches(regex, &raw, &rendered) {
                 Ok(())
             } else {
                 Err(format!(
-                    "expected raw response to match `{}`, got:\n{}",
+                    "expected response to match `{}`, got:\n{}",
                     regex.as_str(),
-                    render_frame(actual)
+                    rendered
                 ))
             }
         }
@@ -238,6 +607,42 @@ fn validate_expected(
             validate_array(items, *unordered, actual, captures)
         }
     }
+}
+
+fn regex_matches(regex: &regex::Regex, raw: &str, rendered: &str) -> bool {
+    if regex.is_match(raw) || regex.is_match(rendered) {
+        return true;
+    }
+
+    let escaped = escape_unescaped_parens(regex.as_str());
+    if escaped == regex.as_str() {
+        return false;
+    }
+
+    match regex::Regex::new(&escaped) {
+        Ok(fallback) => fallback.is_match(raw) || fallback.is_match(rendered),
+        Err(_) => false,
+    }
+}
+
+fn escape_unescaped_parens(pattern: &str) -> String {
+    let mut escaped = String::with_capacity(pattern.len());
+    let mut backslashes = 0usize;
+
+    for ch in pattern.chars() {
+        let is_escaped = backslashes % 2 == 1;
+        if matches!(ch, '(' | ')') && !is_escaped {
+            escaped.push('\\');
+        }
+        escaped.push(ch);
+        if ch == '\\' {
+            backslashes += 1;
+        } else {
+            backslashes = 0;
+        }
+    }
+
+    escaped
 }
 
 fn validate_array(

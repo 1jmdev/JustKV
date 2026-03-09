@@ -59,7 +59,7 @@ EXPECT:
 RUN:
 RESTORE newkey 0 "invalid"
 EXPECT:
-(error) ERR Bad data format
+(error) ERR DUMP payload version or checksum are wrong
 
 === TEST: DUMP wrong type handling
 SETUP:

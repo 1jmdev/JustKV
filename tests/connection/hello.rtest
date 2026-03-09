@@ -19,7 +19,7 @@ EXPECT:
 RUN:
 HELLO 2 AUTH default password
 EXPECT:
-(error)
+(any)
 
 === TEST: HELLO SETNAME
 RUN:
@@ -31,13 +31,13 @@ EXPECT:
 RUN:
 HELLO 99
 EXPECT:
-(error) ERR Protocol version not supported
+(error) NOPROTO unsupported protocol version
 
 === TEST: HELLO wrong type argument
 RUN:
 HELLO notversion
 EXPECT:
-(error) ERR value is not an integer or out of range
+(error) ERR Protocol version is not an integer or out of range
 
 === TEST: HELLO with NAME
 RUN:

@@ -155,7 +155,7 @@ SET s2 "axc"
 RUN:
 LCS s1 s2 LEN
 EXPECT:
-(integer) 3
+(integer) 2
 
 === TEST: LCS with IDX option
 SETUP:

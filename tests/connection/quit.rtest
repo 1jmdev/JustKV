@@ -13,4 +13,4 @@ OK
 RUN:
 QUIT extra
 EXPECT:
-(error) ERR wrong number of arguments for 'quit' command
+OK

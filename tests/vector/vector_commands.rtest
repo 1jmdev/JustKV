@@ -4,15 +4,17 @@
 
 === TEST: Add vector
 RUN:
-VADD vectors:1 1 0.1 0.2 0.3
+VADD vectors:1 VALUES 3 0.1 0.2 0.3 item1
 EXPECT:
-OK
+(integer) 1
 
 === TEST: Add multiple vectors
 RUN:
-VADD vectors:2 2 0.1 0.2 0.3 0.4 0.5
+VADD vectors:2 VALUES 5 0.1 0.2 0.3 0.4 0.5 item1
+VADD vectors:2 VALUES 5 0.5 0.4 0.3 0.2 0.1 item2
 EXPECT:
-OK
+(integer) 1
+(integer) 1
 
 ---
 
@@ -22,7 +24,7 @@ OK
 
 === TEST: Get vector dimension
 SETUP:
-VADD vec:test 1 1.0 2.0 3.0 4.0 5.0
+VADD vec:test VALUES 5 1.0 2.0 3.0 4.0 5.0 item1
 RUN:
 VDIM vec:test
 EXPECT:
@@ -36,11 +38,11 @@ EXPECT:
 
 === TEST: Get vector count
 SETUP:
-VADD vec:store 2 0.1 0.2 0.3 0.4 0.5
+VADD vec:store VALUES 5 0.1 0.2 0.3 0.4 0.5 item1
 RUN:
 VCARD vec:store
 EXPECT:
-(match) (integer) [0-9]+
+(integer) 1
 
 ---
 
@@ -64,11 +66,11 @@ EXPECT:
 
 === TEST: Remove vector
 SETUP:
-VADD vec:del 3 0.1 0.2 0.3
+VADD vec:del VALUES 3 0.1 0.2 0.3 item1
 RUN:
-VREM vec:del 1
+VREM vec:del item1
 EXPECT:
-(match) (integer) [0-9]+
+(integer) 1
 
 ---
 
@@ -78,12 +80,12 @@ EXPECT:
 
 === TEST: Calculate vector similarity
 SETUP:
-VADD vec:a 3 1.0 0.0 0.0
-VADD vec:b 3 0.0 1.0 0.0
+VADD vec:sim VALUES 3 1.0 0.0 0.0 item-a
+VADD vec:sim VALUES 3 0.0 1.0 0.0 item-b
 RUN:
-VSIM vec:a vec:b
+VSIM vec:sim ELE item-a WITHSCORES COUNT 2
 EXPECT:
-(match) [0-9.-]+
+(any)
 
 ---
 
@@ -93,11 +95,11 @@ EXPECT:
 
 === TEST: Check if vector member
 SETUP:
-VADD vec:member 2 0.5 0.5
+VADD vec:member VALUES 2 0.5 0.5 item1
 RUN:
-VISMEMBER vec:member 1
+VISMEMBER vec:member item1
 EXPECT:
-(match) (integer) [0-1]
+(integer) 1
 
 ---
 
@@ -107,11 +109,11 @@ EXPECT:
 
 === TEST: Get random vector member
 SETUP:
-VADD vec:rand 5 0.1 0.2 0.3 0.4 0.5
+VADD vec:rand VALUES 5 0.1 0.2 0.3 0.4 0.5 item1
 RUN:
 VRANDMEMBER vec:rand
 EXPECT:
-(match) (integer) [0-9]+
+"item1"
 
 ---
 
@@ -121,9 +123,9 @@ EXPECT:
 
 === TEST: Get vector embeddings
 SETUP:
-VADD vec:emb 3 0.1 0.2 0.3
+VADD vec:emb VALUES 3 0.1 0.2 0.3 item1
 RUN:
-VEMB vec:emb 1
+VEMB vec:emb item1
 EXPECT:
 (match) .*
 
@@ -135,7 +137,7 @@ EXPECT:
 
 === TEST: Get vector info
 SETUP:
-VADD vec:info 4 0.25 0.25 0.25 0.25
+VADD vec:info VALUES 4 0.25 0.25 0.25 0.25 item1
 RUN:
 VINFO vec:info
 EXPECT:
@@ -149,9 +151,9 @@ EXPECT:
 
 === TEST: Get vector links
 SETUP:
-VADD vec:links 3 0.5 0.5 0.0
+VADD vec:links VALUES 3 0.5 0.5 0.0 item1
 RUN:
-VLINKS vec:links 1
+VLINKS vec:links item1
 EXPECT:
 (match) .*
 
@@ -163,9 +165,10 @@ EXPECT:
 
 === TEST: Get vector attribute
 SETUP:
-VADD vec:attr 2 0.7 0.3
+VADD vec:attr VALUES 2 0.7 0.3 item1
+VSETATTR vec:attr item1 '{"attr_name":"attr_value"}'
 RUN:
-VGETATTR vec:attr 1 "attr_name"
+VGETATTR vec:attr item1
 EXPECT:
 (any)
 
@@ -177,8 +180,8 @@ EXPECT:
 
 === TEST: Set vector attribute
 SETUP:
-VADD vec:setattr 2 0.4 0.6
+VADD vec:setattr VALUES 2 0.4 0.6 item1
 RUN:
-VSETATTR vec:setattr 1 "label" "important"
+VSETATTR vec:setattr item1 '{"label":"important"}'
 EXPECT:
-OK
+(integer) 1

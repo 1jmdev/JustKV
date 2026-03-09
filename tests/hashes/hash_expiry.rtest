@@ -8,7 +8,7 @@ HSET expkey field1 "value1" field2 "value2"
 RUN:
 HEXPIRE expkey 60 FIELDS 1 field1
 EXPECT:
-(match) (integer) [0-1]
+1) (integer) 1
 
 ---
 
@@ -22,7 +22,7 @@ HSET expatskey field "value"
 RUN:
 HEXPIREAT expatskey 9999999999 FIELDS 1 field
 EXPECT:
-(match) (integer) [0-1]
+1) (integer) 1
 
 ---
 
@@ -36,7 +36,7 @@ HSET hpexpire field "data"
 RUN:
 HPEXPIRE hpexpire 60000 FIELDS 1 field
 EXPECT:
-(match) (integer) [0-1]
+1) (integer) 1
 
 ---
 
@@ -50,7 +50,7 @@ HSET hpat field "value"
 RUN:
 HPEXPIREAT hpat 9999999999999 FIELDS 1 field
 EXPECT:
-(match) (integer) [0-1]
+1) (integer) 1
 
 ---
 
@@ -65,7 +65,7 @@ HEXPIRE hpers 60 FIELDS 1 field
 RUN:
 HPERSIST hpers FIELDS 1 field
 EXPECT:
-(match) (integer) [0-1]
+1) (integer) 1
 
 ---
 
@@ -110,7 +110,7 @@ HEXPIREAT hexptime 9999999999 FIELDS 1 field
 RUN:
 HEXPIRETIME hexptime FIELDS 1 field
 EXPECT:
-(match) (integer) [0-9]+
+1) (integer) 9999999999
 
 ---
 
@@ -125,7 +125,7 @@ HPEXPIREAT hpexptime 9999999999999 FIELDS 1 field
 RUN:
 HPEXPIRETIME hpexptime FIELDS 1 field
 EXPECT:
-(match) (integer) [0-9]+
+1) (integer) 9999999999999
 
 ---
 
@@ -137,14 +137,14 @@ EXPECT:
 SETUP:
 HSET hgetdel field "value"
 RUN:
-HGETDEL hgetdel field
+HGETDEL hgetdel FIELDS 1 field
 EXPECT:
-"value"
+1) "value"
 
 === TEST: Field is deleted
 SETUP:
 HSET hgd field "data"
-HGETDEL hgd field
+HGETDEL hgd FIELDS 1 field
 RUN:
 HEXISTS hgd field
 EXPECT:
@@ -160,17 +160,17 @@ EXPECT:
 SETUP:
 HSET hgetex field "value"
 RUN:
-HGETEX hgetex field EX 60
+HGETEX hgetex EX 60 FIELDS 1 field
 EXPECT:
-"value"
+1) "value"
 
 === TEST: Get with PX option
 SETUP:
 HSET hpxgetex field "data"
 RUN:
-HGETEX hpxgetex field PX 60000
+HGETEX hpxgetex PX 60000 FIELDS 1 field
 EXPECT:
-"data"
+1) "data"
 
 ---
 
@@ -180,7 +180,7 @@ EXPECT:
 
 === TEST: Set with expiration
 RUN:
-HSETEX hsetnew field "value" EX 60
+HSETEX hsetnew EX 60 FIELDS 1 field "value"
 EXPECT:
 (integer) 1
 

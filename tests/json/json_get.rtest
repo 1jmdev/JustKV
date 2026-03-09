@@ -8,7 +8,7 @@ JSON.SET doc $ '{"name":"Alice","age":30}'
 RUN:
 JSON.GET doc $
 EXPECT:
-"{"name":"Alice","age":30}"
+"{\"name\":\"Alice\",\"age\":30}"
 
 === TEST: Get JSON value at specific path
 SETUP:
@@ -62,7 +62,7 @@ JSON.SET nested $ '{"user":{"name":"Bob","profile":{"age":25,"city":"NYC"}}}'
 RUN:
 JSON.GET nested $.user.profile
 EXPECT:
-"{"age":25,"city":"NYC"}"
+"{\"age\":25,\"city\":\"NYC\"}"
 
 === TEST: Get with wildcard path
 SETUP:

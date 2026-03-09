@@ -75,7 +75,7 @@ LPUSH mylist "value"
 RUN:
 PEXPIRE mylist 1000
 EXPECT:
-(error) (not an error if command works on non-string types)
+(integer) 1
 CLEANUP:
 DEL mylist
 

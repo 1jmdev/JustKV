@@ -81,9 +81,9 @@ DEL mykey
 
 === TEST: BITFIELD overflow SAT
 SETUP:
-BITFIELD mykey SET u8 0 250 OVERFLOW SAT
+BITFIELD mykey SET u8 0 250
 RUN:
-BITFIELD mykey INCRBY u8 0 10
+BITFIELD mykey OVERFLOW SAT INCRBY u8 0 10
 EXPECT:
 1) (integer) 255
 CLEANUP:
@@ -93,7 +93,7 @@ DEL mykey
 RUN:
 BITFIELD key
 EXPECT:
-(error) ERR wrong number of arguments for 'bitfield' command
+(empty array)
 
 === TEST: BITFIELD wrong type
 SETUP:

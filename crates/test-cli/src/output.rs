@@ -61,9 +61,19 @@ impl Ui {
         }
 
         let status = if summary.failed == 0 {
-            format!("done: {} passed", summary.passed)
+            if summary.skipped == 0 {
+                format!("done: {} passed", summary.passed)
+            } else {
+                format!(
+                    "done: {} passed, {} skipped",
+                    summary.passed, summary.skipped
+                )
+            }
         } else {
-            format!("done: {} passed, {} failed", summary.passed, summary.failed)
+            format!(
+                "done: {} passed, {} skipped, {} failed",
+                summary.passed, summary.skipped, summary.failed
+            )
         };
         self.progress.set_message(status);
         self.progress.finish_and_clear();
@@ -88,12 +98,26 @@ pub fn print_failures(failures: &[TestFailure]) {
     }
 }
 
+pub fn print_warnings(warnings: &[String]) {
+    if warnings.is_empty() {
+        return;
+    }
+
+    println!();
+    println!("Warnings:");
+    for warning in warnings {
+        println!("- {warning}");
+    }
+}
+
 pub fn print_summary(summary: &RunSummary) {
     println!();
     println!(
-        "Result: {} total, {} passed, {} failed in {:.2} ms",
+        "Result: {} discovered, {} executed, {} passed, {} skipped, {} failed in {:.2} ms",
+        summary.discovered_total,
         summary.total,
         summary.passed,
+        summary.skipped,
         summary.failed,
         summary.elapsed.as_secs_f64() * 1000.0
     );

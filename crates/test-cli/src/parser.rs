@@ -92,6 +92,9 @@ fn parse_case(lines: &[&str], start: usize, path: &Path) -> Result<(TestCase, us
         if index != start && line.starts_with("===") {
             break;
         }
+        if line == "---" {
+            break;
+        }
         if ignored_line(raw_line) {
             index += 1;
             continue;
@@ -309,11 +312,12 @@ fn parse_scalar_expected(
         return Ok(ExpectedValue::Integer(value));
     }
     if let Some(rest) = raw.strip_prefix("(match) ") {
-        let regex = Regex::new(rest.trim()).map_err(|err| {
+        let pattern = rest.trim().replace("\\\\", "\\");
+        let regex = Regex::new(&pattern).map_err(|err| {
             format!(
                 "{} test `{test_name}` has invalid regex `{}`: {err}",
                 path.display(),
-                rest.trim()
+                pattern
             )
         })?;
         return Ok(ExpectedValue::RawRegex(regex));

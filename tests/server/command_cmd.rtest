@@ -43,4 +43,4 @@ EXPECT:
 RUN:
 COMMAND INVALID
 EXPECT:
-(error) ERR Unknown subcommand
+(error) ERR unknown subcommand 'INVALID'.

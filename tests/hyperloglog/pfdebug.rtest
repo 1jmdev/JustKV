@@ -35,7 +35,7 @@ SET mystring "value"
 RUN:
 PFDEBUG GETREG mystring
 EXPECT:
-(error) WRONGTYPE Operation against a key holding the wrong kind of value
+(error) WRONGTYPE Key is not a valid HyperLogLog string value.
 CLEANUP:
 DEL mystring
 
@@ -45,7 +45,7 @@ PFADD myhll "a"
 RUN:
 PFDEBUG INVALID myhll
 EXPECT:
-(error) ERR Unknown subcommand
+(error) ERR Unknown PFDEBUG subcommand 'INVALID'
 CLEANUP:
 DEL myhll
 
