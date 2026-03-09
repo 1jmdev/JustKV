@@ -480,13 +480,12 @@ async fn run_worker(
         );
         let full_batch = repeat_payload(&one, cfg.spec.pipeline);
         while warmup_remaining > 0 || tracked_remaining > 0 {
-            let phase_remaining = if warmup_remaining > 0 {
-                warmup_remaining
-            } else {
-                tracked_remaining
-            };
-            let batch = phase_remaining.min(cfg.spec.pipeline as u64) as usize;
             let track = warmup_remaining == 0;
+            let batch = if track {
+                cfg.spec.pipeline
+            } else {
+                warmup_remaining.min(cfg.spec.pipeline as u64) as usize
+            };
             let expected = if cfg.strict {
                 (0..batch)
                     .map(|_| response_model.expected(0))
@@ -543,9 +542,10 @@ async fn run_worker(
             }
 
             if track {
-                stats.completed += batch as u64;
-                cfg.progress.completed.fetch_add(batch as u64, Ordering::Relaxed);
-                tracked_remaining = tracked_remaining.saturating_sub(batch as u64);
+                let counted = tracked_remaining.min(batch as u64);
+                stats.completed += counted;
+                cfg.progress.completed.fetch_add(counted, Ordering::Relaxed);
+                tracked_remaining = tracked_remaining.saturating_sub(counted);
             } else {
                 cfg.progress
                     .warmup_completed
@@ -557,13 +557,12 @@ async fn run_worker(
     }
 
     while warmup_remaining > 0 || tracked_remaining > 0 {
-        let phase_remaining = if warmup_remaining > 0 {
-            warmup_remaining
-        } else {
-            tracked_remaining
-        };
-        let batch = phase_remaining.min(cfg.spec.pipeline as u64) as usize;
         let track = warmup_remaining == 0;
+        let batch = if track {
+            cfg.spec.pipeline
+        } else {
+            warmup_remaining.min(cfg.spec.pipeline as u64) as usize
+        };
         let mut payload = Vec::with_capacity(batch * (cfg.spec.data_size + 128));
         let mut expected = Vec::with_capacity(batch);
         let mut encoded = Vec::with_capacity(batch);
@@ -612,9 +611,10 @@ async fn run_worker(
         }
 
         if track {
-            stats.completed += batch as u64;
-            cfg.progress.completed.fetch_add(batch as u64, Ordering::Relaxed);
-            tracked_remaining = tracked_remaining.saturating_sub(batch as u64);
+            let counted = tracked_remaining.min(batch as u64);
+            stats.completed += counted;
+            cfg.progress.completed.fetch_add(counted, Ordering::Relaxed);
+            tracked_remaining = tracked_remaining.saturating_sub(counted);
         } else {
             cfg.progress
                 .warmup_completed
