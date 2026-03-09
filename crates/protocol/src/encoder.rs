@@ -1,101 +1,141 @@
 use crate::types::RespFrame;
-use bytes::{BufMut, BytesMut};
+use bytes::BytesMut;
 
-const CRLF: &[u8] = b"\r\n";
-const NULL_BULK: &[u8] = b"$-1\r\n";
-const NULL_ARRAY: &[u8] = b"*-1\r\n";
+#[inline]
+fn write_int(buf: &mut BytesMut, val: i64) {
+    let mut tmp = [0u8; 20];
+    let mut pos = 20usize;
 
-pub struct Encoder {
-    itoa: itoa::Buffer,
+    if val == 0 {
+        buf.extend_from_slice(b"0");
+        return;
+    }
+
+    let neg = val < 0;
+    let mut v: u64 = if neg { (!(val as u64)).wrapping_add(1) } else { val as u64 };
+
+    while v > 0 {
+        pos -= 1;
+        unsafe { *tmp.get_unchecked_mut(pos) = (v % 10) as u8 + b'0' };
+        v /= 10;
+    }
+    if neg {
+        pos -= 1;
+        unsafe { *tmp.get_unchecked_mut(pos) = b'-' };
+    }
+    buf.extend_from_slice(unsafe { tmp.get_unchecked(pos..20) });
 }
 
-impl Default for Encoder {
-    fn default() -> Self {
-        Self {
-            itoa: itoa::Buffer::new(),
-        }
+#[inline]
+fn write_uint(buf: &mut BytesMut, val: usize) {
+    let mut tmp = [0u8; 20];
+    let mut pos = 20usize;
+
+    if val == 0 {
+        buf.extend_from_slice(b"0");
+        return;
     }
+
+    let mut v = val;
+    while v > 0 {
+        pos -= 1;
+        unsafe { *tmp.get_unchecked_mut(pos) = (v % 10) as u8 + b'0' };
+        v /= 10;
+    }
+    buf.extend_from_slice(unsafe { tmp.get_unchecked(pos..20) });
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct Encoder {}
+
+static CRLF: &[u8; 2] = b"\r\n";
+
+#[inline]
+fn write_bulk_slice(buf: &mut BytesMut, slice: &[u8]) {
+    buf.extend_from_slice(b"$");
+    write_uint(buf, slice.len());
+    buf.extend_from_slice(CRLF);
+    buf.extend_from_slice(slice);
+    buf.extend_from_slice(CRLF);
 }
 
 impl Encoder {
-    #[inline(always)]
-    pub fn encode(&mut self, frame: &RespFrame, out: &mut BytesMut) {
-        let _trace = profiler::scope("protocol::encoder::encode");
+    #[inline]
+    pub fn encode(&mut self, frame: &RespFrame, buf: &mut BytesMut) {
         match frame {
-            RespFrame::Simple(v) => {
-                out.put_u8(b'+');
-                out.put_slice(v.as_bytes());
-                out.put_slice(CRLF);
+            RespFrame::Simple(s) => {
+                buf.extend_from_slice(b"+");
+                buf.extend_from_slice(s.as_bytes());
+                buf.extend_from_slice(CRLF);
             }
-            RespFrame::SimpleStatic(v) => {
-                out.put_u8(b'+');
-                out.put_slice(v.as_bytes());
-                out.put_slice(CRLF);
+            RespFrame::SimpleStatic(s) => {
+                buf.extend_from_slice(b"+");
+                buf.extend_from_slice(s.as_bytes());
+                buf.extend_from_slice(CRLF);
             }
-            RespFrame::Error(v) => {
-                out.put_u8(b'-');
-                out.put_slice(v.as_bytes());
-                out.put_slice(CRLF);
+            RespFrame::Error(s) => {
+                buf.extend_from_slice(b"-");
+                buf.extend_from_slice(s.as_bytes());
+                buf.extend_from_slice(CRLF);
             }
-            RespFrame::ErrorStatic(v) => {
-                out.put_u8(b'-');
-                out.put_slice(v.as_bytes());
-                out.put_slice(CRLF);
+            RespFrame::ErrorStatic(s) => {
+                buf.extend_from_slice(b"-");
+                buf.extend_from_slice(s.as_bytes());
+                buf.extend_from_slice(CRLF);
             }
-            RespFrame::Integer(n) => {
-                out.put_u8(b':');
-                out.put_slice(self.itoa.format(*n).as_bytes());
-                out.put_slice(CRLF);
+            RespFrame::Integer(v) => {
+                buf.extend_from_slice(b":");
+                write_int(buf, *v);
+                buf.extend_from_slice(CRLF);
             }
-            RespFrame::Bulk(None) => out.put_slice(NULL_BULK),
-            RespFrame::Bulk(Some(v)) => self.encode_bulk_bytes(v.as_slice(), out),
+            RespFrame::Bulk(None) => {
+                buf.extend_from_slice(b"$-1\r\n");
+            }
+            RespFrame::Bulk(Some(data)) => {
+                write_bulk_slice(buf, data.as_slice());
+            }
             RespFrame::BulkOptions(values) => {
-                out.put_u8(b'*');
-                out.put_slice(self.itoa.format(values.len()).as_bytes());
-                out.put_slice(CRLF);
+                buf.extend_from_slice(b"*");
+                write_uint(buf, values.len());
+                buf.extend_from_slice(CRLF);
                 for value in values {
                     match value {
-                        Some(v) => self.encode_bulk_bytes(v.as_slice(), out),
-                        None => out.put_slice(NULL_BULK),
+                        Some(value) => write_bulk_slice(buf, value.as_slice()),
+                        None => buf.extend_from_slice(b"$-1\r\n"),
                     }
                 }
             }
             RespFrame::BulkValues(values) => {
-                out.put_u8(b'*');
-                out.put_slice(self.itoa.format(values.len()).as_bytes());
-                out.put_slice(CRLF);
+                buf.extend_from_slice(b"*");
+                write_uint(buf, values.len());
+                buf.extend_from_slice(CRLF);
                 for v in values {
-                    self.encode_bulk_bytes(v.as_slice(), out);
+                    write_bulk_slice(buf, v.as_slice());
                 }
             }
-            RespFrame::PreEncoded(bytes) => out.put_slice(bytes),
-            RespFrame::Array(None) => out.put_slice(NULL_ARRAY),
+            RespFrame::PreEncoded(bytes) => {
+                buf.extend_from_slice(bytes.as_ref());
+            }
+            RespFrame::Array(None) => {
+                buf.extend_from_slice(b"*-1\r\n");
+            }
             RespFrame::Array(Some(items)) => {
-                out.put_u8(b'*');
-                out.put_slice(self.itoa.format(items.len()).as_bytes());
-                out.put_slice(CRLF);
+                buf.extend_from_slice(b"*");
+                write_uint(buf, items.len());
+                buf.extend_from_slice(CRLF);
                 for item in items {
-                    self.encode(item, out);
+                    self.encode(item, buf);
                 }
             }
-            RespFrame::Map(entries) => {
-                out.put_u8(b'%');
-                out.put_slice(self.itoa.format(entries.len()).as_bytes());
-                out.put_slice(CRLF);
-                for (k, v) in entries {
-                    self.encode(k, out);
-                    self.encode(v, out);
+            RespFrame::Map(pairs) => {
+                buf.extend_from_slice(b"%");
+                write_uint(buf, pairs.len());
+                buf.extend_from_slice(CRLF);
+                for (key, val) in pairs {
+                    self.encode(key, buf);
+                    self.encode(val, buf);
                 }
             }
         }
-    }
-
-    #[inline(always)]
-    fn encode_bulk_bytes(&mut self, bytes: &[u8], out: &mut BytesMut) {
-        out.put_u8(b'$');
-        out.put_slice(self.itoa.format(bytes.len()).as_bytes());
-        out.put_slice(CRLF);
-        out.put_slice(bytes);
-        out.put_slice(CRLF);
     }
 }
