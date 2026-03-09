@@ -1,15 +1,9 @@
 use std::time::Duration;
 
-use crate::util::{Args, pack_runtime, pack8, parse_u64_bytes, wrong_args, wrong_type};
+use crate::util::{parse_u64_bytes, wrong_args, wrong_type, Args};
 use engine::store::Store;
 use protocol::types::{BulkData, RespFrame};
 use types::value::CompactArg;
-
-const OPT_NX: u64 = pack8(b"NX");
-const OPT_XX: u64 = pack8(b"XX");
-const OPT_GET: u64 = pack8(b"GET");
-const OPT_EX: u64 = pack8(b"EX");
-const OPT_PX: u64 = pack8(b"PX");
 
 pub(crate) fn get(store: &Store, args: &Args) -> RespFrame {
     let _trace = profiler::scope("commands::string::get");
@@ -35,28 +29,30 @@ pub(crate) fn set(store: &Store, args: &Args) -> RespFrame {
     let mut index = 3;
 
     while index < args.len() {
-        let option = pack_runtime(args[index].as_slice());
-        match option {
-            OPT_NX => nx = true,
-            OPT_XX => xx = true,
-            OPT_GET => return_old = true,
-            OPT_EX | OPT_PX => {
-                let use_millis = option == OPT_PX;
-                index += 1;
-                if index >= args.len() {
-                    return wrong_args("SET");
-                }
-                let value = match parse_u64(&args[index]) {
-                    Ok(value) => value,
-                    Err(response) => return response,
-                };
-                ttl = Some(if use_millis {
-                    Duration::from_millis(value)
-                } else {
-                    Duration::from_secs(value)
-                });
+        let option = args[index].as_slice();
+        if option.eq_ignore_ascii_case(b"NX") {
+            nx = true;
+        } else if option.eq_ignore_ascii_case(b"XX") {
+            xx = true;
+        } else if option.eq_ignore_ascii_case(b"GET") {
+            return_old = true;
+        } else if option.eq_ignore_ascii_case(b"EX") || option.eq_ignore_ascii_case(b"PX") {
+            let use_millis = option.eq_ignore_ascii_case(b"PX");
+            index += 1;
+            if index >= args.len() {
+                return wrong_args("SET");
             }
-            _ => return crate::util::syntax_error(),
+            let value = match parse_u64(&args[index]) {
+                Ok(value) => value,
+                Err(response) => return response,
+            };
+            ttl = Some(if use_millis {
+                Duration::from_millis(value)
+            } else {
+                Duration::from_secs(value)
+            });
+        } else {
+            return crate::util::syntax_error();
         }
         index += 1;
     }

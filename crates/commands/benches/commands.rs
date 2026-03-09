@@ -1,8 +1,8 @@
 use commands::dispatcher::{dispatch_args, parse_command_into};
-use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use engine::store::Store;
 use protocol::types::{BulkData, RespFrame};
-use std::hint::black_box;
+use std::{hint::black_box, time::Duration};
 use types::value::CompactArg;
 
 fn arg(s: &str) -> CompactArg {
@@ -30,6 +30,8 @@ fn populated_store(n: usize) -> Store {
 fn bench_dispatcher(c: &mut Criterion) {
     let mut g = c.benchmark_group("dispatcher");
     let store = populated_store(1);
+    g.warm_up_time(Duration::from_millis(500));
+    g.measurement_time(Duration::from_millis(750));
 
     g.bench_function("dispatch_get_hit", |b| {
         b.iter(|| dispatch!(black_box(&store), "GET", "key:0"))
@@ -72,6 +74,8 @@ fn bench_dispatcher(c: &mut Criterion) {
 
 fn bench_string_get_set(c: &mut Criterion) {
     let mut g = c.benchmark_group("string_get_set");
+    g.warm_up_time(Duration::from_millis(500));
+    g.measurement_time(Duration::from_millis(750));
 
     {
         let store = Store::new(16);
@@ -164,6 +168,8 @@ fn bench_string_get_set(c: &mut Criterion) {
 
 fn bench_string_multi(c: &mut Criterion) {
     let mut g = c.benchmark_group("string_multi");
+    g.warm_up_time(Duration::from_millis(500));
+    g.measurement_time(Duration::from_millis(750));
 
     for n in [1usize, 10, 100] {
         let store = populated_store(n);
@@ -192,6 +198,8 @@ fn bench_string_multi(c: &mut Criterion) {
 
 fn bench_hash(c: &mut Criterion) {
     let mut g = c.benchmark_group("hash_core");
+    g.warm_up_time(Duration::from_millis(500));
+    g.measurement_time(Duration::from_millis(750));
 
     {
         let store = Store::new(16);
@@ -292,6 +300,8 @@ fn bench_hash(c: &mut Criterion) {
 
 fn bench_keyspace(c: &mut Criterion) {
     let mut g = c.benchmark_group("keyspace");
+    g.warm_up_time(Duration::from_millis(500));
+    g.measurement_time(Duration::from_millis(750));
 
     {
         let store = populated_store(1);
@@ -332,6 +342,8 @@ fn bench_keyspace(c: &mut Criterion) {
 
 fn bench_ttl(c: &mut Criterion) {
     let mut g = c.benchmark_group("ttl");
+    g.warm_up_time(Duration::from_millis(500));
+    g.measurement_time(Duration::from_millis(750));
 
     {
         let store = populated_store(1);
@@ -368,6 +380,8 @@ fn bench_ttl(c: &mut Criterion) {
 
 fn bench_parse_i64(c: &mut Criterion) {
     let mut g = c.benchmark_group("parse_i64");
+    g.warm_up_time(Duration::from_millis(500));
+    g.measurement_time(Duration::from_millis(750));
 
     let inputs: &[(&str, &[u8])] = &[
         ("zero", b"0"),
@@ -389,30 +403,10 @@ fn bench_parse_i64(c: &mut Criterion) {
     g.finish();
 }
 
-fn bench_pack_runtime(c: &mut Criterion) {
-    use commands::util::pack_runtime;
-
-    let mut g = c.benchmark_group("util_pack_runtime");
-
-    let cmds: &[(&str, &[u8])] = &[
-        ("GET_3", b"GET"),
-        ("SET_3", b"SET"),
-        ("HGETALL_7", b"HGETALL"),
-        ("SMEMBERS_8", b"SMEMBERS"),
-        ("PEXPIREAT_9", b"PEXPIREAT"),
-    ];
-
-    for (name, raw) in cmds {
-        g.bench_with_input(BenchmarkId::new("pack_runtime", name), raw, |b, raw| {
-            b.iter(|| pack_runtime(black_box(raw)))
-        });
-    }
-
-    g.finish();
-}
-
 fn bench_helpers(c: &mut Criterion) {
     let mut g = c.benchmark_group("helpers");
+    g.warm_up_time(Duration::from_millis(500));
+    g.measurement_time(Duration::from_millis(750));
 
     g.bench_function("wrong_args", |b| {
         b.iter(|| commands::util::wrong_args(black_box("HSET")))
@@ -427,6 +421,8 @@ fn bench_helpers(c: &mut Criterion) {
 
 fn bench_mixed_workload(c: &mut Criterion) {
     let mut g = c.benchmark_group("mixed_workload");
+    g.warm_up_time(Duration::from_millis(500));
+    g.measurement_time(Duration::from_millis(750));
 
     {
         let store = populated_store(1000);
@@ -467,7 +463,6 @@ criterion_group!(
     bench_keyspace,
     bench_ttl,
     bench_parse_i64,
-    bench_pack_runtime,
     bench_helpers,
     bench_mixed_workload,
 );
