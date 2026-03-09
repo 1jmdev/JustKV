@@ -1,7 +1,7 @@
 use indicatif::{ProgressBar, ProgressStyle};
 use protocol::types::{BulkData, RespFrame};
 
-use crate::model::{RunSummary, TestFailure};
+use crate::model::{RunSummary, TestFailure, TestSkipped};
 
 pub struct Ui {
     progress: ProgressBar,
@@ -95,6 +95,19 @@ pub fn print_failures(failures: &[TestFailure]) {
             failure.elapsed.as_secs_f64() * 1000.0
         );
         println!("  {}", failure.error.replace('\n', "\n  "));
+    }
+}
+
+pub fn print_skipped(skipped: &[TestSkipped]) {
+    if skipped.is_empty() {
+        return;
+    }
+
+    println!();
+    println!("Skipped:");
+    for test in skipped {
+        println!("- {} :: {}", test.path.display(), test.test_name);
+        println!("  {}", test.reason.replace('\n', "\n  "));
     }
 }
 

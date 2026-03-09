@@ -55,6 +55,13 @@ pub struct TestFailure {
 }
 
 #[derive(Debug, Clone)]
+pub struct TestSkipped {
+    pub path: PathBuf,
+    pub test_name: String,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone)]
 pub struct RunSummary {
     pub discovered_total: usize,
     pub total: usize,
@@ -63,5 +70,6 @@ pub struct RunSummary {
     pub failed: usize,
     pub elapsed: Duration,
     pub failures: Vec<TestFailure>,
+    pub skipped_tests: Vec<TestSkipped>,
     pub warnings: Vec<String>,
 }

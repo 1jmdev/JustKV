@@ -19,6 +19,7 @@ async fn main() -> ExitCode {
 
     match runner::run(args).await {
         Ok(summary) => {
+            output::print_skipped(&summary.skipped_tests);
             output::print_warnings(&summary.warnings);
             output::print_summary(&summary);
             if summary.failed == 0 {

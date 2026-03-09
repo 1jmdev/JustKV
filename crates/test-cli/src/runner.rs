@@ -5,7 +5,7 @@ use protocol::types::{BulkData, RespFrame};
 use crate::args::Args;
 use crate::client::Client;
 use crate::discovery::discover_rtest_files;
-use crate::model::{ExpectedValue, RunSummary, TestFailure};
+use crate::model::{ExpectedValue, RunSummary, TestFailure, TestSkipped};
 use crate::output::{Ui, print_failures, render_frame, render_frame_raw};
 use crate::parser::parse_test_file;
 
@@ -27,7 +27,7 @@ pub async fn run(args: Args) -> Result<RunSummary, String> {
     let discovered_total = files.iter().map(|file| file.cases.len()).sum();
 
     let preflight = filter_cases_by_capability(&args, files).await;
-    let (files, mut warnings, prefiltered_skipped) = match preflight {
+    let (files, warnings, mut skipped_tests) = match preflight {
         Ok(report) => (report.files, report.warnings, report.skipped),
         Err(error) => (
             paths
@@ -35,7 +35,7 @@ pub async fn run(args: Args) -> Result<RunSummary, String> {
                 .map(|path| parse_test_file(path))
                 .collect::<Result<Vec<_>, _>>()?,
             vec![format!("failed to probe server capabilities; running without prefiltering: {error}")],
-            0usize,
+            Vec::new(),
         ),
     };
 
@@ -45,8 +45,6 @@ pub async fn run(args: Args) -> Result<RunSummary, String> {
 
     let mut failures = Vec::new();
     let mut passed = 0usize;
-    let mut skipped = 0usize;
-
     for file in files {
         for case in file.cases {
             let location = match &file.metadata.name {
@@ -64,9 +62,13 @@ pub async fn run(args: Args) -> Result<RunSummary, String> {
                     passed += 1;
                     ui.record_success(&location);
                 }
-                CaseOutcome::Skipped => {
-                    skipped += 1;
+                CaseOutcome::Skipped(reason) => {
                     ui.record_success(&location);
+                    skipped_tests.push(TestSkipped {
+                        path: file.path.clone(),
+                        test_name: case.name,
+                        reason,
+                    });
                 }
                 CaseOutcome::Failed(error) => {
                     let failure = TestFailure {
@@ -86,18 +88,12 @@ pub async fn run(args: Args) -> Result<RunSummary, String> {
         discovered_total,
         total,
         passed,
-        skipped: skipped + prefiltered_skipped,
+        skipped: skipped_tests.len(),
         failed: failures.len(),
         elapsed: started.elapsed(),
         failures,
-        warnings: {
-            if prefiltered_skipped != 0 {
-                warnings.push(format!(
-                    "preflight skipped {prefiltered_skipped} test(s) due to unsupported capabilities or unsafe commands"
-                ));
-            }
-            warnings
-        },
+        skipped_tests,
+        warnings,
     };
 
     ui.finish(&summary);
@@ -108,7 +104,7 @@ pub async fn run(args: Args) -> Result<RunSummary, String> {
 
 struct PreflightReport {
     files: Vec<crate::model::TestFile>,
-    skipped: usize,
+    skipped: Vec<TestSkipped>,
     warnings: Vec<String>,
 }
 
@@ -218,20 +214,28 @@ async fn filter_cases_by_capability(
     let _ = client.execute(vec![b"DEL".to_vec(), b"__betterkv_tester_probe__".to_vec()]).await;
 
     let mut filtered = Vec::with_capacity(files.len());
-    let mut skipped = 0usize;
+    let mut skipped = Vec::new();
     for mut file in files {
-        let before = file.cases.len();
-        file.cases.retain(|case| {
-            case_supported(
-                case,
+        let mut retained = Vec::with_capacity(file.cases.len());
+        for case in file.cases {
+            if let Some(reason) = case_skip_reason_preflight(
+                &case,
                 &supported,
                 cluster_enabled,
                 acl_file_configured,
                 config_rewrite_supported,
                 object_freq_supported,
-            )
-        });
-        skipped += before - file.cases.len();
+            ) {
+                skipped.push(TestSkipped {
+                    path: file.path.clone(),
+                    test_name: case.name,
+                    reason,
+                });
+            } else {
+                retained.push(case);
+            }
+        }
+        file.cases = retained;
         if !file.cases.is_empty() {
             filtered.push(file);
         }
@@ -256,47 +260,47 @@ async fn command_supported(client: &mut Client, command: &str) -> Result<bool, S
     })
 }
 
-fn case_supported(
+fn case_skip_reason_preflight(
     case: &crate::model::TestCase,
     supported: &std::collections::HashMap<String, Option<bool>>,
     cluster_enabled: Option<bool>,
     acl_file_configured: Option<bool>,
     config_rewrite_supported: Option<bool>,
     object_freq_supported: Option<bool>,
-) -> bool {
+) -> Option<String> {
     for command in case.setup.iter().chain(case.run.iter()).chain(case.cleanup.iter()) {
         if let Some(name) = command_name(command) {
             if matches!(name.as_str(), "SHUTDOWN" | "REPLICAOF" | "SLAVEOF" | "MIGRATE") {
-                return false;
+                return Some(format!("skipped unsafe command `{name}`"));
             }
             if matches!(supported.get(&name), Some(Some(false))) {
-                return false;
+                return Some(format!("skipped unsupported command `{name}`"));
             }
         }
 
         let upper = command.trim().to_ascii_uppercase();
         if upper.starts_with("CLUSTER ") && matches!(cluster_enabled, Some(false)) {
-            return false;
+            return Some("skipped unsupported server capability: cluster support disabled".to_string());
         }
         if matches!(upper.as_str(), "ASKING" | "READONLY" | "READWRITE")
             && matches!(cluster_enabled, Some(false))
         {
-            return false;
+            return Some("skipped unsupported server capability: cluster support disabled".to_string());
         }
         if matches!(upper.as_str(), "ACL SAVE" | "ACL LOAD")
             && matches!(acl_file_configured, Some(false))
         {
-            return false;
+            return Some("skipped unsupported server capability: ACL file support unavailable".to_string());
         }
         if upper == "CONFIG REWRITE" && matches!(config_rewrite_supported, Some(false)) {
-            return false;
+            return Some("skipped unsupported server capability: CONFIG REWRITE unavailable".to_string());
         }
         if upper.starts_with("OBJECT FREQ ") && matches!(object_freq_supported, Some(false)) {
-            return false;
+            return Some("skipped unsupported server capability: OBJECT FREQ unavailable".to_string());
         }
     }
 
-    true
+    None
 }
 
 async fn probe_bool(
@@ -334,13 +338,13 @@ fn frame_error_starts_with(frame: &RespFrame, prefix: &str) -> bool {
 
 enum CaseOutcome {
     Passed,
-    Skipped,
+    Skipped(String),
     Failed(String),
 }
 
 async fn run_case(args: &Args, case: &crate::model::TestCase) -> CaseOutcome {
-    if case_skip_reason(case).is_some() {
-        return CaseOutcome::Skipped;
+    if let Some(reason) = case_skip_reason(case) {
+        return CaseOutcome::Skipped(reason);
     }
 
     let mut client = match Client::connect(args).await {
@@ -369,8 +373,8 @@ async fn run_case(args: &Args, case: &crate::model::TestCase) -> CaseOutcome {
                 break;
             }
         };
-        if response_skip_reason(&frame).is_some() {
-            outcome = CaseOutcome::Skipped;
+        if let Some(reason) = response_skip_reason(&frame) {
+            outcome = CaseOutcome::Skipped(reason);
             break;
         }
     }
@@ -404,8 +408,8 @@ async fn run_case(args: &Args, case: &crate::model::TestCase) -> CaseOutcome {
                         break;
                     }
                 };
-                if response_skip_reason(&frame).is_some() {
-                    outcome = CaseOutcome::Skipped;
+                if let Some(reason) = response_skip_reason(&frame) {
+                    outcome = CaseOutcome::Skipped(reason);
                     break;
                 }
                 responses.push(frame);
@@ -448,9 +452,9 @@ async fn run_case(args: &Args, case: &crate::model::TestCase) -> CaseOutcome {
                 break;
             }
         };
-        if response_skip_reason(&frame).is_some() {
+        if let Some(reason) = response_skip_reason(&frame) {
             if matches!(outcome, CaseOutcome::Passed) {
-                outcome = CaseOutcome::Skipped;
+                outcome = CaseOutcome::Skipped(reason);
             }
             break;
         }
