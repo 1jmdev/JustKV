@@ -30,6 +30,11 @@ pub fn dispatch_safe(input: &[u8]) -> Option<CommandId> {
                     return Some(CommandId::Get);
                 }
             }
+            b'l' => {
+                if eq(input, b"LCS") {
+                    return Some(CommandId::Lcs);
+                }
+            }
             b's' => {
                 if eq(input, b"SET") {
                     return Some(CommandId::Set);
@@ -202,6 +207,11 @@ pub fn dispatch_safe(input: &[u8]) -> Option<CommandId> {
                     return Some(CommandId::BitOp);
                 }
             }
+            b'd' => {
+                if eq(input, b"DELEX") {
+                    return Some(CommandId::Delex);
+                }
+            }
             b'g' => {
                 if eq(input, b"GETEX") {
                     return Some(CommandId::GetEx);
@@ -346,6 +356,9 @@ pub fn dispatch_safe(input: &[u8]) -> Option<CommandId> {
                 if eq(input, b"DECRBY") {
                     return Some(CommandId::DecrBy);
                 }
+                if eq(input, b"DIGEST") {
+                    return Some(CommandId::Digest);
+                }
             }
             b'e' => {
                 if eq(input, b"EXISTS") {
@@ -388,6 +401,9 @@ pub fn dispatch_safe(input: &[u8]) -> Option<CommandId> {
                 }
             }
             b'm' => {
+                if eq(input, b"MSETEX") {
+                    return Some(CommandId::MSetEx);
+                }
                 if eq(input, b"MSETNX") {
                     return Some(CommandId::MSetNx);
                 }
@@ -423,6 +439,9 @@ pub fn dispatch_safe(input: &[u8]) -> Option<CommandId> {
                 }
                 if eq(input, b"SETBIT") {
                     return Some(CommandId::SetBit);
+                }
+                if eq(input, b"SUBSTR") {
+                    return Some(CommandId::SubStr);
                 }
                 if eq(input, b"SINTER") {
                     return Some(CommandId::SInter);

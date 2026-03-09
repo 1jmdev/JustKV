@@ -1,0 +1,58 @@
+# DIGEST command tests - Return XXH3 digest of string value
+@name DIGEST
+@group strings
+@since 8.4.0
+
+=== TEST: DIGEST existing key
+SETUP:
+SET mykey "Hello world"
+RUN:
+DIGEST mykey
+EXPECT:
+(match) "[0-9a-f]{16}"
+
+=== TEST: DIGEST is stable for same value
+SETUP:
+SET mykey "same-value"
+RUN:
+DIGEST mykey
+DIGEST mykey
+EXPECT:
+"(capture:1)"
+"(capture)"
+
+=== TEST: DIGEST changes when value changes
+SETUP:
+SET mykey "before"
+RUN:
+DIGEST mykey
+SET mykey "after"
+DIGEST mykey
+EXPECT:
+"(capture:1)"
+OK
+"(not:capture)"
+
+=== TEST: DIGEST non-existing key
+SETUP:
+DEL missing
+RUN:
+DIGEST missing
+EXPECT:
+(nil)
+
+=== TEST: DIGEST wrong type
+SETUP:
+LPUSH mylist "value"
+RUN:
+DIGEST mylist
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mylist
+
+=== TEST: DIGEST wrong number of arguments
+RUN:
+DIGEST
+EXPECT:
+(error) ERR wrong number of arguments for 'digest' command

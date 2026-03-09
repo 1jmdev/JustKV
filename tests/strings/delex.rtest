@@ -1,0 +1,95 @@
+# DELEX command tests - Conditionally delete key by value or digest
+@name DELEX
+@group strings
+@since 8.4.0
+
+=== TEST: DELEX without condition deletes existing key
+SETUP:
+SET mykey "value"
+RUN:
+DELEX mykey
+EXPECT:
+(integer) 1
+
+=== TEST: DELEX without condition on non-existing key
+SETUP:
+DEL missing
+RUN:
+DELEX missing
+EXPECT:
+(integer) 0
+
+=== TEST: DELEX IFEQ matching value
+SETUP:
+SET mykey "value"
+RUN:
+DELEX mykey IFEQ "value"
+EXPECT:
+(integer) 1
+
+=== TEST: DELEX IFEQ non-matching value
+SETUP:
+SET mykey "value"
+RUN:
+DELEX mykey IFEQ "other"
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL mykey
+
+=== TEST: DELEX IFNE matching inequality
+SETUP:
+SET mykey "value"
+RUN:
+DELEX mykey IFNE "other"
+EXPECT:
+(integer) 1
+
+=== TEST: DELEX IFNE false when equal
+SETUP:
+SET mykey "value"
+RUN:
+DELEX mykey IFNE "value"
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL mykey
+
+=== TEST: DELEX IFDEQ matching digest
+SETUP:
+SET mykey "value"
+RUN:
+DIGEST mykey
+DELEX mykey IFDEQ "(capture:1)"
+EXPECT:
+"(capture)"
+(integer) 1
+
+=== TEST: DELEX IFDNE matching different digest
+SETUP:
+SET mykey "value"
+SET otherkey "other"
+RUN:
+DIGEST otherkey
+DELEX mykey IFDNE "(capture:1)"
+EXPECT:
+"(capture)"
+(integer) 1
+CLEANUP:
+DEL otherkey
+
+=== TEST: DELEX conditional wrong type
+SETUP:
+LPUSH mylist "value"
+RUN:
+DELEX mylist IFEQ "value"
+EXPECT:
+(error) WRONGTYPE Operation against a key holding the wrong kind of value
+CLEANUP:
+DEL mylist
+
+=== TEST: DELEX rejects multiple conditions
+RUN:
+DELEX key IFEQ a IFNE b
+EXPECT:
+(error) ERR syntax error

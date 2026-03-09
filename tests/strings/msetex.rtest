@@ -1,0 +1,106 @@
+# MSETEX command tests - Atomically set multiple keys with shared expiration
+@name MSETEX
+@group strings
+@since 8.4.0
+
+=== TEST: MSETEX basic
+SETUP:
+DEL key1 key2
+RUN:
+MSETEX 2 key1 "value1" key2 "value2"
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL key1 key2
+
+=== TEST: MSETEX with EX
+SETUP:
+DEL key1 key2
+RUN:
+MSETEX 2 key1 "value1" key2 "value2" EX 10
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL key1 key2
+
+=== TEST: MSETEX with PX
+SETUP:
+DEL key1 key2
+RUN:
+MSETEX 2 key1 "value1" key2 "value2" PX 1000
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL key1 key2
+
+=== TEST: MSETEX NX all new keys
+SETUP:
+DEL key1 key2
+RUN:
+MSETEX 2 key1 "value1" key2 "value2" NX
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL key1 key2
+
+=== TEST: MSETEX NX fails if one key exists
+SETUP:
+SET key1 "existing"
+DEL key2
+RUN:
+MSETEX 2 key1 "value1" key2 "value2" NX
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL key1 key2
+
+=== TEST: MSETEX XX succeeds when all keys exist
+SETUP:
+SET key1 "old1"
+SET key2 "old2"
+RUN:
+MSETEX 2 key1 "value1" key2 "value2" XX
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL key1 key2
+
+=== TEST: MSETEX XX fails when one key missing
+SETUP:
+SET key1 "old1"
+DEL key2
+RUN:
+MSETEX 2 key1 "value1" key2 "value2" XX
+EXPECT:
+(integer) 0
+CLEANUP:
+DEL key1 key2
+
+=== TEST: MSETEX keeps ttl option accepted
+SETUP:
+SET key1 "old1"
+SET key2 "old2"
+RUN:
+MSETEX 2 key1 "value1" key2 "value2" KEEPTTL
+EXPECT:
+(integer) 1
+CLEANUP:
+DEL key1 key2
+
+=== TEST: MSETEX rejects bad numkeys
+RUN:
+MSETEX nope key1 value1
+EXPECT:
+(error) ERR value is not an integer or out of range
+
+=== TEST: MSETEX rejects incomplete key value pairs
+RUN:
+MSETEX 2 key1 value1 key2
+EXPECT:
+(error) ERR syntax error
+
+=== TEST: MSETEX rejects conflicting options
+RUN:
+MSETEX 1 key1 value1 NX XX
+EXPECT:
+(error) ERR syntax error

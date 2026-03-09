@@ -1,8 +1,10 @@
 mod bitmap;
 mod core;
 mod counter;
+mod digest;
 mod expiry;
 mod hyperlog;
+mod lcs;
 mod multi;
 mod range;
 
