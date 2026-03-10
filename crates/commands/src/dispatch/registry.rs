@@ -3053,6 +3053,22 @@ macro_rules! with_command_registry {
                             response: NotificationResponsePolicy::AnySuccess,
                         },
                     }
+                    {
+                        variant: RandomKey,
+                        bytes: b"RANDOMKEY",
+                        dispatch: [keyspace::randomkey; store],
+                        supported: true,
+                        group: "generic",
+                        shape: (1, 0, 0, 0),
+                        readonly: true,
+                        write: false,
+                        auth: some {
+                            categories: &[AclCategory::Read, AclCategory::Slow, AclCategory::Keyspace],
+                            keys: KeyExtraction::None,
+                            channels: ChannelExtraction::None,
+                        },
+                        notify: none,
+                    }
                 }
                 b's' => {
                     {

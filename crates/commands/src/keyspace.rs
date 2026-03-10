@@ -91,6 +91,15 @@ pub(crate) fn keys(store: &Store, args: &Args) -> RespFrame {
     ))
 }
 
+pub(crate) fn randomkey(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("commands::keyspace::randomkey");
+    if args.len() != 1 {
+        return wrong_args("RANDOMKEY");
+    }
+
+    RespFrame::Bulk(store.randomkey().map(BulkData::from_vec))
+}
+
 pub(crate) fn scan(store: &Store, args: &Args) -> RespFrame {
     let _trace = profiler::scope("commands::keyspace::scan");
     if args.len() < 2 {

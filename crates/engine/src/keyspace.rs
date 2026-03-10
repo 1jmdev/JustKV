@@ -1,9 +1,30 @@
 use std::collections::VecDeque;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use super::Store;
 use super::helpers::{is_expired, monotonic_now_ms, purge_if_expired};
 use super::pattern::{CompiledPattern, wildcard_match};
 use types::value::{CompactKey, CompactValue, Entry, StreamId, StreamValue, ZSetValueMap};
+
+static RANDOM_COUNTER: AtomicU64 = AtomicU64::new(0x9e3779b97f4a7c15);
+
+#[inline(always)]
+fn random_seed(len: usize) -> u64 {
+    RANDOM_COUNTER
+        .fetch_add(0x9e3779b97f4a7c15, Ordering::Relaxed)
+        .wrapping_add((len as u64).wrapping_mul(0xbf58476d1ce4e5b9))
+}
+
+#[inline(always)]
+fn random_next(state: &mut u64) -> u64 {
+    *state = state.wrapping_add(0x9e3779b97f4a7c15);
+    let mut z = *state;
+    z ^= z >> 30;
+    z = z.wrapping_mul(0xbf58476d1ce4e5b9);
+    z ^= z >> 27;
+    z = z.wrapping_mul(0x94d049bb133111eb);
+    z ^ (z >> 31)
+}
 
 fn is_integer_encoded_string(value: &[u8]) -> bool {
     if value.is_empty() {
@@ -321,6 +342,38 @@ impl Store {
             }
         }
         out
+    }
+
+    pub fn randomkey(&self) -> Option<Vec<u8>> {
+        let _trace = profiler::scope("engine::keyspace::randomkey");
+        let now_ms = monotonic_now_ms();
+        let shard_count = self.shards.len();
+        if shard_count == 0 {
+            return None;
+        }
+
+        let mut state = random_seed(shard_count);
+        let start_shard = (random_next(&mut state) as usize) % shard_count;
+
+        for shard_offset in 0..shard_count {
+            let shard_index = (start_shard + shard_offset) % shard_count;
+            let shard = self.shards[shard_index].read();
+            let (keys, entries) = shard.entries.slices();
+            let len = keys.len();
+            if len == 0 {
+                continue;
+            }
+
+            let start_entry = (random_next(&mut state) as usize) % len;
+            for entry_offset in 0..len {
+                let entry_index = (start_entry + entry_offset) % len;
+                if !entries[entry_index].is_expired(now_ms) {
+                    return Some(keys[entry_index].to_vec());
+                }
+            }
+        }
+
+        None
     }
 
     pub fn scan(
