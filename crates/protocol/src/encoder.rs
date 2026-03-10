@@ -60,7 +60,8 @@ fn encoded_len(frame: &RespFrame) -> usize {
         RespFrame::Bulk(None) => NULL_BULK.len(),
         RespFrame::Bulk(Some(data)) => bulk_encoded_len(data.as_slice().len()),
         RespFrame::BulkOptions(values) => {
-            1 + digits_usize(values.len()) + 2
+            1 + digits_usize(values.len())
+                + 2
                 + values
                     .iter()
                     .map(|value| match value {
@@ -70,7 +71,8 @@ fn encoded_len(frame: &RespFrame) -> usize {
                     .sum::<usize>()
         }
         RespFrame::BulkValues(values) => {
-            1 + digits_usize(values.len()) + 2
+            1 + digits_usize(values.len())
+                + 2
                 + values
                     .iter()
                     .map(|value| bulk_encoded_len(value.as_slice().len()))
@@ -82,7 +84,8 @@ fn encoded_len(frame: &RespFrame) -> usize {
             1 + digits_usize(items.len()) + 2 + items.iter().map(encoded_len).sum::<usize>()
         }
         RespFrame::Map(pairs) => {
-            1 + digits_usize(pairs.len()) + 2
+            1 + digits_usize(pairs.len())
+                + 2
                 + pairs
                     .iter()
                     .map(|(key, val)| encoded_len(key) + encoded_len(val))

@@ -60,7 +60,10 @@ impl<const INLINE_CAPACITY: usize> CompactBytes<INLINE_CAPACITY> {
             (data.as_mut_ptr().add(size_of::<usize>()) as *mut u32).write_unaligned(len);
         }
 
-        Self { tag: HEAP_TAG, data }
+        Self {
+            tag: HEAP_TAG,
+            data,
+        }
     }
 
     #[inline(always)]

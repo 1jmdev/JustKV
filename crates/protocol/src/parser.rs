@@ -248,16 +248,12 @@ fn parse_uint(data: &[u8]) -> Result<usize, ParseError> {
         [a] => parse_digit_usize(*a),
         [a, b] => Ok(parse_digit_usize(*a)? * 10 + parse_digit_usize(*b)?),
         [a, b, c] => {
-            Ok(parse_digit_usize(*a)? * 100
-                + parse_digit_usize(*b)? * 10
-                + parse_digit_usize(*c)?)
+            Ok(parse_digit_usize(*a)? * 100 + parse_digit_usize(*b)? * 10 + parse_digit_usize(*c)?)
         }
-        [a, b, c, d] => {
-            Ok(parse_digit_usize(*a)? * 1000
-                + parse_digit_usize(*b)? * 100
-                + parse_digit_usize(*c)? * 10
-                + parse_digit_usize(*d)?)
-        }
+        [a, b, c, d] => Ok(parse_digit_usize(*a)? * 1000
+            + parse_digit_usize(*b)? * 100
+            + parse_digit_usize(*c)? * 10
+            + parse_digit_usize(*d)?),
         _ => parse_uint_slow(data),
     }
 }
@@ -341,9 +337,7 @@ pub fn parse_command_into(
 }
 
 #[inline(always)]
-fn parse_array_command_ranges(
-    data: &[u8],
-) -> Result<(usize, SmallVec<[ByteSpan; 8]>), ParseError> {
+fn parse_array_command_ranges(data: &[u8]) -> Result<(usize, SmallVec<[ByteSpan; 8]>), ParseError> {
     let mut cur = Cursor::new(data);
     unsafe { cur.advance_unchecked(1) };
 
@@ -469,7 +463,9 @@ fn parse_inline_command_owned(
             i += 1;
         }
 
-        args.push(CompactArg::from_slice(unsafe { line.get_unchecked(start..i) }));
+        args.push(CompactArg::from_slice(unsafe {
+            line.get_unchecked(start..i)
+        }));
     }
 
     if args.is_empty() {
