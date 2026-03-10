@@ -23,7 +23,7 @@ impl Store {
             }
         }
 
-        if shard.entries.contains_key(key) {
+        if shard.entries.get(key).is_some() {
             let deadline = deadline_from_ttl(Duration::from_millis(milliseconds));
             shard.set_ttl_existing(key, deadline);
             return 1;
@@ -80,7 +80,7 @@ impl Store {
         let idx = self.shard_index(key);
         let shard = self.shards[idx].read();
         if !shard.has_ttls() {
-            return if shard.entries.contains_key(key) {
+            return if shard.entries.get(key).is_some() {
                 -1
             } else {
                 -2

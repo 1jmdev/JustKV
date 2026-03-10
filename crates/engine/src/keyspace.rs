@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use super::Store;
-use super::helpers::{is_expired, monotonic_now_ms, purge_if_expired};
+use super::helpers::{get_live_entry, is_expired, monotonic_now_ms, purge_if_expired};
 use super::pattern::{CompiledPattern, wildcard_match};
 use types::value::{
     CompactKey, CompactValue, Entry, HashValue, StreamId, StreamValue, ZSetValueMap,
@@ -136,13 +136,13 @@ impl Store {
     pub fn exists<K: AsRef<[u8]>>(&self, keys: &[K]) -> i64 {
         let _trace = profiler::scope("engine::keyspace::exists");
         let mut count = 0;
+        let now_ms = monotonic_now_ms();
         for key in keys {
             let key = key.as_ref();
             let idx = self.shard_index(key);
             let shard = self.shards[idx].read();
             let present = if shard.has_ttls() {
-                let now_ms = monotonic_now_ms();
-                shard.entries.get(key).is_some() && !shard.is_expired(key, now_ms)
+                get_live_entry(&shard, key, now_ms).is_some()
             } else {
                 shard.entries.get(key).is_some()
             };
@@ -166,30 +166,65 @@ impl Store {
     pub fn rename(&self, from: &[u8], to: &[u8]) -> bool {
         let _trace = profiler::scope("engine::keyspace::rename");
         let from_idx = self.shard_index(from);
-        let mut source = self.shards[from_idx].write();
         let now_ms = monotonic_now_ms();
+        let to_idx = self.shard_index(to);
+        if from_idx == to_idx {
+            let mut shard = self.shards[from_idx].write();
+            if purge_if_expired(&mut shard, from, now_ms) {
+                return false;
+            }
+
+            let deadline = shard.ttl_deadline(from);
+            let Some(entry) = shard.remove_key(from) else {
+                return false;
+            };
+            let key = CompactKey::from_slice(to);
+            shard.insert_entry(key, entry, deadline);
+            return true;
+        }
+
+        let mut source = self.shards[from_idx].write();
         if purge_if_expired(&mut source, from, now_ms) {
             return false;
         }
 
         let deadline = source.ttl_deadline(from);
-        let Some(entry) = source.entries.remove(from) else {
+        let Some(entry) = source.remove_key(from) else {
             return false;
         };
         drop(source);
 
-        let to_idx = self.shard_index(to);
         let mut destination = self.shards[to_idx].write();
         let key = CompactKey::from_slice(to);
-        destination.insert_entry(key, entry.entry, deadline);
+        destination.insert_entry(key, entry, deadline);
         true
     }
 
     pub fn renamenx(&self, from: &[u8], to: &[u8]) -> Result<i64, ()> {
         let _trace = profiler::scope("engine::keyspace::renamenx");
         let from_idx = self.shard_index(from);
-        let mut source = self.shards[from_idx].write();
         let now_ms = monotonic_now_ms();
+        let to_idx = self.shard_index(to);
+        if from_idx == to_idx {
+            let mut shard = self.shards[from_idx].write();
+            if purge_if_expired(&mut shard, from, now_ms) {
+                return Err(());
+            }
+
+            if !purge_if_expired(&mut shard, to, now_ms) && shard.entries.get(to).is_some() {
+                return Ok(0);
+            }
+
+            let deadline = shard.ttl_deadline(from);
+            let Some(entry) = shard.remove_key(from) else {
+                return Err(());
+            };
+            let key = CompactKey::from_slice(to);
+            shard.insert_entry(key, entry, deadline);
+            return Ok(1);
+        }
+
+        let mut source = self.shards[from_idx].write();
         if purge_if_expired(&mut source, from, now_ms) {
             return Err(());
         }
@@ -200,9 +235,9 @@ impl Store {
         };
         drop(source);
 
-        let to_idx = self.shard_index(to);
         let mut destination = self.shards[to_idx].write();
-        if !purge_if_expired(&mut destination, to, now_ms) && destination.entries.contains_key(to) {
+        if !purge_if_expired(&mut destination, to, now_ms) && destination.entries.get(to).is_some()
+        {
             return Ok(0);
         }
         let key = CompactKey::from_slice(to);
@@ -218,6 +253,31 @@ impl Store {
         let _trace = profiler::scope("engine::keyspace::copy");
         let from_idx = self.shard_index(from);
         let now_ms = monotonic_now_ms();
+        let to_idx = self.shard_index(to);
+        if from_idx == to_idx {
+            let mut shard = self.shards[from_idx].write();
+            if purge_if_expired(&mut shard, from, now_ms) {
+                return 0;
+            }
+
+            let deadline = shard.ttl_deadline(from);
+            let Some(entry) = shard.entries.get(from).cloned() else {
+                return 0;
+            };
+            let exists = if from == to {
+                true
+            } else {
+                !purge_if_expired(&mut shard, to, now_ms) && shard.entries.get(to).is_some()
+            };
+            if exists && !replace {
+                return 0;
+            }
+
+            let key = CompactKey::from_slice(to);
+            shard.insert_entry(key, entry.entry, deadline);
+            return 1;
+        }
+
         let mut source = self.shards[from_idx].write();
         if purge_if_expired(&mut source, from, now_ms) {
             return 0;
@@ -229,10 +289,9 @@ impl Store {
         };
         drop(source);
 
-        let to_idx = self.shard_index(to);
         let mut destination = self.shards[to_idx].write();
-        let exists =
-            !purge_if_expired(&mut destination, to, now_ms) && destination.entries.contains_key(to);
+        let exists = !purge_if_expired(&mut destination, to, now_ms)
+            && destination.entries.get(to).is_some();
         if exists && !replace {
             return 0;
         }
@@ -260,10 +319,7 @@ impl Store {
         let idx = self.shard_index(key);
         let now_ms = monotonic_now_ms();
         let shard = self.shards[idx].read();
-        let entry = shard.entries.get(key)?;
-        if shard.is_expired(key, now_ms) {
-            return None;
-        }
+        let entry = get_live_entry(&shard, key, now_ms)?;
         Some(object_encoding(entry))
     }
 

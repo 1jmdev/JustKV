@@ -252,7 +252,15 @@ impl Shard {
     #[inline]
     pub fn set_ttl_existing(&mut self, key: &[u8], deadline: u64) -> bool {
         let _trace = profiler::scope("engine::lib::set_ttl_existing");
-        self.set_ttl(key, deadline)
+        if self
+            .expirations
+            .insert(CompactKey::from_slice(key), deadline)
+            .is_none()
+        {
+            self.ttl_count += 1;
+        }
+        self.track_deadline(deadline);
+        true
     }
 
     pub fn clear_ttl(&mut self, key: &[u8]) -> Option<u64> {
