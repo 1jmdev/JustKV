@@ -1,4 +1,4 @@
-use crate::util::{wrong_args, wrong_type, Args};
+use crate::util::{Args, wrong_args, wrong_type};
 use engine::store::{Store, StringDigestCondition};
 use protocol::types::RespFrame;
 

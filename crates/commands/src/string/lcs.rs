@@ -1,4 +1,4 @@
-use crate::util::{int_error, syntax_error, wrong_args, wrong_type, Args};
+use crate::util::{Args, int_error, syntax_error, wrong_args, wrong_type};
 use engine::store::Store;
 use protocol::types::{BulkData, RespFrame};
 
