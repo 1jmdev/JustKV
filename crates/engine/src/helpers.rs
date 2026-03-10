@@ -73,7 +73,7 @@ pub(super) fn get_live_entry<'a>(
     now_ms: u64,
 ) -> Option<&'a StoredEntry> {
     let entry = shard.entries.get(key)?;
-    (!entry.is_expired(now_ms)).then_some(entry)
+    (!shard.is_expired(key, now_ms)).then_some(entry)
 }
 
 pub(super) fn is_expired(shard: &Shard, key: &[u8], now_ms: u64) -> bool {
@@ -81,10 +81,7 @@ pub(super) fn is_expired(shard: &Shard, key: &[u8], now_ms: u64) -> bool {
     if !shard.has_ttls() {
         return false;
     }
-    shard
-        .entries
-        .get(key)
-        .is_some_and(|entry| entry.is_expired(now_ms))
+    shard.is_expired(key, now_ms)
 }
 
 pub(super) fn unix_time_ms() -> u64 {

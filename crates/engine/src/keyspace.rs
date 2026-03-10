@@ -141,11 +141,7 @@ impl Store {
             let key = key.as_ref();
             let idx = self.shard_index(key);
             let shard = self.shards[idx].read();
-            if shard
-                .entries
-                .get(key)
-                .is_some_and(|entry| !entry.is_expired(now_ms))
-            {
+            if shard.entries.get(key).is_some() && !shard.is_expired(key, now_ms) {
                 count += 1;
             }
         }
@@ -171,6 +167,7 @@ impl Store {
             return false;
         }
 
+        let deadline = source.ttl_deadline(from);
         let Some(entry) = source.entries.remove(from) else {
             return false;
         };
@@ -179,8 +176,7 @@ impl Store {
         let to_idx = self.shard_index(to);
         let mut destination = self.shards[to_idx].write();
         let key = CompactKey::from_slice(to);
-        let (entry, deadline) = entry.into_parts();
-        destination.insert_entry(key, entry, deadline);
+        destination.insert_entry(key, entry.entry, deadline);
         true
     }
 
@@ -193,6 +189,7 @@ impl Store {
             return Err(());
         }
 
+        let deadline = source.ttl_deadline(from);
         let Some(entry) = source.entries.get(from).cloned() else {
             return Err(());
         };
@@ -204,8 +201,7 @@ impl Store {
             return Ok(0);
         }
         let key = CompactKey::from_slice(to);
-        let (entry, deadline) = entry.into_parts();
-        destination.insert_entry(key, entry, deadline);
+        destination.insert_entry(key, entry.entry, deadline);
         drop(destination);
 
         let mut source = self.shards[from_idx].write();
@@ -222,6 +218,7 @@ impl Store {
             return 0;
         }
 
+        let deadline = source.ttl_deadline(from);
         let Some(entry) = source.entries.get(from).cloned() else {
             return 0;
         };
@@ -236,8 +233,7 @@ impl Store {
         }
 
         let key = CompactKey::from_slice(to);
-        let (entry, deadline) = entry.into_parts();
-        destination.insert_entry(key, entry, deadline);
+        destination.insert_entry(key, entry.entry, deadline);
         1
     }
 
@@ -260,7 +256,7 @@ impl Store {
         let now_ms = monotonic_now_ms();
         let shard = self.shards[idx].read();
         let entry = shard.entries.get(key)?;
-        if entry.is_expired(now_ms) {
+        if shard.is_expired(key, now_ms) {
             return None;
         }
         Some(object_encoding(entry))
@@ -290,7 +286,7 @@ impl Store {
         let now_ms = monotonic_now_ms();
         let shard = self.shards[idx].read();
         let entry = shard.entries.get(key)?;
-        if entry.is_expired(now_ms) {
+        if shard.is_expired(key, now_ms) {
             return None;
         }
         Some(entry.kind())
@@ -305,7 +301,7 @@ impl Store {
             total += guard
                 .entries
                 .iter()
-                .filter(|(_key, entry)| !entry.is_expired(now_ms))
+                .filter(|(key, _entry)| !guard.is_expired(key.as_slice(), now_ms))
                 .count() as i64;
         }
         total
@@ -318,7 +314,7 @@ impl Store {
         let mut out = Vec::new();
         for shard in self.shards.iter() {
             let guard = shard.read();
-            for (key, entry) in guard.entries.iter() {
+            for (key, _entry) in guard.entries.iter() {
                 let key_bytes = key.slice();
                 let pattern_matches = match &pattern {
                     CompiledPattern::Any => true,
@@ -338,7 +334,7 @@ impl Store {
                     }
                     CompiledPattern::Wildcard(pattern) => wildcard_match(pattern, key_bytes),
                 };
-                if !entry.is_expired(now_ms) && pattern_matches {
+                if !guard.is_expired(key.as_slice(), now_ms) && pattern_matches {
                     out.push(key.to_vec());
                 }
             }
@@ -360,7 +356,7 @@ impl Store {
         for shard_offset in 0..shard_count {
             let shard_index = (start_shard + shard_offset) % shard_count;
             let shard = self.shards[shard_index].read();
-            let (keys, entries) = shard.entries.slices();
+            let (keys, _entries) = shard.entries.slices();
             let len = keys.len();
             if len == 0 {
                 continue;
@@ -369,7 +365,7 @@ impl Store {
             let start_entry = (random_next(&mut state) as usize) % len;
             for entry_offset in 0..len {
                 let entry_index = (start_entry + entry_offset) % len;
-                if !entries[entry_index].is_expired(now_ms) {
+                if !shard.is_expired(keys[entry_index].as_slice(), now_ms) {
                     return Some(keys[entry_index].to_vec());
                 }
             }
@@ -443,7 +439,7 @@ impl Store {
                     CompiledPattern::Wildcard(pattern) => wildcard_match(pattern, key_bytes),
                 };
 
-                if entry.is_expired(now_ms) {
+                if guard.is_expired(key.as_slice(), now_ms) {
                     continue;
                 }
                 if !pattern_matches {

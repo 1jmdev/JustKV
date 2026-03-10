@@ -68,7 +68,11 @@ impl Store {
     pub fn ttl(&self, key: &[u8]) -> i64 {
         let _trace = profiler::scope("engine::ttl::ttl");
         let pttl = self.pttl(key);
-        if pttl < 0 { pttl } else { pttl / 1000 }
+        if pttl < 0 {
+            pttl
+        } else {
+            pttl / 1000
+        }
     }
 
     pub fn pttl(&self, key: &[u8]) -> i64 {
@@ -77,7 +81,7 @@ impl Store {
         let shard = self.shards[idx].read();
         let now_ms = monotonic_now_ms();
         match get_live_entry(&shard, key, now_ms) {
-            Some(entry) => remaining_ttl_ms(entry.deadline().unwrap_or(0)),
+            Some(_) => remaining_ttl_ms(shard.ttl_deadline(key).unwrap_or(0)),
             None => -2,
         }
     }

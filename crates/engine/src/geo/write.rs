@@ -15,7 +15,7 @@ impl Store {
         let entry = shard
             .entries
             .get_or_insert_with(CompactKey::from_slice(key), || {
-                StoredEntry::new(Entry::Geo(Box::new(new_geo())), None)
+                StoredEntry::new(Entry::Geo(Box::new(new_geo())))
             });
         let geo = get_geo_mut(entry).ok_or(())?;
 

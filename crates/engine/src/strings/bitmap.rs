@@ -13,7 +13,7 @@ impl Store {
         let Some(entry) = shard.entries.get::<[u8]>(key) else {
             return Ok(0);
         };
-        if entry.is_expired(now_ms) {
+        if shard.is_expired(key, now_ms) {
             return Ok(0);
         }
         let value = entry.as_string().ok_or(())?;

@@ -52,40 +52,11 @@ use types::value::{CompactKey, CompactValue, Entry};
 #[derive(Clone, Debug)]
 pub(crate) struct StoredEntry {
     pub(crate) entry: Entry,
-    deadline_ms: u64,
 }
 
 impl StoredEntry {
-    pub(crate) fn new(entry: Entry, deadline: Option<u64>) -> Self {
-        Self {
-            entry,
-            deadline_ms: deadline.unwrap_or(0),
-        }
-    }
-
-    pub(crate) fn deadline(&self) -> Option<u64> {
-        (self.deadline_ms != 0).then_some(self.deadline_ms)
-    }
-
-    fn set_deadline(&mut self, deadline: u64) -> Option<u64> {
-        let previous = self.deadline();
-        self.deadline_ms = deadline;
-        previous
-    }
-
-    fn clear_deadline(&mut self) -> Option<u64> {
-        let previous = self.deadline();
-        self.deadline_ms = 0;
-        previous
-    }
-
-    pub(crate) fn is_expired(&self, now_ms: u64) -> bool {
-        self.deadline_ms != 0 && now_ms >= self.deadline_ms
-    }
-
-    pub(crate) fn into_parts(self) -> (Entry, Option<u64>) {
-        let deadline = (self.deadline_ms != 0).then_some(self.deadline_ms);
-        (self.entry, deadline)
+    pub(crate) fn new(entry: Entry) -> Self {
+        Self { entry }
     }
 
     #[inline]
@@ -218,6 +189,7 @@ pub enum XTrimMode {
 
 pub struct Shard {
     pub(crate) entries: StoreMap,
+    pub(crate) expirations: HashMap<CompactKey, u64, RandomState>,
     /// Tracks the smallest known deadline so sweep can skip shards that have
     /// no expired keys without rebuilding the full sorted structure.
     pub(crate) ttl_min_deadline: u64,
@@ -229,6 +201,7 @@ impl Shard {
         let _trace = profiler::scope("engine::lib::new");
         Self {
             entries: RehashingMap::new(),
+            expirations: HashMap::with_hasher(RandomState::new()),
             ttl_min_deadline: u64::MAX,
             ttl_count: 0,
         }
@@ -248,16 +221,21 @@ impl Shard {
 
     #[inline]
     pub fn ttl_deadline(&self, key: &[u8]) -> Option<u64> {
-        self.entries.get(key).and_then(StoredEntry::deadline)
+        self.expirations.get(key).copied()
+    }
+
+    #[inline]
+    pub fn is_expired(&self, key: &[u8], now_ms: u64) -> bool {
+        self.ttl_deadline(key).is_some_and(|deadline| now_ms >= deadline)
     }
 
     #[inline]
     pub fn set_ttl(&mut self, key: &[u8], deadline: u64) -> bool {
         let _trace = profiler::scope("engine::lib::set_ttl");
-        let Some(entry) = self.entries.get_mut(key) else {
+        if !self.entries.contains_key(key) {
             return false;
-        };
-        if entry.set_deadline(deadline).is_none() {
+        }
+        if self.expirations.insert(CompactKey::from_slice(key), deadline).is_none() {
             self.ttl_count += 1;
         }
         self.track_deadline(deadline);
@@ -272,8 +250,7 @@ impl Shard {
 
     pub fn clear_ttl(&mut self, key: &[u8]) -> Option<u64> {
         let _trace = profiler::scope("engine::lib::clear_ttl");
-        let entry = self.entries.get_mut(key)?;
-        let previous = entry.clear_deadline();
+        let previous = self.expirations.remove(key);
         if previous.is_some() {
             self.ttl_count -= 1;
             if self.ttl_count == 0 {
@@ -285,12 +262,13 @@ impl Shard {
 
     pub fn insert_entry(&mut self, key: CompactKey, entry: Entry, deadline: Option<u64>) {
         let _trace = profiler::scope("engine::lib::insert_entry");
-        if let Some(old_entry) = self.entries.insert(key, StoredEntry::new(entry, deadline))
-            && old_entry.deadline().is_some()
+        if self.entries.insert(key.clone(), StoredEntry::new(entry)).is_some()
+            && self.expirations.remove(key.as_slice()).is_some()
         {
             self.ttl_count -= 1;
         }
         if let Some(deadline) = deadline {
+            self.expirations.insert(key, deadline);
             self.ttl_count += 1;
             self.track_deadline(deadline);
         } else if self.ttl_count == 0 {
@@ -301,7 +279,7 @@ impl Shard {
     pub fn remove_key(&mut self, key: &[u8]) -> Option<Entry> {
         let _trace = profiler::scope("engine::lib::remove_key");
         let entry = self.entries.remove(key)?;
-        if entry.deadline().is_some() {
+        if self.expirations.remove(key).is_some() {
             self.ttl_count -= 1;
             if self.ttl_count == 0 {
                 self.ttl_min_deadline = u64::MAX;
@@ -370,15 +348,13 @@ impl Store {
 
             let mut new_min = u64::MAX;
             let expired_keys: Vec<CompactKey> = guard
-                .entries
+                .expirations
                 .iter()
-                .filter_map(|(key, entry)| {
-                    if entry.is_expired(now_ms) {
+                .filter_map(|(key, deadline)| {
+                    if *deadline <= now_ms {
                         Some(key.clone())
-                    } else if let Some(deadline) = entry.deadline() {
-                        new_min = new_min.min(deadline);
-                        None
                     } else {
+                        new_min = new_min.min(*deadline);
                         None
                     }
                 })

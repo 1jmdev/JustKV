@@ -17,10 +17,9 @@ impl Store {
         let entry = shard
             .entries
             .get_or_insert_with(CompactKey::from_slice(key), || {
-                StoredEntry::new(
-                    Entry::ZSet(Box::new(ZSetValueMap::with_capacity(pair_count))),
-                    None,
-                )
+                StoredEntry::new(Entry::ZSet(Box::new(ZSetValueMap::with_capacity(
+                    pair_count,
+                ))))
             });
         let zset = get_zset_mut(entry).ok_or(())?;
         if zset.is_empty() {
@@ -48,10 +47,9 @@ impl Store {
         let entry = shard
             .entries
             .get_or_insert_with(CompactKey::from_slice(key), || {
-                StoredEntry::new(
-                    Entry::ZSet(Box::new(ZSetValueMap::with_capacity(pair_count))),
-                    None,
-                )
+                StoredEntry::new(Entry::ZSet(Box::new(ZSetValueMap::with_capacity(
+                    pair_count,
+                ))))
             });
         let zset = get_zset_mut(entry).ok_or(())?;
         if zset.is_empty() {
@@ -176,7 +174,7 @@ impl Store {
         let entry = shard
             .entries
             .get_or_insert_with(CompactKey::from_slice(key), || {
-                StoredEntry::new(Entry::ZSet(Box::new(new_zset())), None)
+                StoredEntry::new(Entry::ZSet(Box::new(new_zset())))
             });
         let zset = get_zset_mut(entry).ok_or(())?;
 

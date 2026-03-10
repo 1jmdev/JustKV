@@ -23,7 +23,7 @@ impl Store {
                 let Some(entry) = shard.entries.get::<[u8]>(key) else {
                     continue;
                 };
-                if entry.is_expired(now_ms) {
+                if shard.is_expired(key, now_ms) {
                     continue;
                 }
                 match entry.as_string() {
@@ -63,7 +63,7 @@ impl Store {
                             continue;
                         };
                         let pos = batch[i];
-                        if entry.is_expired(now_ms) {
+                        if shard.is_expired(key_batch[i], now_ms) {
                             continue;
                         }
                         match entry.as_string() {
@@ -78,7 +78,7 @@ impl Store {
                     let Some(entry) = shard.entries.get::<[u8]>(key) else {
                         continue;
                     };
-                    if entry.is_expired(now_ms) {
+                    if shard.is_expired(key, now_ms) {
                         continue;
                     }
                     match entry.as_string() {

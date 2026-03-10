@@ -55,7 +55,7 @@ impl Store {
         let entry = shard
             .entries
             .get_or_insert_with(CompactKey::from_slice(key), || {
-                StoredEntry::new(Entry::empty_hash(), None)
+                StoredEntry::new(Entry::empty_hash())
             });
         entry.invalidate_hash_getall_cache();
         let map = get_hash_map_mut(entry).ok_or(HashIntOpError::WrongType)?;
@@ -93,7 +93,7 @@ impl Store {
         let entry = shard
             .entries
             .get_or_insert_with(CompactKey::from_slice(key), || {
-                StoredEntry::new(Entry::empty_hash(), None)
+                StoredEntry::new(Entry::empty_hash())
             });
         entry.invalidate_hash_getall_cache();
         let map = get_hash_map_mut(entry).ok_or(HashFloatOpError::WrongType)?;

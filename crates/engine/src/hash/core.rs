@@ -68,10 +68,7 @@ impl Store {
         let entry = shard
             .entries
             .get_or_insert_with(CompactKey::from_slice(key), || {
-                StoredEntry::new(
-                    Entry::Hash(Box::new(HashValue::with_capacity(pair_count))),
-                    None,
-                )
+                StoredEntry::new(Entry::Hash(Box::new(HashValue::with_capacity(pair_count))))
             });
 
         entry.invalidate_hash_getall_cache();
@@ -118,7 +115,7 @@ impl Store {
         let entry = shard
             .entries
             .get_or_insert_with(CompactKey::from_slice(key), || {
-                StoredEntry::new(Entry::empty_hash(), None)
+                StoredEntry::new(Entry::empty_hash())
             });
         let field_key = CompactKey::from_slice(field);
         if get_hash_map(entry)
@@ -193,13 +190,13 @@ impl Store {
 
         let mut shard = self.shards[idx].write();
         let now_ms = monotonic_now_ms();
-        let Some(entry) = shard.entries.get_mut(key) else {
-            return Ok(bytes::Bytes::from_static(b"*0\r\n"));
-        };
-        if entry.is_expired(now_ms) {
+        if shard.is_expired(key, now_ms) {
             let _ = shard.remove_key(key);
             return Ok(bytes::Bytes::from_static(b"*0\r\n"));
         }
+        let Some(entry) = shard.entries.get_mut(key) else {
+            return Ok(bytes::Bytes::from_static(b"*0\r\n"));
+        };
         if let Some(encoded) = entry.hash_getall_cache() {
             return Ok(encoded.clone());
         }
