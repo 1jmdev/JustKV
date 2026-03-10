@@ -116,6 +116,48 @@ pub(crate) struct Cli {
     pub snapshot_on_shutdown: bool,
 
     #[arg(
+        long = "appendonly",
+        value_name = "yes|no",
+        help = "Enable append-only persistence (default: yes)"
+    )]
+    pub appendonly: Option<String>,
+
+    #[arg(
+        long = "appendfilename",
+        value_name = "FILENAME",
+        help = "Name of the append-only file (default: appendonly.aof)"
+    )]
+    pub appendfilename: Option<String>,
+
+    #[arg(
+        long = "appendfsync",
+        value_name = "always|everysec|no",
+        help = "AOF fsync policy (default: everysec)"
+    )]
+    pub appendfsync: Option<String>,
+
+    #[arg(
+        long = "snapshot-compression",
+        value_name = "lz4|none",
+        help = "Snapshot compression codec (default: lz4)"
+    )]
+    pub snapshot_compression: Option<String>,
+
+    #[arg(
+        long = "auto-aof-rewrite-percentage",
+        value_name = "PERCENT",
+        help = "Rewrite AOF after it grows by this percentage beyond the base size"
+    )]
+    pub auto_aof_rewrite_percentage: Option<u32>,
+
+    #[arg(
+        long = "auto-aof-rewrite-min-size",
+        value_name = "BYTES",
+        help = "Minimum AOF size before auto rewrite can trigger"
+    )]
+    pub auto_aof_rewrite_min_size: Option<u64>,
+
+    #[arg(
         long = "requirepass",
         value_name = "PASSWORD",
         help = "Require clients to authenticate with this password"

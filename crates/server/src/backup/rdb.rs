@@ -169,8 +169,8 @@ impl<W> CountingWriter<W> {
         }
     }
 
-    pub(super) fn bytes_written(&self) -> u64 {
-        self.bytes_written
+    pub(super) fn into_inner(self) -> W {
+        self.inner
     }
 }
 

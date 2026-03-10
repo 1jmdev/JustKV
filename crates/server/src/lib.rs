@@ -6,6 +6,7 @@ pub mod config;
 pub mod connection;
 pub mod listener;
 pub mod logging;
+pub mod persistence;
 pub mod profile;
 
 #[global_allocator]

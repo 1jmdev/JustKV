@@ -1,5 +1,5 @@
 use betterkv_server::auth::parse_user_directive;
-use betterkv_server::config::Config;
+use betterkv_server::config::{AppendFsync, Config, SaveRule, SnapshotCompression};
 use betterkv_server::logging::init_logging;
 
 use crate::cli::action::Cli;
@@ -54,10 +54,31 @@ pub(crate) fn run(cli: Cli) -> Result<(), String> {
         config.dbfilename = v;
     }
     if let Some(values) = cli.save {
-        config.snapshot_interval_secs = parse_save_interval(&values)?;
+        if save_disables_persistence(&values) {
+            disable_persistence(&mut config);
+        }
+        config.save_rules = parse_save_rules(&values)?;
     }
     if cli.snapshot_on_shutdown {
         config.snapshot_on_shutdown = true;
+    }
+    if let Some(v) = cli.appendonly {
+        config.appendonly = parse_yes_no(&v, "appendonly")?;
+    }
+    if let Some(v) = cli.appendfilename {
+        config.appendfilename = v;
+    }
+    if let Some(v) = cli.appendfsync {
+        config.appendfsync = parse_appendfsync(&v)?;
+    }
+    if let Some(v) = cli.snapshot_compression {
+        config.snapshot_compression = parse_snapshot_compression(&v)?;
+    }
+    if let Some(v) = cli.auto_aof_rewrite_percentage {
+        config.auto_aof_rewrite_percentage = v;
+    }
+    if let Some(v) = cli.auto_aof_rewrite_min_size {
+        config.auto_aof_rewrite_min_size = v;
     }
     if let Some(v) = cli.requirepass {
         config.requirepass = Some(v);
@@ -78,7 +99,8 @@ pub(crate) fn run(cli: Cli) -> Result<(), String> {
         requirepass = config.requirepass.is_some(),
         acl_users = config.user_directives.len(),
         snapshot_path = %config.snapshot_path().display(),
-        snapshot_interval_secs = config.snapshot_interval_secs,
+        appendonly = config.appendonly,
+        appendonly_path = %config.appendonly_path().display(),
         "starting betterkv server"
     );
 
@@ -173,10 +195,35 @@ pub(crate) fn parse_config_content_into(content: &str, config: &mut Config) -> R
                     .iter()
                     .map(|t| t.trim_matches('"').to_string())
                     .collect();
-                config.snapshot_interval_secs = parse_save_interval(&save_values)?;
+                if save_disables_persistence(&save_values) {
+                    disable_persistence(config);
+                }
+                config.save_rules = parse_save_rules(&save_values)?;
             }
             "snapshot-on-shutdown" => {
-                config.snapshot_on_shutdown = values[0] == "yes";
+                config.snapshot_on_shutdown = parse_yes_no(values[0].as_str(), "snapshot-on-shutdown")?;
+            }
+            "appendonly" => {
+                config.appendonly = parse_yes_no(values[0].as_str(), "appendonly")?;
+            }
+            "appendfilename" => {
+                config.appendfilename = values[0].clone();
+            }
+            "appendfsync" => {
+                config.appendfsync = parse_appendfsync(values[0].as_str())?;
+            }
+            "snapshot-compression" => {
+                config.snapshot_compression = parse_snapshot_compression(values[0].as_str())?;
+            }
+            "auto-aof-rewrite-percentage" => {
+                config.auto_aof_rewrite_percentage = values[0]
+                    .parse::<u32>()
+                    .map_err(|_| format!("invalid auto-aof-rewrite-percentage '{}'", values[0]))?;
+            }
+            "auto-aof-rewrite-min-size" => {
+                config.auto_aof_rewrite_min_size = values[0]
+                    .parse::<u64>()
+                    .map_err(|_| format!("invalid auto-aof-rewrite-min-size '{}'", values[0]))?;
             }
             "requirepass" => config.requirepass = Some(values[0].clone()),
             "user" => {
@@ -190,38 +237,77 @@ pub(crate) fn parse_config_content_into(content: &str, config: &mut Config) -> R
     Ok(())
 }
 
-fn parse_save_interval(values: &[String]) -> Result<u64, String> {
-    let _trace = profiler::scope("server::main::parse_save_interval");
+fn parse_save_rules(values: &[String]) -> Result<Vec<SaveRule>, String> {
+    let _trace = profiler::scope("server::main::parse_save_rules");
     if values.is_empty() {
-        return Ok(0);
+        return Ok(Vec::new());
     }
     // `--save ""` or `save ""` in config file: empty string disables snapshots.
     if values.len() == 1 && values[0].is_empty() {
-        return Ok(0);
+        return Ok(Vec::new());
     }
     if values.len() == 1 {
-        return values[0]
+        let seconds = values[0]
             .parse::<u64>()
-            .map_err(|_| format!("invalid save value '{}'", values[0]));
+            .map_err(|_| format!("invalid save value '{}'", values[0]))?;
+        if seconds == 0 {
+            return Ok(Vec::new());
+        }
+        return Ok(vec![SaveRule {
+            seconds,
+            changes: 1,
+        }]);
     }
     if !values.len().is_multiple_of(2) {
         return Err("save expects pairs of <seconds> <changes>".to_string());
     }
-    let mut interval: Option<u64> = None;
+    let mut rules = Vec::with_capacity(values.len() / 2);
     for chunk in values.chunks(2) {
         let seconds = chunk[0]
             .parse::<u64>()
             .map_err(|_| format!("invalid save seconds '{}'", chunk[0]))?;
-        chunk[1]
+        let changes = chunk[1]
             .parse::<u64>()
             .map_err(|_| format!("invalid save changes '{}'", chunk[1]))?;
         if seconds == 0 {
             continue;
         }
-        interval = Some(match interval {
-            Some(current) => current.min(seconds),
-            None => seconds,
-        });
+        rules.push(SaveRule { seconds, changes });
     }
-    Ok(interval.unwrap_or(0))
+    Ok(rules)
+}
+
+fn parse_yes_no(value: &str, name: &str) -> Result<bool, String> {
+    match value.to_ascii_lowercase().as_str() {
+        "yes" => Ok(true),
+        "no" => Ok(false),
+        _ => Err(format!("invalid {name} value '{value}'")),
+    }
+}
+
+fn parse_appendfsync(value: &str) -> Result<AppendFsync, String> {
+    match value.to_ascii_lowercase().as_str() {
+        "always" => Ok(AppendFsync::Always),
+        "everysec" => Ok(AppendFsync::EverySec),
+        "no" => Ok(AppendFsync::No),
+        _ => Err(format!("invalid appendfsync value '{value}'")),
+    }
+}
+
+fn parse_snapshot_compression(value: &str) -> Result<SnapshotCompression, String> {
+    match value.to_ascii_lowercase().as_str() {
+        "none" => Ok(SnapshotCompression::None),
+        "lz4" => Ok(SnapshotCompression::Lz4),
+        _ => Err(format!("invalid snapshot-compression value '{value}'")),
+    }
+}
+
+fn save_disables_persistence(values: &[String]) -> bool {
+    values.len() == 1 && values[0].is_empty()
+}
+
+fn disable_persistence(config: &mut Config) {
+    config.save_rules.clear();
+    config.snapshot_on_shutdown = false;
+    config.appendonly = false;
 }

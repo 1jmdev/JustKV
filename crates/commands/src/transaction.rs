@@ -1,5 +1,5 @@
 use crate::dispatch::CommandId;
-use crate::util::{Args, wrong_args};
+use crate::util::{wrong_args, Args};
 use engine::store::Store;
 use engine::transaction::WatchState;
 use protocol::types::RespFrame;
@@ -12,6 +12,11 @@ pub struct TransactionState {
     watched: WatchState,
 }
 
+pub struct TransactionOutcome {
+    pub response: RespFrame,
+    pub committed_commands: Vec<(CommandId, Vec<CompactArg>)>,
+}
+
 impl TransactionState {
     pub fn handle_args_with<F>(
         &mut self,
@@ -19,17 +24,20 @@ impl TransactionState {
         args: &mut Vec<CompactArg>,
         command: CommandId,
         mut execute: F,
-    ) -> RespFrame
+    ) -> TransactionOutcome
     where
         F: FnMut(&Store, CommandId, &[CompactArg]) -> RespFrame,
     {
         let _trace = profiler::scope("commands::transaction::handle_args_with");
         if args.is_empty() {
-            return RespFrame::error_static("ERR empty command");
+            return TransactionOutcome {
+                response: RespFrame::error_static("ERR empty command"),
+                committed_commands: Vec::new(),
+            };
         }
 
         if !self.in_multi {
-            return match TransactionCommand::from(command) {
+            let response = match TransactionCommand::from(command) {
                 TransactionCommand::Multi => {
                     multi(args.as_slice(), &mut self.in_multi, &mut self.queued)
                 }
@@ -42,12 +50,17 @@ impl TransactionState {
                     store.with_command_gate(|| execute(store, command, args.as_slice()))
                 }
             };
+            return TransactionOutcome {
+                response,
+                committed_commands: Vec::new(),
+            };
         }
 
         match TransactionCommand::from(command) {
-            TransactionCommand::Multi => {
-                multi(args.as_slice(), &mut self.in_multi, &mut self.queued)
-            }
+            TransactionCommand::Multi => TransactionOutcome {
+                response: multi(args.as_slice(), &mut self.in_multi, &mut self.queued),
+                committed_commands: Vec::new(),
+            },
             TransactionCommand::Exec => exec_with(
                 store,
                 args.as_slice(),
@@ -56,16 +69,25 @@ impl TransactionState {
                 &mut self.watched,
                 execute,
             ),
-            TransactionCommand::Discard => discard(
-                args.as_slice(),
-                &mut self.in_multi,
-                &mut self.queued,
-                &mut self.watched,
-            ),
-            TransactionCommand::Watch => watch(store, args.as_slice(), &mut self.watched, true),
+            TransactionCommand::Discard => TransactionOutcome {
+                response: discard(
+                    args.as_slice(),
+                    &mut self.in_multi,
+                    &mut self.queued,
+                    &mut self.watched,
+                ),
+                committed_commands: Vec::new(),
+            },
+            TransactionCommand::Watch => TransactionOutcome {
+                response: watch(store, args.as_slice(), &mut self.watched, true),
+                committed_commands: Vec::new(),
+            },
             TransactionCommand::Unwatch | TransactionCommand::Other => {
                 self.queued.push((command, std::mem::take(args)));
-                RespFrame::simple_static("QUEUED")
+                TransactionOutcome {
+                    response: RespFrame::simple_static("QUEUED"),
+                    committed_commands: Vec::new(),
+                }
             }
         }
     }
@@ -126,16 +148,22 @@ fn exec_with<F>(
     queued: &mut Vec<(CommandId, Vec<CompactArg>)>,
     watched: &mut WatchState,
     mut execute: F,
-) -> RespFrame
+) -> TransactionOutcome
 where
     F: FnMut(&Store, CommandId, &[CompactArg]) -> RespFrame,
 {
     let _trace = profiler::scope("commands::transaction::exec_with");
     if args.len() != 1 {
-        return wrong_args("EXEC");
+        return TransactionOutcome {
+            response: wrong_args("EXEC"),
+            committed_commands: Vec::new(),
+        };
     }
     if !*in_multi {
-        return RespFrame::error_static("ERR EXEC without MULTI");
+        return TransactionOutcome {
+            response: RespFrame::error_static("ERR EXEC without MULTI"),
+            committed_commands: Vec::new(),
+        };
     }
 
     *in_multi = false;
@@ -143,11 +171,15 @@ where
         if watched.is_dirty(store) {
             queued.clear();
             watched.clear();
-            return RespFrame::Array(None);
+            return TransactionOutcome {
+                response: RespFrame::Array(None),
+                committed_commands: Vec::new(),
+            };
         }
 
         let queued_commands = std::mem::take(queued);
         let mut responses = Vec::with_capacity(queued_commands.len());
+        let mut committed_commands = Vec::with_capacity(queued_commands.len());
         for (queued_command, queued_args) in queued_commands {
             if queued_command == CommandId::Unwatch {
                 watched.clear();
@@ -155,9 +187,13 @@ where
                 continue;
             }
             responses.push(execute(store, queued_command, queued_args.as_slice()));
+            committed_commands.push((queued_command, queued_args));
         }
         watched.clear();
-        RespFrame::Array(Some(responses))
+        TransactionOutcome {
+            response: RespFrame::Array(Some(responses)),
+            committed_commands,
+        }
     })
 }
 

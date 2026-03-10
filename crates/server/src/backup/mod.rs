@@ -2,15 +2,16 @@ mod io;
 mod rdb;
 
 use std::collections::VecDeque;
-use std::fs::File;
-use std::io::{BufWriter, Write};
+use std::io::Write;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use ahash::RandomState;
 use hashbrown::HashMap;
 use indexmap::IndexSet;
+use lz4_flex::{compress_prepend_size, decompress_size_prepended};
 
+use crate::config::SnapshotCompression;
 use engine::store::{PreDecodedRestoreEntry, Store};
 use types::value::{
     CompactKey, CompactValue, Entry as StoreEntry, StreamId, StreamValue, ZSetValueMap,
@@ -24,6 +25,7 @@ use self::rdb::{
 #[derive(Debug, Clone, Copy)]
 pub struct SnapshotStats {
     pub keys_written: u64,
+    pub uncompressed_bytes: u64,
     pub bytes_written: u64,
 }
 
@@ -34,7 +36,7 @@ pub struct RestoreStats {
 
 pub async fn load_snapshot(store: &Store, path: &Path) -> Result<RestoreStats, String> {
     let _trace = profiler::scope("server::backup::load_snapshot");
-    let bytes = io::read_snapshot_bytes(path).await?;
+    let bytes = decode_snapshot_file(&io::read_snapshot_bytes(path).await?)?;
     let entries = parse_rdb(&bytes)?;
 
     let now_s = now_unix_seconds();
@@ -70,7 +72,11 @@ pub async fn load_snapshot(store: &Store, path: &Path) -> Result<RestoreStats, S
     })
 }
 
-pub fn write_snapshot(store: &Store, path: &Path) -> Result<SnapshotStats, String> {
+pub fn write_snapshot(
+    store: &Store,
+    path: &Path,
+    compression: SnapshotCompression,
+) -> Result<SnapshotStats, String> {
     let _trace = profiler::scope("server::backup::write_snapshot");
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|err| {
@@ -81,23 +87,43 @@ pub fn write_snapshot(store: &Store, path: &Path) -> Result<SnapshotStats, Strin
         })?;
     }
 
+    let (written_keys, uncompressed) = store.with_transaction_gate(|| build_rdb_snapshot(store, path))?;
+    let encoded = encode_snapshot_file(&uncompressed, compression);
     let temp_path = path.with_extension("tmp");
-    let file = File::create(&temp_path)
-        .map_err(|err| format!("failed to create snapshot {}: {err}", temp_path.display()))?;
-    let mut writer = CountingWriter::new(BufWriter::new(file));
+    std::fs::write(&temp_path, &encoded)
+        .map_err(|err| format!("failed to write snapshot {}: {err}", temp_path.display()))?;
+    io::sync_file_path(&temp_path)?;
+    std::fs::rename(&temp_path, path).map_err(|err| {
+        format!(
+            "failed to move snapshot {} to {}: {err}",
+            temp_path.display(),
+            path.display()
+        )
+    })?;
+    io::sync_directory(path)?;
+
+    Ok(SnapshotStats {
+        keys_written: written_keys,
+        uncompressed_bytes: uncompressed.len() as u64,
+        bytes_written: encoded.len() as u64,
+    })
+}
+
+fn build_rdb_snapshot(store: &Store, path: &Path) -> Result<(u64, Vec<u8>), String> {
+    let _trace = profiler::scope("server::backup::build_rdb_snapshot");
+    let mut writer = CountingWriter::new(Vec::with_capacity(256 * 1024));
 
     writer
         .write_all(RDB_MAGIC_PREFIX)
-        .map_err(|err| format!("failed to write snapshot {}: {err}", temp_path.display()))?;
+        .map_err(|err| format!("failed to write snapshot {}: {err}", path.display()))?;
     writer
         .write_all(RDB_VERSION.as_bytes())
-        .map_err(|err| format!("failed to write snapshot {}: {err}", temp_path.display()))?;
-
+        .map_err(|err| format!("failed to write snapshot {}: {err}", path.display()))?;
     writer
         .write_all(&[OP_SELECTDB])
-        .map_err(|err| format!("failed to write snapshot {}: {err}", temp_path.display()))?;
+        .map_err(|err| format!("failed to write snapshot {}: {err}", path.display()))?;
     encode_len(&mut writer, 0)
-        .map_err(|err| format!("failed to write snapshot {}: {err}", temp_path.display()))?;
+        .map_err(|err| format!("failed to write snapshot {}: {err}", path.display()))?;
 
     let now_s = now_unix_seconds();
     let mut written_keys = 0u64;
@@ -130,19 +156,16 @@ pub fn write_snapshot(store: &Store, path: &Path) -> Result<SnapshotStats, Strin
                 let expire_at_s_u32 = u32::try_from(expire_at_s)
                     .map_err(|_| format!("ttl overflow while writing {}", path.display()))?;
                 writer.write_all(&[OP_EXPIRETIME]).map_err(|err| {
-                    format!("failed to write snapshot {}: {err}", temp_path.display())
+                    format!("failed to write snapshot {}: {err}", path.display())
                 })?;
                 writer
                     .write_all(&expire_at_s_u32.to_le_bytes())
-                    .map_err(|err| {
-                        format!("failed to write snapshot {}: {err}", temp_path.display())
-                    })?;
+                    .map_err(|err| format!("failed to write snapshot {}: {err}", path.display()))?;
             }
 
-            write_rdb_value(&mut writer, key_bytes, rdb_value).map_err(|err| {
-                format!("failed to write snapshot {}: {err}", temp_path.display())
-            })?;
-            written_keys += 1;
+            write_rdb_value(&mut writer, key_bytes, rdb_value)
+                .map_err(|err| format!("failed to write snapshot {}: {err}", path.display()))?;
+            written_keys = written_keys.saturating_add(1);
         }
 
         if next_cursor == 0 {
@@ -153,22 +176,44 @@ pub fn write_snapshot(store: &Store, path: &Path) -> Result<SnapshotStats, Strin
 
     writer
         .write_all(&[OP_EOF])
-        .map_err(|err| format!("failed to write snapshot {}: {err}", temp_path.display()))?;
-    writer
-        .flush()
-        .map_err(|err| format!("failed to flush snapshot {}: {err}", temp_path.display()))?;
-    std::fs::rename(&temp_path, path).map_err(|err| {
-        format!(
-            "failed to move snapshot {} to {}: {err}",
-            temp_path.display(),
-            path.display()
-        )
-    })?;
+        .map_err(|err| format!("failed to write snapshot {}: {err}", path.display()))?;
+    Ok((written_keys, writer.into_inner()))
+}
 
-    Ok(SnapshotStats {
-        keys_written: written_keys,
-        bytes_written: writer.bytes_written(),
-    })
+const SNAPSHOT_MAGIC: &[u8; 8] = b"BKVSNP01";
+const SNAPSHOT_CODEC_NONE: u8 = 0;
+const SNAPSHOT_CODEC_LZ4: u8 = 1;
+
+fn encode_snapshot_file(raw_rdb: &[u8], compression: SnapshotCompression) -> Vec<u8> {
+    let _trace = profiler::scope("server::backup::encode_snapshot_file");
+    match compression {
+        SnapshotCompression::None => raw_rdb.to_vec(),
+        SnapshotCompression::Lz4 => {
+            let compressed = compress_prepend_size(raw_rdb);
+            let mut out = Vec::with_capacity(SNAPSHOT_MAGIC.len() + 1 + compressed.len());
+            out.extend_from_slice(SNAPSHOT_MAGIC);
+            out.push(SNAPSHOT_CODEC_LZ4);
+            out.extend_from_slice(&compressed);
+            out
+        }
+    }
+}
+
+fn decode_snapshot_file(bytes: &[u8]) -> Result<Vec<u8>, String> {
+    let _trace = profiler::scope("server::backup::decode_snapshot_file");
+    if bytes.starts_with(RDB_MAGIC_PREFIX) {
+        return Ok(bytes.to_vec());
+    }
+    if bytes.len() < SNAPSHOT_MAGIC.len() + 1 || &bytes[..SNAPSHOT_MAGIC.len()] != SNAPSHOT_MAGIC {
+        return Err("snapshot has unknown header".to_string());
+    }
+
+    match bytes[SNAPSHOT_MAGIC.len()] {
+        SNAPSHOT_CODEC_NONE => Ok(bytes[SNAPSHOT_MAGIC.len() + 1..].to_vec()),
+        SNAPSHOT_CODEC_LZ4 => decompress_size_prepended(&bytes[SNAPSHOT_MAGIC.len() + 1..])
+            .map_err(|err| format!("failed to decompress snapshot: {err}")),
+        other => Err(format!("unsupported snapshot codec {other}")),
+    }
 }
 
 fn value_into_store_entry(value: Value) -> StoreEntry {

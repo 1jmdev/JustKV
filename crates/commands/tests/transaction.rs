@@ -10,7 +10,9 @@ fn run(state: &mut TransactionState, store: &Store, args: &[&str]) -> RespFrame 
         .map(|value| CompactArg::from_slice(value.as_bytes()))
         .collect();
     let command = identify(parsed[0].as_slice());
-    state.handle_args_with(store, &mut parsed, command, dispatch_with_id)
+    state
+        .handle_args_with(store, &mut parsed, command, dispatch_with_id)
+        .response
 }
 
 fn bulk_bytes(frame: RespFrame) -> Option<Vec<u8>> {

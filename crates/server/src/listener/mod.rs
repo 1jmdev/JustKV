@@ -8,13 +8,10 @@ use tokio::time::Duration;
 
 use crate::auth::AuthService;
 use crate::config::Config;
+use crate::persistence::{self, PersistenceHandle};
 use crate::profile::ProfileHub;
-use crate::{backup, backup::SnapshotStats};
 use accept::{bind_reuse_port_listeners, run_accept_loop};
-use background::{
-    spawn_cached_clock_updater, spawn_expiry_sweeper, spawn_periodic_snapshot,
-    write_snapshot_with_log,
-};
+use background::{spawn_cached_clock_updater, spawn_expiry_sweeper};
 use engine::pubsub::PubSubHub;
 use engine::store::Store;
 use shutdown::shutdown_signal;
@@ -34,44 +31,42 @@ pub async fn run_listener_with_profile(
     let pubsub = PubSubHub::new();
     let profiler = profile_hub.unwrap_or_else(ProfileHub::disabled);
     let auth = AuthService::from_config(&config).map_err(io::Error::other)?;
-    let snapshot_path = config.snapshot_path();
-
-    if snapshot_path.exists() {
-        match backup::load_snapshot(&store, &snapshot_path).await {
-            Ok(stats) => {
+    let restore = persistence::restore(&store, &config).await;
+    match restore {
+        Ok(restore) => {
+            if let Some(stats) = restore.snapshot {
                 tracing::info!(
                     keys_loaded = stats.keys_loaded,
-                    path = %snapshot_path.display(),
+                    path = %config.snapshot_path().display(),
                     "loaded snapshot"
                 );
             }
-            Err(err) => {
-                tracing::error!(
-                    error = %err,
-                    path = %snapshot_path.display(),
-                    "failed to load snapshot"
+            if config.appendonly {
+                tracing::info!(
+                    commands_replayed = restore.aof_commands_replayed,
+                    truncated_tail = restore.aof_tail_truncated,
+                    path = %config.appendonly_path().display(),
+                    "replayed appendonly file"
                 );
             }
         }
+        Err(err) => {
+            tracing::error!(error = %err, "failed to restore persistence state");
+        }
     }
+    let persistence = PersistenceHandle::spawn(store.clone(), config.clone());
 
     spawn_expiry_sweeper(
         store.clone(),
         Duration::from_millis(config.sweep_interval_ms),
     );
     spawn_cached_clock_updater(store.clone());
-    if config.snapshot_interval_secs > 0 {
-        spawn_periodic_snapshot(
-            store.clone(),
-            snapshot_path.clone(),
-            Duration::from_secs(config.snapshot_interval_secs),
-        );
-    }
     tracing::info!(
         bind = %bind_addr,
         io_threads = config.io_threads,
         sweep_interval_ms = config.sweep_interval_ms,
-        snapshot_interval_secs = config.snapshot_interval_secs,
+        save_rules = config.save_rules.len(),
+        appendonly = config.appendonly,
         "listener ready"
     );
 
@@ -80,6 +75,7 @@ pub async fn run_listener_with_profile(
         let shared_store = store.clone();
         let shared_pubsub = pubsub.clone();
         let shared_auth = auth.clone();
+        let shared_persistence = persistence.clone();
         let shared_profiler = profiler;
         accept_tasks.spawn(async move {
             run_accept_loop(
@@ -87,6 +83,7 @@ pub async fn run_listener_with_profile(
                 shared_store,
                 shared_pubsub,
                 shared_auth,
+                shared_persistence,
                 shared_profiler,
             )
             .await
@@ -108,11 +105,8 @@ pub async fn run_listener_with_profile(
             }
             _ = shutdown_signal() => {
                 tracing::warn!("shutdown signal received");
-                if config.snapshot_on_shutdown {
-                    let stats = write_snapshot_with_log(store.clone(), snapshot_path.clone(), "shutdown").await;
-                    if stats.is_none() {
-                        tracing::error!("shutdown snapshot failed");
-                    }
+                if let Err(err) = persistence.shutdown() {
+                    tracing::error!(error = %err, "persistence shutdown failed");
                 }
                 return Ok(());
             }
@@ -121,4 +115,3 @@ pub async fn run_listener_with_profile(
 }
 
 pub(crate) type ListenerResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
-pub(crate) type SnapshotResult = Option<SnapshotStats>;

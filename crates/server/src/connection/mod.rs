@@ -10,6 +10,7 @@ use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::mpsc::unbounded_channel;
 
 use crate::auth::AuthService;
+use crate::persistence::PersistenceHandle;
 use crate::profile::ProfileHub;
 use engine::store::Store;
 use protocol::encoder::Encoder;
@@ -69,6 +70,7 @@ pub async fn handle_connection(
     store: Store,
     pubsub_hub: PubSubHub,
     auth: AuthService,
+    persistence: PersistenceHandle,
     profiler: ProfileHub,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let _trace = profiler::scope("server::connection::handle_connection");
@@ -138,7 +140,7 @@ pub async fn handle_connection(
                         .and_then(|command| profiler::begin_request(command.as_slice()));
 
                     let command = identify(command_args_buf[0].as_slice());
-                    let response = tx_state.handle_args_with(&store, &mut command_args_buf, command, |store, command, args| {
+                    let outcome = tx_state.handle_args_with(&store, &mut command_args_buf, command, |store, command, args| {
                         dispatch::execute_regular_command(
                             store,
                             &pubsub_hub,
@@ -152,6 +154,13 @@ pub async fn handle_connection(
                             args,
                         )
                     });
+                    let response = outcome.response;
+
+                    if !outcome.committed_commands.is_empty() {
+                        persistence.record_transaction(&outcome.committed_commands);
+                    } else {
+                        persistence.record_command(command, &command_args_buf, &response);
+                    }
 
                     if !client_state.take_suppress_current_reply() {
                         encoder.encode(&response, &mut write_buf);

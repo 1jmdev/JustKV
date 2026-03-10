@@ -11,10 +11,35 @@ pub struct Config {
     pub log_file: Option<String>,
     pub data_dir: String,
     pub dbfilename: String,
-    pub snapshot_interval_secs: u64,
+    pub save_rules: Vec<SaveRule>,
     pub snapshot_on_shutdown: bool,
+    pub snapshot_compression: SnapshotCompression,
+    pub appendonly: bool,
+    pub appendfilename: String,
+    pub appendfsync: AppendFsync,
+    pub auto_aof_rewrite_percentage: u32,
+    pub auto_aof_rewrite_min_size: u64,
     pub requirepass: Option<String>,
     pub user_directives: Vec<UserDirectiveConfig>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SaveRule {
+    pub seconds: u64,
+    pub changes: u64,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SnapshotCompression {
+    None,
+    Lz4,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AppendFsync {
+    Always,
+    EverySec,
+    No,
 }
 
 impl Default for Config {
@@ -30,8 +55,27 @@ impl Default for Config {
             log_file: None,
             data_dir: ".".to_string(),
             dbfilename: "dump.bkv".to_string(),
-            snapshot_interval_secs: 0,
-            snapshot_on_shutdown: false,
+            save_rules: vec![
+                SaveRule {
+                    seconds: 900,
+                    changes: 1,
+                },
+                SaveRule {
+                    seconds: 300,
+                    changes: 10,
+                },
+                SaveRule {
+                    seconds: 60,
+                    changes: 10_000,
+                },
+            ],
+            snapshot_on_shutdown: true,
+            snapshot_compression: SnapshotCompression::Lz4,
+            appendonly: true,
+            appendfilename: "appendonly.aof".to_string(),
+            appendfsync: AppendFsync::EverySec,
+            auto_aof_rewrite_percentage: 100,
+            auto_aof_rewrite_min_size: 64 * 1024 * 1024,
             requirepass: None,
             user_directives: Vec::new(),
         }
@@ -47,6 +91,11 @@ impl Config {
     pub fn snapshot_path(&self) -> std::path::PathBuf {
         let _trace = profiler::scope("server::config::snapshot_path");
         std::path::Path::new(&self.data_dir).join(&self.dbfilename)
+    }
+
+    pub fn appendonly_path(&self) -> std::path::PathBuf {
+        let _trace = profiler::scope("server::config::appendonly_path");
+        std::path::Path::new(&self.data_dir).join(&self.appendfilename)
     }
 }
 
