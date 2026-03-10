@@ -1825,6 +1825,24 @@ macro_rules! with_command_registry {
                         },
                     }
                 }
+                b'o' => {
+                    {
+                        variant: Object,
+                        bytes: b"OBJECT",
+                        dispatch: [object::object; store],
+                        supported: true,
+                        group: "generic",
+                        shape: (-3, 0, 0, 0),
+                        readonly: true,
+                        write: false,
+                        auth: some {
+                            categories: &[AclCategory::Keyspace, AclCategory::Read, AclCategory::Slow],
+                            keys: KeyExtraction::None,
+                            channels: ChannelExtraction::None,
+                        },
+                        notify: none,
+                    }
+                }
                 b'p' => {
                     {
                         variant: PSetEx,

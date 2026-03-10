@@ -5,6 +5,57 @@ use super::helpers::{is_expired, monotonic_now_ms, purge_if_expired};
 use super::pattern::{CompiledPattern, wildcard_match};
 use types::value::{CompactKey, CompactValue, Entry, StreamId, StreamValue, ZSetValueMap};
 
+fn is_integer_encoded_string(value: &[u8]) -> bool {
+    if value.is_empty() {
+        return false;
+    }
+
+    let mut index = 0usize;
+    let negative = matches!(value[0], b'-');
+    if negative || matches!(value[0], b'+') {
+        index = 1;
+    }
+
+    let digits = &value[index..];
+    if digits.is_empty() {
+        return false;
+    }
+    if digits.len() > 1 && digits[0] == b'0' {
+        return false;
+    }
+    if negative && digits == b"0" {
+        return false;
+    }
+    if !digits.iter().all(u8::is_ascii_digit) {
+        return false;
+    }
+
+    let text = match std::str::from_utf8(value) {
+        Ok(text) => text,
+        Err(_) => return false,
+    };
+
+    text.parse::<i64>().is_ok()
+}
+
+fn object_encoding(entry: &Entry) -> &'static str {
+    match entry {
+        Entry::String(value) => {
+            if is_integer_encoded_string(value.as_slice()) {
+                "int"
+            } else {
+                "raw"
+            }
+        }
+        Entry::Hash(_) => "hashtable",
+        Entry::List(_) => "quicklist",
+        Entry::Set(_) => "hashtable",
+        Entry::ZSet(_) | Entry::Geo(_) => "skiplist",
+        Entry::Stream(_) => "stream",
+        Entry::Json(_) => "json",
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct PreDecodedRestoreEntry {
     pub key: Vec<u8>,
@@ -178,6 +229,36 @@ impl Store {
     pub fn key_type(&self, key: &[u8]) -> &'static str {
         let _trace = profiler::scope("engine::keyspace::key_type");
         self.value_kind(key).unwrap_or("none")
+    }
+
+    pub fn object_encoding(&self, key: &[u8]) -> Option<&'static str> {
+        let _trace = profiler::scope("engine::keyspace::object_encoding");
+        let idx = self.shard_index(key);
+        let now_ms = monotonic_now_ms();
+        let shard = self.shards[idx].read();
+        let entry = shard.entries.get(key)?;
+        if entry.is_expired(now_ms) {
+            return None;
+        }
+        Some(object_encoding(entry))
+    }
+
+    pub fn object_freq(&self, key: &[u8]) -> Result<Option<i64>, ()> {
+        let _trace = profiler::scope("engine::keyspace::object_freq");
+        if self.object_encoding(key).is_none() {
+            return Ok(None);
+        }
+        Err(())
+    }
+
+    pub fn object_idletime(&self, key: &[u8]) -> Option<i64> {
+        let _trace = profiler::scope("engine::keyspace::object_idletime");
+        self.object_encoding(key).map(|_| 0)
+    }
+
+    pub fn object_refcount(&self, key: &[u8]) -> Option<i64> {
+        let _trace = profiler::scope("engine::keyspace::object_refcount");
+        self.object_encoding(key).map(|_| 1)
     }
 
     pub fn value_kind(&self, key: &[u8]) -> Option<&'static str> {

@@ -2,7 +2,8 @@ use super::identify::identify;
 use super::list::CommandId;
 use super::registry::with_command_registry;
 use crate::{
-    command, connection, geo, hash, json, keyspace, list, scripting, set, stream, string, ttl, zset,
+    command, connection, geo, hash, json, keyspace, list, object, scripting, set, stream, string,
+    ttl, zset,
 };
 use engine::store::Store;
 use protocol::types::{BulkData, RespFrame};
