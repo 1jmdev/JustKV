@@ -18,6 +18,12 @@ pub struct TransactionOutcome {
 }
 
 impl TransactionState {
+    pub fn cleanup(&mut self, _store: &Store) {
+        self.in_multi = false;
+        self.queued.clear();
+        self.watched.clear();
+    }
+
     pub fn handle_args_with<F>(
         &mut self,
         store: &Store,
@@ -44,8 +50,8 @@ impl TransactionState {
                 TransactionCommand::Exec => RespFrame::error_static("ERR EXEC without MULTI"),
                 TransactionCommand::Discard => RespFrame::error_static("ERR DISCARD without MULTI"),
                 TransactionCommand::Watch => store
-                    .with_command_gate(|| watch(store, args.as_slice(), &mut self.watched, false)),
-                TransactionCommand::Unwatch => unwatch(args.as_slice(), &mut self.watched),
+                    .with_watch_gate(|| watch(store, args.as_slice(), &mut self.watched, false)),
+                TransactionCommand::Unwatch => unwatch(store, args.as_slice(), &mut self.watched),
                 TransactionCommand::Other => {
                     store.with_command_gate(|| execute(store, command, args.as_slice()))
                 }
@@ -71,6 +77,7 @@ impl TransactionState {
             ),
             TransactionCommand::Discard => TransactionOutcome {
                 response: discard(
+                    store,
                     args.as_slice(),
                     &mut self.in_multi,
                     &mut self.queued,
@@ -198,6 +205,7 @@ where
 }
 
 fn discard(
+    _store: &Store,
     args: &Args,
     in_multi: &mut bool,
     queued: &mut Vec<(CommandId, Vec<CompactArg>)>,
@@ -232,7 +240,7 @@ fn watch(store: &Store, args: &Args, watched: &mut WatchState, in_multi: bool) -
     RespFrame::ok()
 }
 
-fn unwatch(args: &Args, watched: &mut WatchState) -> RespFrame {
+fn unwatch(_store: &Store, args: &Args, watched: &mut WatchState) -> RespFrame {
     let _trace = profiler::scope("commands::transaction::unwatch");
     if args.len() != 1 {
         return wrong_args("UNWATCH");

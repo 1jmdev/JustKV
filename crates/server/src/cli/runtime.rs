@@ -201,7 +201,8 @@ pub(crate) fn parse_config_content_into(content: &str, config: &mut Config) -> R
                 config.save_rules = parse_save_rules(&save_values)?;
             }
             "snapshot-on-shutdown" => {
-                config.snapshot_on_shutdown = parse_yes_no(values[0].as_str(), "snapshot-on-shutdown")?;
+                config.snapshot_on_shutdown =
+                    parse_yes_no(values[0].as_str(), "snapshot-on-shutdown")?;
             }
             "appendonly" => {
                 config.appendonly = parse_yes_no(values[0].as_str(), "appendonly")?;

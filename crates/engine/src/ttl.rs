@@ -68,11 +68,7 @@ impl Store {
     pub fn ttl(&self, key: &[u8]) -> i64 {
         let _trace = profiler::scope("engine::ttl::ttl");
         let pttl = self.pttl(key);
-        if pttl < 0 {
-            pttl
-        } else {
-            pttl / 1000
-        }
+        if pttl < 0 { pttl } else { pttl / 1000 }
     }
 
     pub fn pttl(&self, key: &[u8]) -> i64 {

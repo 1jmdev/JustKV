@@ -133,9 +133,7 @@ pub fn parse_command_into(
 
     let mut items = items.into_iter();
     if let Some(first_item) = items.next() {
-        let mut first = parse_arg(first_item)?;
-        first.make_ascii_uppercase();
-        args.push(first);
+        args.push(parse_arg(first_item)?);
 
         for item in items {
             args.push(parse_arg(item)?);

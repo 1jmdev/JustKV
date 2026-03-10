@@ -6,10 +6,10 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use bytes::BytesMut;
-use itoa::Buffer as ItoaBuffer;
 use commands::dispatch::{CommandId, dispatch_args, identify, is_write_command_id};
 use commands::transaction::TransactionState;
 use engine::store::Store;
+use itoa::Buffer as ItoaBuffer;
 use parking_lot::{Condvar, Mutex};
 use protocol::parser::parse_command_into;
 use protocol::types::RespFrame;
@@ -28,6 +28,7 @@ const MAX_RECYCLED_BUFFER_CAPACITY: usize = 256 * 1024;
 #[derive(Clone)]
 pub struct PersistenceHandle {
     state: Option<Arc<SharedState>>,
+    appendonly_enabled: bool,
 }
 
 pub struct RestoreOutcome {
@@ -68,7 +69,10 @@ struct PersistenceThread {
 impl PersistenceHandle {
     pub fn spawn(store: Store, config: Config) -> Self {
         if !persistence_enabled(&config) {
-            return Self { state: None };
+            return Self {
+                state: None,
+                appendonly_enabled: false,
+            };
         }
 
         let shared = Arc::new(SharedState {
@@ -87,16 +91,12 @@ impl PersistenceHandle {
         let thread_shared = Arc::clone(&shared);
         let snapshot_path = config.snapshot_path();
         let aof_path = config.appendonly_path();
+        let appendonly_enabled = config.appendonly;
         thread::Builder::new()
             .name("betterkv-persistence".to_string())
             .spawn(move || {
-                let thread = PersistenceThread::new(
-                    config,
-                    store,
-                    snapshot_path,
-                    aof_path,
-                    thread_shared,
-                );
+                let thread =
+                    PersistenceThread::new(config, store, snapshot_path, aof_path, thread_shared);
                 if let Err(err) = thread.run() {
                     tracing::error!(error = %err, "persistence thread exited with error");
                 }
@@ -104,7 +104,10 @@ impl PersistenceHandle {
             .map_err(|err| tracing::error!(error = %err, "failed to spawn persistence thread"))
             .ok();
 
-        Self { state: Some(shared) }
+        Self {
+            state: Some(shared),
+            appendonly_enabled,
+        }
     }
 
     pub fn record_command(&self, command: CommandId, args: &[CompactArg], response: &RespFrame) {
@@ -125,11 +128,14 @@ impl PersistenceHandle {
         if self.state.is_none() {
             return;
         }
-        if !should_log_command(command, response) {
+        if !should_track_dirty(command, response) {
+            return;
+        }
+        *local_dirty = local_dirty.saturating_add(1);
+        if !self.appendonly_enabled {
             return;
         }
         encode_resp_command_into(local_bytes, args);
-        *local_dirty = local_dirty.saturating_add(1);
     }
 
     pub fn record_transaction(&self, commands: &[(CommandId, Vec<CompactArg>)]) {
@@ -149,6 +155,18 @@ impl PersistenceHandle {
             return;
         }
 
+        let dirty_increment = commands
+            .iter()
+            .filter(|(command, _)| is_aof_command(*command))
+            .count() as u64;
+        if dirty_increment == 0 {
+            return;
+        }
+        *local_dirty = local_dirty.saturating_add(dirty_increment);
+        if !self.appendonly_enabled {
+            return;
+        }
+
         let start_len = local_bytes.len();
         let start_dirty = *local_dirty;
         let mut has_logged_command = false;
@@ -159,7 +177,6 @@ impl PersistenceHandle {
             }
             has_logged_command = true;
             encode_resp_command_into(local_bytes, args);
-            *local_dirty = local_dirty.saturating_add(1);
         }
         if !has_logged_command {
             local_bytes.truncate(start_len);
@@ -190,44 +207,41 @@ impl PersistenceHandle {
         if self.state.is_none() {
             return;
         }
-        if local_bytes.is_empty() {
+        if local_bytes.is_empty() && *local_dirty == 0 {
             return;
         }
 
-        self.append_bytes(local_bytes.as_slice(), *local_dirty);
-        local_bytes.clear();
+        self.append_chunk(local_bytes, *local_dirty);
         *local_dirty = 0;
-    }
-
-    fn append_bytes(&self, bytes: &[u8], dirty: u64) {
-        let mut local_copy = Vec::with_capacity(bytes.len());
-        local_copy.extend_from_slice(bytes);
-        self.append_chunk(&mut local_copy, dirty);
     }
 
     fn append_chunk(&self, local_bytes: &mut Vec<u8>, dirty: u64) {
         let Some(shared) = &self.state else {
             return;
         };
-        if local_bytes.is_empty() {
+        if local_bytes.is_empty() && dirty == 0 {
             return;
         }
 
         let target_capacity = local_bytes.capacity().max(1024);
-        let chunk = std::mem::take(local_bytes);
         let mut guard = shared.mutex.lock();
-        let was_empty = guard.pending_bytes_len == 0;
-        guard.pending_bytes_len = guard.pending_bytes_len.saturating_add(chunk.len());
-        guard.pending_chunks.push(chunk);
+        let was_idle = guard.pending_bytes_len == 0 && guard.pending_dirty == 0;
+        if !local_bytes.is_empty() {
+            let chunk = std::mem::take(local_bytes);
+            guard.pending_bytes_len = guard.pending_bytes_len.saturating_add(chunk.len());
+            guard.pending_chunks.push(chunk);
+        }
         guard.pending_dirty = guard.pending_dirty.saturating_add(dirty);
         if let Some(mut spare_chunk) = guard.spare_chunks.pop() {
             spare_chunk.clear();
             *local_bytes = spare_chunk;
         }
-        let should_notify = was_empty || guard.pending_bytes_len >= AOF_NOTIFY_BYTES;
+        let should_notify = was_idle || guard.pending_bytes_len >= AOF_NOTIFY_BYTES;
         drop(guard);
         if local_bytes.capacity() == 0 {
             *local_bytes = Vec::with_capacity(target_capacity);
+        } else {
+            local_bytes.clear();
         }
         if should_notify {
             shared.condvar.notify_one();
@@ -313,9 +327,8 @@ impl PersistenceThread {
             write_chunks_vectored(file, payload)
                 .map_err(|err| format!("failed to append to appendonly file {aof_path}: {err}"))?;
             if appendfsync == AppendFsync::Always {
-                file.sync_data().map_err(|err| {
-                    format!("failed to fsync appendonly file {aof_path}: {err}")
-                })?;
+                file.sync_data()
+                    .map_err(|err| format!("failed to fsync appendonly file {aof_path}: {err}"))?;
                 self.last_fsync = Instant::now();
             }
             self.aof_size = next_size;
@@ -354,7 +367,10 @@ impl PersistenceThread {
 
         if let Some(file) = &mut self.aof_file {
             file.sync_data().map_err(|err| {
-                format!("failed to fsync appendonly file {}: {err}", self.aof_path.display())
+                format!(
+                    "failed to fsync appendonly file {}: {err}",
+                    self.aof_path.display()
+                )
             })?;
             self.last_fsync = Instant::now();
         }
@@ -399,7 +415,10 @@ impl PersistenceThread {
         if self.config.appendonly {
             if let Some(file) = &mut self.aof_file {
                 file.sync_all().map_err(|err| {
-                    format!("failed to sync appendonly file {}: {err}", self.aof_path.display())
+                    format!(
+                        "failed to sync appendonly file {}: {err}",
+                        self.aof_path.display()
+                    )
                 })?;
             }
         }
@@ -446,12 +465,18 @@ impl PersistenceThread {
             .append(true)
             .open(&self.aof_path)
             .map_err(|err| {
-                format!("failed to open appendonly file {}: {err}", self.aof_path.display())
+                format!(
+                    "failed to open appendonly file {}: {err}",
+                    self.aof_path.display()
+                )
             })?;
         let size = file
             .metadata()
             .map_err(|err| {
-                format!("failed to stat appendonly file {}: {err}", self.aof_path.display())
+                format!(
+                    "failed to stat appendonly file {}: {err}",
+                    self.aof_path.display()
+                )
             })?
             .len();
         self.aof_size = size;
@@ -496,7 +521,10 @@ pub async fn restore(store: &Store, config: &Config) -> Result<RestoreOutcome, S
     let mut aof_tail_truncated = false;
     if config.appendonly && aof_path.exists() {
         let bytes = tokio::fs::read(&aof_path).await.map_err(|err| {
-            format!("failed to read appendonly file {}: {err}", aof_path.display())
+            format!(
+                "failed to read appendonly file {}: {err}",
+                aof_path.display()
+            )
         })?;
         let (replayed, truncated) = replay_aof(store, &bytes)?;
         aof_commands_replayed = replayed;
@@ -543,6 +571,10 @@ fn persistence_enabled(config: &Config) -> bool {
 
 pub fn should_log_command(command: CommandId, response: &RespFrame) -> bool {
     !response_is_error(response) && !response_is_queued(response) && is_aof_command(command)
+}
+
+fn should_track_dirty(command: CommandId, response: &RespFrame) -> bool {
+    should_log_command(command, response)
 }
 
 fn is_aof_command(command: CommandId) -> bool {

@@ -188,6 +188,7 @@ pub async fn handle_connection(
     };
 
     persistence.flush_buffer(&mut persistence_buf, &mut persistence_dirty);
+    tx_state.cleanup(&store);
     pubsub_hub.cleanup_connection(pubsub_state.id());
     result
 }

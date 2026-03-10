@@ -65,11 +65,7 @@ pub(super) fn execute_regular_command(
             return auth::no_auth();
         }
         if auth_state.acl_check_required()
-            && let Err(error) = auth.dry_run(
-                auth_state.user().unwrap_or_default().as_bytes(),
-                command,
-                args,
-            )
+            && let Err(error) = auth.dry_run(auth_state.user().unwrap_or_default(), command, args)
         {
             return no_perm(error);
         }

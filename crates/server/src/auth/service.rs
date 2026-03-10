@@ -143,18 +143,13 @@ impl AuthService {
 
     pub fn dry_run(
         &self,
-        username: &[u8],
+        username: &str,
         command: CommandId,
         args: &[CompactArg],
     ) -> Result<(), PermissionError> {
         let _trace = profiler::scope("server::auth::dry_run");
-        let username = std::str::from_utf8(username)
-            .ok()
-            .map(str::to_ascii_lowercase)
-            .unwrap_or_default();
-
         let state = self.inner.read();
-        let Some(user) = state.users.get(&username) else {
+        let Some(user) = state.users.get(username) else {
             return Err(PermissionError::Command("ACL DRYRUN".to_string()));
         };
         if args.is_empty() {
@@ -213,19 +208,19 @@ mod tests {
         let auth = AuthService::from_config(&config).expect("auth service");
 
         assert!(
-            auth.dry_run(b"alice", CommandId::Get, &[arg("GET"), arg("cache:1")])
+            auth.dry_run("alice", CommandId::Get, &[arg("GET"), arg("cache:1")])
                 .is_ok()
         );
         assert!(matches!(
             auth.dry_run(
-                b"alice",
+                "alice",
                 CommandId::Set,
                 &[arg("SET"), arg("cache:1"), arg("v")]
             ),
             Err(PermissionError::Command(_))
         ));
         assert_eq!(
-            auth.dry_run(b"alice", CommandId::Get, &[arg("GET"), arg("other:1")]),
+            auth.dry_run("alice", CommandId::Get, &[arg("GET"), arg("other:1")]),
             Err(PermissionError::Key)
         );
     }

@@ -39,8 +39,10 @@ pub mod store {
     };
 }
 
+use std::hint::spin_loop;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use ahash::RandomState;
 use hashbrown::HashMap;
@@ -226,7 +228,8 @@ impl Shard {
 
     #[inline]
     pub fn is_expired(&self, key: &[u8], now_ms: u64) -> bool {
-        self.ttl_deadline(key).is_some_and(|deadline| now_ms >= deadline)
+        self.ttl_deadline(key)
+            .is_some_and(|deadline| now_ms >= deadline)
     }
 
     #[inline]
@@ -235,7 +238,11 @@ impl Shard {
         if !self.entries.contains_key(key) {
             return false;
         }
-        if self.expirations.insert(CompactKey::from_slice(key), deadline).is_none() {
+        if self
+            .expirations
+            .insert(CompactKey::from_slice(key), deadline)
+            .is_none()
+        {
             self.ttl_count += 1;
         }
         self.track_deadline(deadline);
@@ -262,7 +269,10 @@ impl Shard {
 
     pub fn insert_entry(&mut self, key: CompactKey, entry: Entry, deadline: Option<u64>) {
         let _trace = profiler::scope("engine::lib::insert_entry");
-        if self.entries.insert(key.clone(), StoredEntry::new(entry)).is_some()
+        if self
+            .entries
+            .insert(key.clone(), StoredEntry::new(entry))
+            .is_some()
             && self.expirations.remove(key.as_slice()).is_some()
         {
             self.ttl_count -= 1;
@@ -296,6 +306,8 @@ pub struct Store {
     pub(crate) hash_builder: RandomState,
     pub(crate) scripts: Arc<RwLock<ScriptMap>>,
     pub(crate) transaction_gate: Arc<RwLock<()>>,
+    pub(crate) writer_pending: Arc<AtomicBool>,
+    pub(crate) active_commands: Arc<AtomicUsize>,
 }
 
 impl Store {
@@ -314,21 +326,47 @@ impl Store {
             hash_builder: RandomState::new(),
             scripts: Arc::new(RwLock::new(HashMap::with_hasher(RandomState::new()))),
             transaction_gate: Arc::new(RwLock::new(())),
+            writer_pending: Arc::new(AtomicBool::new(false)),
+            active_commands: Arc::new(AtomicUsize::new(0)),
         }
     }
 
     #[inline]
     pub fn with_command_gate<T>(&self, operation: impl FnOnce() -> T) -> T {
         let _trace = profiler::scope("engine::lib::with_command_gate");
-        let _guard = self.transaction_gate.read();
-        operation()
+        loop {
+            while self.writer_pending.load(Ordering::Acquire) {
+                spin_loop();
+            }
+
+            self.active_commands.fetch_add(1, Ordering::Acquire);
+            if !self.writer_pending.load(Ordering::Acquire) {
+                let result = operation();
+                self.active_commands.fetch_sub(1, Ordering::Release);
+                return result;
+            }
+
+            self.active_commands.fetch_sub(1, Ordering::Release);
+        }
+    }
+
+    #[inline]
+    pub fn with_watch_gate<T>(&self, operation: impl FnOnce() -> T) -> T {
+        let _trace = profiler::scope("engine::lib::with_watch_gate");
+        self.with_command_gate(operation)
     }
 
     #[inline]
     pub fn with_transaction_gate<T>(&self, operation: impl FnOnce() -> T) -> T {
         let _trace = profiler::scope("engine::lib::with_transaction_gate");
         let _guard = self.transaction_gate.write();
-        operation()
+        self.writer_pending.store(true, Ordering::Release);
+        while self.active_commands.load(Ordering::Acquire) != 0 {
+            spin_loop();
+        }
+        let result = operation();
+        self.writer_pending.store(false, Ordering::Release);
+        result
     }
 
     pub fn sweep_expired(&self) -> usize {

@@ -87,7 +87,8 @@ pub fn write_snapshot(
         })?;
     }
 
-    let (written_keys, uncompressed) = store.with_transaction_gate(|| build_rdb_snapshot(store, path))?;
+    let (written_keys, uncompressed) =
+        store.with_transaction_gate(|| build_rdb_snapshot(store, path))?;
     let encoded = encode_snapshot_file(&uncompressed, compression);
     let temp_path = path.with_extension("tmp");
     std::fs::write(&temp_path, &encoded)
@@ -155,9 +156,9 @@ fn build_rdb_snapshot(store: &Store, path: &Path) -> Result<(u64, Vec<u8>), Stri
                 let expire_at_s = now_s.saturating_add((ttl_ms as u64).div_ceil(1000));
                 let expire_at_s_u32 = u32::try_from(expire_at_s)
                     .map_err(|_| format!("ttl overflow while writing {}", path.display()))?;
-                writer.write_all(&[OP_EXPIRETIME]).map_err(|err| {
-                    format!("failed to write snapshot {}: {err}", path.display())
-                })?;
+                writer
+                    .write_all(&[OP_EXPIRETIME])
+                    .map_err(|err| format!("failed to write snapshot {}: {err}", path.display()))?;
                 writer
                     .write_all(&expire_at_s_u32.to_le_bytes())
                     .map_err(|err| format!("failed to write snapshot {}: {err}", path.display()))?;
