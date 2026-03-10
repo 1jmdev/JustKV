@@ -18,8 +18,8 @@ RUN:
 DIGEST mykey
 DIGEST mykey
 EXPECT:
-"(capture:1)"
-"(capture)"
+"1b4351fd057053ff"
+"1b4351fd057053ff"
 
 === TEST: DIGEST changes when value changes
 SETUP:
@@ -29,9 +29,9 @@ DIGEST mykey
 SET mykey "after"
 DIGEST mykey
 EXPECT:
-"(capture:1)"
+"112a231873239e27"
 OK
-"(not:capture)"
+"8c49910fe3021012"
 
 === TEST: DIGEST non-existing key
 SETUP:

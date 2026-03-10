@@ -60,9 +60,9 @@ SETUP:
 SET mykey "value"
 RUN:
 DIGEST mykey
-DELEX mykey IFDEQ "(capture:1)"
+DELEX mykey IFDEQ ${digest1}
 EXPECT:
-"(capture)"
+(capture) digest1
 (integer) 1
 
 === TEST: DELEX IFDNE matching different digest
@@ -71,9 +71,9 @@ SET mykey "value"
 SET otherkey "other"
 RUN:
 DIGEST otherkey
-DELEX mykey IFDNE "(capture:1)"
+DELEX mykey IFDNE ${digest1}
 EXPECT:
-"(capture)"
+(capture) digest1
 (integer) 1
 CLEANUP:
 DEL otherkey
