@@ -1,8 +1,7 @@
 use bytes::{BufMut, BytesMut};
 
 use crate::{Store, StoredEntry};
-use ahash::RandomState;
-use types::value::{CompactArg, CompactKey, CompactValue, Entry, HashValueMap};
+use types::value::{CompactArg, CompactKey, CompactValue, Entry, HashValue, HashValueMap};
 
 use super::super::helpers::{get_live_entry, monotonic_now_ms, purge_if_expired};
 use super::{collect_pairs, get_hash_map, get_hash_map_mut};
@@ -70,10 +69,7 @@ impl Store {
             .entries
             .get_or_insert_with(CompactKey::from_slice(key), || {
                 StoredEntry::new(
-                    Entry::Hash(Box::new(HashValueMap::with_capacity_and_hasher(
-                        pair_count,
-                        RandomState::new(),
-                    ))),
+                    Entry::Hash(Box::new(HashValue::with_capacity(pair_count))),
                     None,
                 )
             });

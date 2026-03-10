@@ -14,7 +14,7 @@ use lz4_flex::{compress_prepend_size, decompress_size_prepended};
 use crate::config::SnapshotCompression;
 use engine::store::{PreDecodedRestoreEntry, Store};
 use types::value::{
-    CompactKey, CompactValue, Entry as StoreEntry, StreamId, StreamValue, ZSetValueMap,
+    CompactKey, CompactValue, Entry as StoreEntry, HashValue, StreamId, StreamValue, ZSetValueMap,
 };
 
 use self::rdb::{
@@ -221,12 +221,12 @@ fn value_into_store_entry(value: Value) -> StoreEntry {
     match value {
         Value::String(v) => StoreEntry::String(CompactValue::from_vec(v)),
         Value::Hash(values) => {
-            let mut map: HashMap<CompactKey, CompactValue, RandomState> =
-                HashMap::with_capacity_and_hasher(values.len(), RandomState::new());
+            let mut hash_value = HashValue::with_capacity(values.len());
+            let map = hash_value.map_mut();
             for (field, value) in values {
                 map.insert(CompactKey::from_vec(field), CompactValue::from_vec(value));
             }
-            StoreEntry::Hash(Box::new(map))
+            StoreEntry::Hash(Box::new(hash_value))
         }
         Value::List(values) => {
             let mut list = VecDeque::with_capacity(values.len());

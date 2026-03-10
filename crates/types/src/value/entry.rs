@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 
 use ahash::RandomState;
+use bytes::Bytes;
 use hashbrown::HashMap;
 use indexmap::IndexSet;
 use serde_json::Value as JsonValue;
@@ -13,9 +14,57 @@ pub type SetValue = IndexSet<CompactKey, RandomState>;
 pub type GeoValue = HashMap<CompactKey, (f64, f64), RandomState>;
 
 #[derive(Clone, Debug)]
+pub struct HashValue {
+    map: HashValueMap,
+    getall_cache: Option<Bytes>,
+}
+
+impl HashValue {
+    pub fn new() -> Self {
+        Self {
+            map: HashMap::with_hasher(RandomState::new()),
+            getall_cache: None,
+        }
+    }
+
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            map: HashMap::with_capacity_and_hasher(capacity, RandomState::new()),
+            getall_cache: None,
+        }
+    }
+
+    #[inline]
+    pub fn map(&self) -> &HashValueMap {
+        &self.map
+    }
+
+    #[inline]
+    pub fn map_mut(&mut self) -> &mut HashValueMap {
+        self.getall_cache = None;
+        &mut self.map
+    }
+
+    #[inline]
+    pub fn getall_cache(&self) -> Option<&Bytes> {
+        self.getall_cache.as_ref()
+    }
+
+    #[inline]
+    pub fn set_getall_cache(&mut self, encoded: Bytes) {
+        self.getall_cache = Some(encoded);
+    }
+
+    #[inline]
+    pub fn invalidate_getall_cache(&mut self) {
+        self.getall_cache = None;
+    }
+}
+
+#[derive(Clone, Debug)]
 pub enum Entry {
     String(CompactValue),
-    Hash(Box<HashValueMap>),
+    Hash(Box<HashValue>),
     List(Box<ListValue>),
     Set(Box<SetValue>),
     ZSet(Box<ZSetValueMap>),
@@ -37,7 +86,7 @@ impl Entry {
 
     pub fn empty_hash() -> Self {
         let _trace = profiler::scope("crates::types::src::value::empty_hash");
-        Self::Hash(Box::new(HashMap::with_hasher(RandomState::new())))
+        Self::Hash(Box::new(HashValue::new()))
     }
 
     pub fn as_string(&self) -> Option<&CompactValue> {
@@ -71,7 +120,7 @@ impl Entry {
     pub fn as_hash(&self) -> Option<&HashValueMap> {
         let _trace = profiler::scope("crates::types::src::value::as_hash");
         match self {
-            Self::Hash(value) => Some(value),
+            Self::Hash(value) => Some(value.map()),
             Self::String(_)
             | Self::List(_)
             | Self::Set(_)
@@ -85,7 +134,7 @@ impl Entry {
     pub fn as_hash_mut(&mut self) -> Option<&mut HashValueMap> {
         let _trace = profiler::scope("crates::types::src::value::as_hash_mut");
         match self {
-            Self::Hash(value) => Some(value),
+            Self::Hash(value) => Some(value.map_mut()),
             Self::String(_) => None,
             Self::List(_) => None,
             Self::Set(_) => None,
@@ -219,6 +268,44 @@ impl Entry {
             | Self::ZSet(_)
             | Self::Geo(_)
             | Self::Json(_) => None,
+        }
+    }
+
+    pub fn hash_getall_cache(&self) -> Option<&Bytes> {
+        let _trace = profiler::scope("crates::types::src::value::hash_getall_cache");
+        match self {
+            Self::Hash(value) => value.getall_cache(),
+            Self::String(_)
+            | Self::List(_)
+            | Self::Set(_)
+            | Self::ZSet(_)
+            | Self::Geo(_)
+            | Self::Stream(_)
+            | Self::Json(_) => None,
+        }
+    }
+
+    pub fn set_hash_getall_cache(&mut self, encoded: Bytes) -> bool {
+        let _trace = profiler::scope("crates::types::src::value::set_hash_getall_cache");
+        match self {
+            Self::Hash(value) => {
+                value.set_getall_cache(encoded);
+                true
+            }
+            Self::String(_)
+            | Self::List(_)
+            | Self::Set(_)
+            | Self::ZSet(_)
+            | Self::Geo(_)
+            | Self::Stream(_)
+            | Self::Json(_) => false,
+        }
+    }
+
+    pub fn invalidate_hash_getall_cache(&mut self) {
+        let _trace = profiler::scope("crates::types::src::value::invalidate_hash_getall_cache");
+        if let Self::Hash(value) = self {
+            value.invalidate_getall_cache();
         }
     }
 

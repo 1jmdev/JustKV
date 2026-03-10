@@ -1,10 +1,12 @@
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use super::Store;
 use super::helpers::{is_expired, monotonic_now_ms, purge_if_expired};
-use super::pattern::{CompiledPattern, wildcard_match};
-use types::value::{CompactKey, CompactValue, Entry, StreamId, StreamValue, ZSetValueMap};
+use super::pattern::{wildcard_match, CompiledPattern};
+use super::Store;
+use types::value::{
+    CompactKey, CompactValue, Entry, HashValue, StreamId, StreamValue, ZSetValueMap,
+};
 
 static RANDOM_COUNTER: AtomicU64 = AtomicU64::new(0x9e3779b97f4a7c15);
 
@@ -676,7 +678,8 @@ fn serialize_entry(entry: &Entry) -> Vec<u8> {
             out.push(0);
             write_bytes(&mut out, value.as_slice());
         }
-        Entry::Hash(map) => {
+        Entry::Hash(hash_value) => {
+            let map = hash_value.map();
             out.push(1);
             write_u32(&mut out, map.len() as u32);
             for (field, value) in map.iter() {
@@ -754,8 +757,8 @@ fn deserialize_entry(payload: &[u8]) -> Option<Entry> {
         }
         1 => {
             let count = read_u32(&mut input)? as usize;
-            let mut map: hashbrown::HashMap<CompactKey, CompactValue, ahash::RandomState> =
-                hashbrown::HashMap::with_capacity_and_hasher(count, ahash::RandomState::new());
+            let mut hash_value = HashValue::with_capacity(count);
+            let map = hash_value.map_mut();
             for _ in 0..count {
                 let field = CompactKey::from_vec(read_bytes(&mut input)?);
                 let value = CompactValue::from_vec(read_bytes(&mut input)?);
@@ -764,7 +767,7 @@ fn deserialize_entry(payload: &[u8]) -> Option<Entry> {
             if !input.is_empty() {
                 return None;
             }
-            Some(Entry::Hash(Box::new(map)))
+            Some(Entry::Hash(Box::new(hash_value)))
         }
         2 => {
             let count = read_u32(&mut input)? as usize;

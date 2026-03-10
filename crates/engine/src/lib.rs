@@ -43,7 +43,6 @@ use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
 use ahash::RandomState;
-use bytes::Bytes;
 use hashbrown::HashMap;
 use parking_lot::RwLock;
 
@@ -54,7 +53,6 @@ use types::value::{CompactKey, CompactValue, Entry};
 pub(crate) struct StoredEntry {
     pub(crate) entry: Entry,
     deadline_ms: u64,
-    hash_getall_cache: Option<Bytes>,
 }
 
 impl StoredEntry {
@@ -62,23 +60,7 @@ impl StoredEntry {
         Self {
             entry,
             deadline_ms: deadline.unwrap_or(0),
-            hash_getall_cache: None,
         }
-    }
-
-    #[inline]
-    pub(crate) fn hash_getall_cache(&self) -> Option<&Bytes> {
-        self.hash_getall_cache.as_ref()
-    }
-
-    #[inline]
-    pub(crate) fn set_hash_getall_cache(&mut self, encoded: Bytes) {
-        self.hash_getall_cache = Some(encoded);
-    }
-
-    #[inline]
-    pub(crate) fn invalidate_hash_getall_cache(&mut self) {
-        self.hash_getall_cache = None;
     }
 
     pub(crate) fn deadline(&self) -> Option<u64> {
@@ -104,6 +86,21 @@ impl StoredEntry {
     pub(crate) fn into_parts(self) -> (Entry, Option<u64>) {
         let deadline = (self.deadline_ms != 0).then_some(self.deadline_ms);
         (self.entry, deadline)
+    }
+
+    #[inline]
+    pub(crate) fn hash_getall_cache(&self) -> Option<&bytes::Bytes> {
+        self.entry.hash_getall_cache()
+    }
+
+    #[inline]
+    pub(crate) fn set_hash_getall_cache(&mut self, encoded: bytes::Bytes) {
+        let _ = self.entry.set_hash_getall_cache(encoded);
+    }
+
+    #[inline]
+    pub(crate) fn invalidate_hash_getall_cache(&mut self) {
+        self.entry.invalidate_hash_getall_cache();
     }
 }
 
