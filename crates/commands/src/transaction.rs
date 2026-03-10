@@ -1,5 +1,5 @@
 use crate::dispatch::CommandId;
-use crate::util::{wrong_args, Args};
+use crate::util::{Args, wrong_args};
 use engine::store::Store;
 use engine::transaction::WatchState;
 use protocol::types::RespFrame;

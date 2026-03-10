@@ -1,9 +1,9 @@
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use super::helpers::{is_expired, monotonic_now_ms, purge_if_expired};
-use super::pattern::{wildcard_match, CompiledPattern};
 use super::Store;
+use super::helpers::{is_expired, monotonic_now_ms, purge_if_expired};
+use super::pattern::{CompiledPattern, wildcard_match};
 use types::value::{
     CompactKey, CompactValue, Entry, HashValue, StreamId, StreamValue, ZSetValueMap,
 };
