@@ -18,7 +18,7 @@ use crate::config::{AppendFsync, Config, SaveRule};
 
 #[derive(Clone)]
 pub struct PersistenceHandle {
-    sender: Sender<Request>,
+    sender: Option<Sender<Request>>,
 }
 
 pub struct RestoreOutcome {
@@ -47,8 +47,14 @@ struct PersistenceThread {
 
 impl PersistenceHandle {
     pub fn spawn(store: Store, config: Config) -> Self {
+        if !persistence_enabled(&config) {
+            return Self { sender: None };
+        }
+
         let (sender, receiver) = mpsc::channel();
-        let handle = Self { sender };
+        let handle = Self {
+            sender: Some(sender),
+        };
         let thread_handle = handle.clone();
         let snapshot_path = config.snapshot_path();
         let aof_path = config.appendonly_path();
@@ -66,6 +72,9 @@ impl PersistenceHandle {
     }
 
     pub fn record_command(&self, command: CommandId, args: &[CompactArg], response: &RespFrame) {
+        if self.sender.is_none() {
+            return;
+        }
         if !should_log_command(command, response) {
             return;
         }
@@ -73,6 +82,9 @@ impl PersistenceHandle {
     }
 
     pub fn record_transaction(&self, commands: &[(CommandId, Vec<CompactArg>)]) {
+        if self.sender.is_none() {
+            return;
+        }
         if commands.is_empty() {
             return;
         }
@@ -99,8 +111,13 @@ impl PersistenceHandle {
     }
 
     pub fn shutdown(&self) -> Result<(), String> {
+        let Some(sender) = &self.sender else {
+            return Ok(());
+        };
         let (reply_tx, reply_rx) = mpsc::channel();
-        self.send_request(Request::Shutdown { reply: reply_tx });
+        sender
+            .send(Request::Shutdown { reply: reply_tx })
+            .map_err(|err| format!("failed to send shutdown request: {err}"))?;
         reply_rx
             .recv()
             .map_err(|err| format!("failed to receive shutdown reply: {err}"))?
@@ -114,10 +131,17 @@ impl PersistenceHandle {
     }
 
     fn send_request(&self, request: Request) {
-        if let Err(err) = self.sender.send(request) {
+        let Some(sender) = &self.sender else {
+            return;
+        };
+        if let Err(err) = sender.send(request) {
             tracing::error!(error = %err, "failed to send persistence request");
         }
     }
+}
+
+fn persistence_enabled(config: &Config) -> bool {
+    config.appendonly || config.snapshot_on_shutdown || !config.save_rules.is_empty()
 }
 
 impl PersistenceThread {
