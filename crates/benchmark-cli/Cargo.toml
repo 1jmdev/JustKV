@@ -8,7 +8,7 @@ name = "betterkv-benchmark"
 path = "src/main.rs"
 
 [dependencies]
-tikv-jemallocator.workspace = true
+betterkv-alloc.workspace = true
 bytes.workspace = true
 clap.workspace = true
 itoa.workspace = true

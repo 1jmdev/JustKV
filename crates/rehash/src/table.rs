@@ -1,7 +1,9 @@
+use betterkv_alloc::BucketArray;
+
 use super::constants::{INITIAL_BUCKETS, NIL};
 
 pub(super) struct Table {
-    pub(super) heads: Vec<u32>,
+    pub(super) heads: BucketArray,
     pub(super) mask: usize,
 }
 
@@ -10,7 +12,7 @@ impl Table {
         let _trace = profiler::scope("rehash::table::with_buckets");
         let count = count.max(INITIAL_BUCKETS).next_power_of_two();
         Self {
-            heads: vec![NIL; count],
+            heads: BucketArray::filled(count, NIL),
             mask: count - 1,
         }
     }

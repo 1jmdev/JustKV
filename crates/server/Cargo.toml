@@ -11,6 +11,7 @@ path = "src/main.rs"
 profiling = ["profiler/enabled"]
 
 [dependencies]
+betterkv-alloc.workspace = true
 clap.workspace = true
 commands.workspace = true
 engine.workspace = true
@@ -25,7 +26,6 @@ itoa.workspace = true
 parking_lot.workspace = true
 smallvec.workspace = true
 socket2.workspace = true
-tikv-jemallocator.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 tracing-appender.workspace = true

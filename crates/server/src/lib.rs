@@ -10,7 +10,7 @@ pub mod persistence;
 pub mod profile;
 
 #[global_allocator]
-static GLOBAL_ALLOCATOR: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+static GLOBAL_ALLOCATOR: betterkv_alloc::BetterKvAllocator = betterkv_alloc::BetterKvAllocator;
 
 pub async fn run(config: config::Config) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let _trace = profiler::scope("server::lib::run");

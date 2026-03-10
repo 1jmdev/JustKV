@@ -7,6 +7,7 @@ edition.workspace = true
 profiling = ["profiler/enabled"]
 
 [dependencies]
+betterkv-alloc.workspace = true
 profiler.workspace = true
 getrandom = "0.3"
 

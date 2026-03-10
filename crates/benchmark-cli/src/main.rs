@@ -14,7 +14,7 @@ use render::render_result;
 use spec::{resolve_workload, tests};
 
 #[global_allocator]
-static GLOBAL_ALLOCATOR: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+static GLOBAL_ALLOCATOR: betterkv_alloc::BetterKvAllocator = betterkv_alloc::BetterKvAllocator;
 
 fn main() -> ExitCode {
     let args = Args::parse();
