@@ -1,4 +1,5 @@
-use bytes::{Buf, BytesMut};
+use bytes::{Buf, Bytes, BytesMut};
+use smallvec::SmallVec;
 use std::fmt;
 
 use crate::types::{BulkData, RespFrame};
@@ -20,6 +21,114 @@ impl fmt::Display for ParseError {
 }
 
 impl std::error::Error for ParseError {}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ByteSpan {
+    pub start: u32,
+    pub end: u32,
+}
+
+impl ByteSpan {
+    #[inline(always)]
+    pub const fn len(self) -> usize {
+        (self.end - self.start) as usize
+    }
+
+    #[inline(always)]
+    pub const fn is_empty(self) -> bool {
+        self.start == self.end
+    }
+}
+
+#[inline(always)]
+fn make_span(start: usize, end: usize) -> Result<ByteSpan, ParseError> {
+    if end > u32::MAX as usize {
+        return Err(ParseError::Protocol("frame too large"));
+    }
+    Ok(ByteSpan {
+        start: start as u32,
+        end: end as u32,
+    })
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ParsedCommand {
+    raw: Bytes,
+    args: SmallVec<[ByteSpan; 8]>,
+}
+
+impl ParsedCommand {
+    #[inline(always)]
+    pub fn len(&self) -> usize {
+        self.args.len()
+    }
+
+    #[inline(always)]
+    pub fn is_empty(&self) -> bool {
+        self.args.is_empty()
+    }
+
+    #[inline(always)]
+    pub fn arg(&self, index: usize) -> &[u8] {
+        let span = unsafe { *self.args.get_unchecked(index) };
+        unsafe {
+            self.raw
+                .as_ref()
+                .get_unchecked(span.start as usize..span.end as usize)
+        }
+    }
+
+    #[inline(always)]
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = &[u8]> + '_ {
+        self.args.iter().map(|span| unsafe {
+            self.raw
+                .as_ref()
+                .get_unchecked(span.start as usize..span.end as usize)
+        })
+    }
+
+    #[inline(always)]
+    pub fn into_raw(self) -> Bytes {
+        self.raw
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum BorrowedFrame {
+    Simple(ByteSpan),
+    Error(ByteSpan),
+    Integer(i64),
+    Bulk(Option<ByteSpan>),
+    Array(Option<Vec<BorrowedFrame>>),
+    Map(Vec<(BorrowedFrame, BorrowedFrame)>),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ParsedFrame {
+    raw: Bytes,
+    frame: BorrowedFrame,
+}
+
+impl ParsedFrame {
+    #[inline(always)]
+    pub fn frame(&self) -> &BorrowedFrame {
+        &self.frame
+    }
+
+    #[inline(always)]
+    pub fn bytes(&self, span: ByteSpan) -> &[u8] {
+        unsafe {
+            self.raw
+                .as_ref()
+                .get_unchecked(span.start as usize..span.end as usize)
+        }
+    }
+
+    #[inline(always)]
+    pub fn into_raw(self) -> Bytes {
+        self.raw
+    }
+}
 
 struct Cursor<'a> {
     data: &'a [u8],
@@ -46,13 +155,11 @@ impl<'a> Cursor<'a> {
         }
     }
 
-    /// Advance by `n` bytes.  Caller must guarantee `n <= remaining()`.
     #[inline(always)]
     unsafe fn advance_unchecked(&mut self, n: usize) {
         self.pos += n;
     }
 
-    /// Return a slice `[pos .. pos+n)` and advance.
     #[inline(always)]
     fn take(&mut self, n: usize) -> Result<&'a [u8], ParseError> {
         if self.remaining() < n {
@@ -63,18 +170,13 @@ impl<'a> Cursor<'a> {
         Ok(unsafe { self.data.get_unchecked(start..self.pos) })
     }
 
-    /// Find the next `\r\n` starting from the current position.
-    /// Returns the slice *before* the CRLF and advances past it.
     #[inline(always)]
     fn read_line(&mut self) -> Result<&'a [u8], ParseError> {
         let start = self.pos;
         let data = self.data;
         let len = data.len();
 
-        // We search for '\n' and verify the preceding byte is '\r'.
-        // In RESP, header lines are short so a tight scalar loop is optimal
-        // (often < 16 bytes — well within L1 and branch-predictor range).
-        let mut i = start + 1; // need at least one byte before \n
+        let mut i = start + 1;
         while i < len {
             if unsafe { *data.get_unchecked(i) } == b'\n'
                 && unsafe { *data.get_unchecked(i - 1) } == b'\r'
@@ -85,10 +187,10 @@ impl<'a> Cursor<'a> {
             }
             i += 1;
         }
+
         Err(ParseError::Incomplete)
     }
 
-    /// Consume exactly `\r\n`.
     #[inline(always)]
     fn expect_crlf(&mut self) -> Result<(), ParseError> {
         if self.remaining() < 2 {
@@ -104,64 +206,118 @@ impl<'a> Cursor<'a> {
     }
 }
 
-/// Parse a non-negative integer from a byte slice (digits only).
 #[inline(always)]
-fn parse_uint(data: &[u8]) -> Result<usize, ParseError> {
+fn parse_digit_usize(b: u8) -> Result<usize, ParseError> {
+    let d = b.wrapping_sub(b'0');
+    if d > 9 {
+        Err(ParseError::Protocol("invalid digit"))
+    } else {
+        Ok(d as usize)
+    }
+}
+
+#[cold]
+fn parse_uint_slow(data: &[u8]) -> Result<usize, ParseError> {
     if data.is_empty() {
         return Err(ParseError::Protocol("empty integer"));
     }
-    let mut val: usize = 0;
+
+    let mut val = 0usize;
+    const MAX_PRE: usize = usize::MAX / 10;
+    const MAX_LAST: usize = usize::MAX % 10;
+
     for &b in data {
         let d = b.wrapping_sub(b'0');
         if d > 9 {
             return Err(ParseError::Protocol("invalid digit"));
         }
-        val = val
-            .checked_mul(10)
-            .and_then(|value| value.checked_add(d as usize))
-            .ok_or(ParseError::Protocol("integer overflow"))?;
+        let d = d as usize;
+        if val > MAX_PRE || (val == MAX_PRE && d > MAX_LAST) {
+            return Err(ParseError::Protocol("integer overflow"));
+        }
+        val = val * 10 + d;
     }
+
     Ok(val)
 }
 
-/// Parse a signed integer from a byte slice (optional leading `-`).
+#[inline(always)]
+fn parse_uint(data: &[u8]) -> Result<usize, ParseError> {
+    match data {
+        [] => Err(ParseError::Protocol("empty integer")),
+        [a] => parse_digit_usize(*a),
+        [a, b] => Ok(parse_digit_usize(*a)? * 10 + parse_digit_usize(*b)?),
+        [a, b, c] => {
+            Ok(parse_digit_usize(*a)? * 100
+                + parse_digit_usize(*b)? * 10
+                + parse_digit_usize(*c)?)
+        }
+        [a, b, c, d] => {
+            Ok(parse_digit_usize(*a)? * 1000
+                + parse_digit_usize(*b)? * 100
+                + parse_digit_usize(*c)? * 10
+                + parse_digit_usize(*d)?)
+        }
+        _ => parse_uint_slow(data),
+    }
+}
+
 #[inline(always)]
 fn parse_int(data: &[u8]) -> Result<i64, ParseError> {
     if data.is_empty() {
         return Err(ParseError::Protocol("empty integer"));
     }
-    let (neg, start) = if data[0] == b'-' {
-        (true, 1)
+
+    let (neg, digits) = if data[0] == b'-' {
+        (true, &data[1..])
     } else {
-        (false, 0)
+        (false, data)
     };
-    if start == data.len() {
+
+    if digits.is_empty() {
         return Err(ParseError::Protocol("invalid integer"));
     }
-    let mut val: i64 = 0;
-    let mut i = start;
-    while i < data.len() {
-        let d = unsafe { *data.get_unchecked(i) }.wrapping_sub(b'0');
-        if d > 9 {
-            return Err(ParseError::Protocol("invalid digit in integer"));
-        }
-        val = val
-            .checked_mul(10)
-            .and_then(|value| value.checked_add(d as i64))
-            .ok_or(ParseError::Protocol("integer overflow"))?;
-        i += 1;
-    }
+
+    let mag = parse_uint(digits)? as u64;
+
     if neg {
-        val.checked_neg()
-            .ok_or(ParseError::Protocol("integer overflow"))
+        let limit = i64::MAX as u64 + 1;
+        if mag > limit {
+            return Err(ParseError::Protocol("integer overflow"));
+        }
+        if mag == limit {
+            Ok(i64::MIN)
+        } else {
+            Ok(-(mag as i64))
+        }
     } else {
-        Ok(val)
+        if mag > i64::MAX as u64 {
+            return Err(ParseError::Protocol("integer overflow"));
+        }
+        Ok(mag as i64)
     }
 }
 
-// Supports:
-//   • Array (RESP) commands:   *N\r\n $len\r\n data\r\n …
-//   • Inline commands:         TOKEN TOKEN … \r\n
+pub fn parse_command_borrowed(src: &mut BytesMut) -> Result<Option<ParsedCommand>, ParseError> {
+    let data = &src[..];
+    if data.is_empty() {
+        return Ok(None);
+    }
+
+    let result = match data[0] {
+        b'*' => parse_array_command_ranges(data),
+        _ => parse_inline_command_ranges(data),
+    };
+
+    match result {
+        Ok((consumed, args)) => {
+            let raw = src.split_to(consumed).freeze();
+            Ok(Some(ParsedCommand { raw, args }))
+        }
+        Err(ParseError::Incomplete) => Ok(None),
+        Err(err) => Err(err),
+    }
+}
 
 pub fn parse_command_into(
     src: &mut BytesMut,
@@ -174,8 +330,8 @@ pub fn parse_command_into(
     }
 
     let result = match data[0] {
-        b'*' => parse_array_command(src, args),
-        _ => parse_inline_command(src, args),
+        b'*' => parse_array_command_owned(src, args),
+        _ => parse_inline_command_owned(src, args),
     };
 
     match result {
@@ -184,30 +340,19 @@ pub fn parse_command_into(
     }
 }
 
-#[inline]
-fn parse_array_command(
-    src: &mut BytesMut,
-    args: &mut Vec<CompactArg>,
-) -> Result<Option<()>, ParseError> {
-    let mut cur = Cursor::new(&src[..]);
-
-    // skip '*'
+#[inline(always)]
+fn parse_array_command_ranges(
+    data: &[u8],
+) -> Result<(usize, SmallVec<[ByteSpan; 8]>), ParseError> {
+    let mut cur = Cursor::new(data);
     unsafe { cur.advance_unchecked(1) };
 
-    // read argument count
     let count_line = cur.read_line()?;
     let count = parse_uint(count_line)?;
 
-    if count == 0 {
-        let consumed = cur.pos;
-        src.advance(consumed);
-        return Ok(Some(()));
-    }
-
-    args.reserve(count);
+    let mut args = SmallVec::<[ByteSpan; 8]>::with_capacity(count);
 
     for _ in 0..count {
-        // expect '$'
         match cur.peek() {
             Some(b'$') => {}
             Some(_) => return Err(ParseError::Protocol("expected '$' in array command")),
@@ -215,60 +360,141 @@ fn parse_array_command(
         }
         unsafe { cur.advance_unchecked(1) };
 
-        // read bulk length
         let len_line = cur.read_line()?;
         let bulk_len = parse_uint(len_line)?;
 
-        // read payload
-        let payload = cur.take(bulk_len)?;
-        let arg = CompactArg::from_slice(payload);
-
-        // CRLF after payload
+        let start = cur.pos;
+        cur.take(bulk_len)?;
+        let end = cur.pos;
         cur.expect_crlf()?;
 
-        args.push(arg);
+        args.push(make_span(start, end)?);
     }
 
-    let consumed = cur.pos;
-    src.advance(consumed);
-    Ok(Some(()))
+    Ok((cur.pos, args))
 }
 
-#[inline]
-fn parse_inline_command(
-    src: &mut BytesMut,
-    args: &mut Vec<CompactArg>,
-) -> Result<Option<()>, ParseError> {
-    let mut cur = Cursor::new(&src[..]);
+#[inline(always)]
+fn parse_inline_command_ranges(
+    data: &[u8],
+) -> Result<(usize, SmallVec<[ByteSpan; 8]>), ParseError> {
+    let mut cur = Cursor::new(data);
     let line = cur.read_line()?;
 
-    // Split line by spaces (consecutive spaces produce no empty tokens, per Redis spec).
-    let mut i = 0;
+    let base = line.as_ptr() as usize - data.as_ptr() as usize;
+    let mut args = SmallVec::<[ByteSpan; 8]>::new();
+
+    let mut i = 0usize;
     let len = line.len();
+
     while i < len {
-        // skip whitespace
         while i < len && unsafe { *line.get_unchecked(i) } == b' ' {
             i += 1;
         }
         if i >= len {
             break;
         }
+
         let start = i;
         while i < len && unsafe { *line.get_unchecked(i) } != b' ' {
             i += 1;
         }
-        args.push(CompactArg::from_slice(unsafe {
-            line.get_unchecked(start..i)
-        }));
+
+        args.push(make_span(base + start, base + i)?);
     }
 
     if args.is_empty() {
         return Err(ParseError::Protocol("empty inline command"));
     }
 
-    let consumed = cur.pos;
-    src.advance(consumed);
+    Ok((cur.pos, args))
+}
+
+#[inline(always)]
+fn parse_array_command_owned(
+    src: &mut BytesMut,
+    args: &mut Vec<CompactArg>,
+) -> Result<Option<()>, ParseError> {
+    let mut cur = Cursor::new(&src[..]);
+    unsafe { cur.advance_unchecked(1) };
+
+    let count_line = cur.read_line()?;
+    let count = parse_uint(count_line)?;
+
+    if args.capacity() < count {
+        args.reserve(count);
+    }
+
+    for _ in 0..count {
+        match cur.peek() {
+            Some(b'$') => {}
+            Some(_) => return Err(ParseError::Protocol("expected '$' in array command")),
+            None => return Err(ParseError::Incomplete),
+        }
+        unsafe { cur.advance_unchecked(1) };
+
+        let len_line = cur.read_line()?;
+        let bulk_len = parse_uint(len_line)?;
+        let payload = cur.take(bulk_len)?;
+        cur.expect_crlf()?;
+
+        args.push(CompactArg::from_slice(payload));
+    }
+
+    src.advance(cur.pos);
     Ok(Some(()))
+}
+
+#[inline(always)]
+fn parse_inline_command_owned(
+    src: &mut BytesMut,
+    args: &mut Vec<CompactArg>,
+) -> Result<Option<()>, ParseError> {
+    let mut cur = Cursor::new(&src[..]);
+    let line = cur.read_line()?;
+
+    let mut i = 0usize;
+    let len = line.len();
+
+    while i < len {
+        while i < len && unsafe { *line.get_unchecked(i) } == b' ' {
+            i += 1;
+        }
+        if i >= len {
+            break;
+        }
+
+        let start = i;
+        while i < len && unsafe { *line.get_unchecked(i) } != b' ' {
+            i += 1;
+        }
+
+        args.push(CompactArg::from_slice(unsafe { line.get_unchecked(start..i) }));
+    }
+
+    if args.is_empty() {
+        return Err(ParseError::Protocol("empty inline command"));
+    }
+
+    src.advance(cur.pos);
+    Ok(Some(()))
+}
+
+pub fn parse_frame_borrowed(src: &mut BytesMut) -> Result<Option<ParsedFrame>, ParseError> {
+    let data = &src[..];
+    if data.is_empty() {
+        return Ok(None);
+    }
+
+    let mut cur = Cursor::new(data);
+    match parse_frame_borrowed_inner(&mut cur) {
+        Ok(frame) => {
+            let raw = src.split_to(cur.pos).freeze();
+            Ok(Some(ParsedFrame { raw, frame }))
+        }
+        Err(ParseError::Incomplete) => Ok(None),
+        Err(err) => Err(err),
+    }
 }
 
 pub fn parse_frame(src: &mut BytesMut) -> Result<Option<RespFrame>, ParseError> {
@@ -276,11 +502,11 @@ pub fn parse_frame(src: &mut BytesMut) -> Result<Option<RespFrame>, ParseError> 
     if data.is_empty() {
         return Ok(None);
     }
+
     let mut cur = Cursor::new(data);
     match parse_frame_inner(&mut cur) {
         Ok(frame) => {
-            let consumed = cur.pos;
-            src.advance(consumed);
+            src.advance(cur.pos);
             Ok(Some(frame))
         }
         Err(ParseError::Incomplete) => Ok(None),
@@ -288,6 +514,23 @@ pub fn parse_frame(src: &mut BytesMut) -> Result<Option<RespFrame>, ParseError> 
     }
 }
 
+#[inline(always)]
+fn parse_frame_borrowed_inner(cur: &mut Cursor<'_>) -> Result<BorrowedFrame, ParseError> {
+    let tag = cur.peek().ok_or(ParseError::Incomplete)?;
+    unsafe { cur.advance_unchecked(1) };
+
+    match tag {
+        b'+' => parse_simple_borrowed(cur),
+        b'-' => parse_error_borrowed(cur),
+        b':' => parse_integer_borrowed(cur),
+        b'$' => parse_bulk_borrowed(cur),
+        b'*' => parse_array_borrowed(cur),
+        b'%' => parse_map_borrowed(cur),
+        _ => Err(ParseError::Protocol("unknown RESP type tag")),
+    }
+}
+
+#[inline(always)]
 fn parse_frame_inner(cur: &mut Cursor<'_>) -> Result<RespFrame, ParseError> {
     let tag = cur.peek().ok_or(ParseError::Incomplete)?;
     unsafe { cur.advance_unchecked(1) };
@@ -303,16 +546,103 @@ fn parse_frame_inner(cur: &mut Cursor<'_>) -> Result<RespFrame, ParseError> {
     }
 }
 
-#[inline]
-fn parse_simple(cur: &mut Cursor<'_>) -> Result<RespFrame, ParseError> {
+#[inline(always)]
+fn parse_simple_borrowed(cur: &mut Cursor<'_>) -> Result<BorrowedFrame, ParseError> {
+    let start = cur.pos;
     let line = cur.read_line()?;
-    let s = std::str::from_utf8(line)
-        .map_err(|_| ParseError::Protocol("invalid UTF-8 in simple string"))?
-        .to_owned();
-    Ok(RespFrame::Simple(s))
+    let end = start + line.len();
+    Ok(BorrowedFrame::Simple(make_span(start, end)?))
 }
 
-#[inline]
+#[inline(always)]
+fn parse_error_borrowed(cur: &mut Cursor<'_>) -> Result<BorrowedFrame, ParseError> {
+    let start = cur.pos;
+    let line = cur.read_line()?;
+    let end = start + line.len();
+    Ok(BorrowedFrame::Error(make_span(start, end)?))
+}
+
+#[inline(always)]
+fn parse_integer_borrowed(cur: &mut Cursor<'_>) -> Result<BorrowedFrame, ParseError> {
+    let line = cur.read_line()?;
+    Ok(BorrowedFrame::Integer(parse_int(line)?))
+}
+
+#[inline(always)]
+fn parse_bulk_borrowed(cur: &mut Cursor<'_>) -> Result<BorrowedFrame, ParseError> {
+    let line = cur.read_line()?;
+
+    if line == b"-1" {
+        return Ok(BorrowedFrame::Bulk(None));
+    }
+    if line.first() == Some(&b'-') {
+        return Err(ParseError::Protocol("invalid bulk length"));
+    }
+
+    let len = parse_uint(line)?;
+    let start = cur.pos;
+    cur.take(len)?;
+    let end = cur.pos;
+    cur.expect_crlf()?;
+
+    Ok(BorrowedFrame::Bulk(Some(make_span(start, end)?)))
+}
+
+#[inline(always)]
+fn parse_array_borrowed(cur: &mut Cursor<'_>) -> Result<BorrowedFrame, ParseError> {
+    let line = cur.read_line()?;
+
+    if line == b"-1" {
+        return Ok(BorrowedFrame::Array(None));
+    }
+    if line.first() == Some(&b'-') {
+        return Err(ParseError::Protocol("invalid array length"));
+    }
+
+    let count = parse_uint(line)?;
+    let mut items = Vec::with_capacity(count);
+    for _ in 0..count {
+        items.push(parse_frame_borrowed_inner(cur)?);
+    }
+    Ok(BorrowedFrame::Array(Some(items)))
+}
+
+#[inline(always)]
+fn parse_map_borrowed(cur: &mut Cursor<'_>) -> Result<BorrowedFrame, ParseError> {
+    let line = cur.read_line()?;
+
+    if line.first() == Some(&b'-') {
+        return Err(ParseError::Protocol("invalid map length"));
+    }
+
+    let count = parse_uint(line)?;
+    let mut pairs = Vec::with_capacity(count);
+    for _ in 0..count {
+        let key = parse_frame_borrowed_inner(cur)?;
+        let val = parse_frame_borrowed_inner(cur)?;
+        pairs.push((key, val));
+    }
+    Ok(BorrowedFrame::Map(pairs))
+}
+
+#[inline(always)]
+fn parse_simple(cur: &mut Cursor<'_>) -> Result<RespFrame, ParseError> {
+    let line = cur.read_line()?;
+
+    match line {
+        b"OK" => Ok(RespFrame::SimpleStatic("OK")),
+        b"PONG" => Ok(RespFrame::SimpleStatic("PONG")),
+        b"QUEUED" => Ok(RespFrame::SimpleStatic("QUEUED")),
+        _ => {
+            let s = std::str::from_utf8(line)
+                .map_err(|_| ParseError::Protocol("invalid UTF-8 in simple string"))?
+                .to_owned();
+            Ok(RespFrame::Simple(s))
+        }
+    }
+}
+
+#[inline(always)]
 fn parse_error(cur: &mut Cursor<'_>) -> Result<RespFrame, ParseError> {
     let line = cur.read_line()?;
     let s = std::str::from_utf8(line)
@@ -321,44 +651,45 @@ fn parse_error(cur: &mut Cursor<'_>) -> Result<RespFrame, ParseError> {
     Ok(RespFrame::Error(s))
 }
 
-#[inline]
+#[inline(always)]
 fn parse_integer(cur: &mut Cursor<'_>) -> Result<RespFrame, ParseError> {
     let line = cur.read_line()?;
-    let v = parse_int(line)?;
-    Ok(RespFrame::Integer(v))
+    Ok(RespFrame::Integer(parse_int(line)?))
 }
 
-#[inline]
+#[inline(always)]
 fn parse_bulk(cur: &mut Cursor<'_>) -> Result<RespFrame, ParseError> {
     let line = cur.read_line()?;
 
-    // Null bulk: $-1\r\n
-    if line.first() == Some(&b'-') {
+    if line == b"-1" {
         return Ok(RespFrame::Bulk(None));
+    }
+    if line.first() == Some(&b'-') {
+        return Err(ParseError::Protocol("invalid bulk length"));
     }
 
     let len = parse_uint(line)?;
     let payload = cur.take(len)?;
+    cur.expect_crlf()?;
 
-    // Decide Arg vs Value based on size.  ≤15 bytes → Arg (inline),
-    // otherwise → Value.  This matches the CompactArg/CompactValue split.
     let bulk = if len <= 15 {
         BulkData::Arg(CompactArg::from_slice(payload))
     } else {
         BulkData::Value(CompactValue::from_slice(payload))
     };
 
-    cur.expect_crlf()?;
     Ok(RespFrame::Bulk(Some(bulk)))
 }
 
-#[inline]
+#[inline(always)]
 fn parse_array(cur: &mut Cursor<'_>) -> Result<RespFrame, ParseError> {
     let line = cur.read_line()?;
 
-    // Null array: *-1\r\n
-    if line.first() == Some(&b'-') {
+    if line == b"-1" {
         return Ok(RespFrame::Array(None));
+    }
+    if line.first() == Some(&b'-') {
+        return Err(ParseError::Protocol("invalid array length"));
     }
 
     let count = parse_uint(line)?;
@@ -369,9 +700,14 @@ fn parse_array(cur: &mut Cursor<'_>) -> Result<RespFrame, ParseError> {
     Ok(RespFrame::Array(Some(items)))
 }
 
-#[inline]
+#[inline(always)]
 fn parse_map(cur: &mut Cursor<'_>) -> Result<RespFrame, ParseError> {
     let line = cur.read_line()?;
+
+    if line.first() == Some(&b'-') {
+        return Err(ParseError::Protocol("invalid map length"));
+    }
+
     let count = parse_uint(line)?;
     let mut pairs = Vec::with_capacity(count);
     for _ in 0..count {
@@ -420,10 +756,44 @@ mod tests {
     }
 
     #[test]
+    fn borrowed_inline_command() {
+        let mut src = BytesMut::from(&b"SET key value PX 100\r\n"[..]);
+        let cmd = parse_command_borrowed(&mut src).unwrap().unwrap();
+        assert_eq!(cmd.len(), 5);
+        assert_eq!(cmd.arg(0), b"SET");
+        assert_eq!(cmd.arg(1), b"key");
+        assert_eq!(cmd.arg(2), b"value");
+        assert_eq!(cmd.arg(3), b"PX");
+        assert_eq!(cmd.arg(4), b"100");
+        assert!(src.is_empty());
+    }
+
+    #[test]
+    fn borrowed_array_command() {
+        let mut src = BytesMut::from(&b"*2\r\n$4\r\nLLEN\r\n$5\r\nqueue\r\n"[..]);
+        let cmd = parse_command_borrowed(&mut src).unwrap().unwrap();
+        assert_eq!(cmd.len(), 2);
+        assert_eq!(cmd.arg(0), b"LLEN");
+        assert_eq!(cmd.arg(1), b"queue");
+        assert!(src.is_empty());
+    }
+
+    #[test]
+    fn borrowed_bulk_frame() {
+        let mut src = BytesMut::from(&b"$5\r\nhello\r\n"[..]);
+        let frame = parse_frame_borrowed(&mut src).unwrap().unwrap();
+        match frame.frame() {
+            BorrowedFrame::Bulk(Some(span)) => assert_eq!(frame.bytes(*span), b"hello"),
+            other => panic!("expected borrowed bulk, got {other:?}"),
+        }
+        assert!(src.is_empty());
+    }
+
+    #[test]
     fn parse_simple_frame() {
         let mut src = BytesMut::from(&b"+OK\r\n"[..]);
         let frame = parse_frame(&mut src).unwrap().unwrap();
-        assert_eq!(frame, RespFrame::Simple("OK".into()));
+        assert_eq!(frame, RespFrame::SimpleStatic("OK"));
     }
 
     #[test]

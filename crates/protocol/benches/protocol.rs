@@ -116,6 +116,46 @@ fn bench_parse_command(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_parse_command_borrowed(c: &mut Criterion) {
+    let mut group = c.benchmark_group("parse_command_borrowed");
+    group.measurement_time(Duration::from_secs(1));
+    group.warm_up_time(Duration::from_millis(500));
+
+    let inline = inline_command();
+    group.throughput(Throughput::Bytes(inline.len() as u64));
+    group.bench_function("inline", |b| {
+        b.iter_batched(
+            || inline.clone(),
+            |mut src| {
+                let cmd = parser::parse_command_borrowed(black_box(&mut src)).unwrap();
+                black_box(cmd)
+            },
+            BatchSize::SmallInput,
+        )
+    });
+
+    for &(argc, arg_len) in &[(3usize, 8usize), (8, 16), (32, 24)] {
+        let src = array_command(argc, arg_len);
+        group.throughput(Throughput::Bytes(src.len() as u64));
+        group.bench_with_input(
+            BenchmarkId::new("array", format!("{argc}x{arg_len}")),
+            &src,
+            |b, src| {
+                b.iter_batched(
+                    || src.clone(),
+                    |mut src| {
+                        let cmd = parser::parse_command_borrowed(black_box(&mut src)).unwrap();
+                        black_box(cmd)
+                    },
+                    BatchSize::SmallInput,
+                )
+            },
+        );
+    }
+
+    group.finish();
+}
+
 fn bench_parse_frame(c: &mut Criterion) {
     let mut group = c.benchmark_group("parse_frame");
     group.measurement_time(Duration::from_secs(1));
@@ -142,6 +182,32 @@ fn bench_parse_frame(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_parse_frame_borrowed(c: &mut Criterion) {
+    let mut group = c.benchmark_group("parse_frame_borrowed");
+    group.measurement_time(Duration::from_secs(1));
+    group.warm_up_time(Duration::from_millis(500));
+
+    for (name, frame) in [
+        ("simple", BytesMut::from(&b"+PONG\r\n"[..])),
+        ("bulk", BytesMut::from(&b"$18\r\nbenchmark-payload\r\n"[..])),
+        ("nested", nested_frame()),
+    ] {
+        group.throughput(Throughput::Bytes(frame.len() as u64));
+        group.bench_function(name, |b| {
+            b.iter_batched(
+                || frame.clone(),
+                |mut src| {
+                    parser::parse_frame_borrowed(black_box(&mut src)).unwrap();
+                    black_box(src)
+                },
+                BatchSize::SmallInput,
+            )
+        });
+    }
+
+    group.finish();
+}
+
 fn bench_encode(c: &mut Criterion) {
     let mut group = c.benchmark_group("encode");
     group.measurement_time(Duration::from_secs(1));
@@ -158,12 +224,14 @@ fn bench_encode(c: &mut Criterion) {
         let mut warmup = BytesMut::new();
         Encoder::default().encode(&frame, &mut warmup);
         group.throughput(Throughput::Bytes(warmup.len() as u64));
+
         group.bench_function(name, |b| {
             let mut encoder = Encoder::default();
+            let mut out = BytesMut::with_capacity(warmup.len());
             b.iter(|| {
-                let mut out = BytesMut::with_capacity(256);
+                out.clear();
                 encoder.encode(black_box(&frame), black_box(&mut out));
-                black_box(out)
+                black_box(&out);
             })
         });
     }
@@ -174,7 +242,9 @@ fn bench_encode(c: &mut Criterion) {
 criterion_group!(
     benches,
     bench_parse_command,
+    bench_parse_command_borrowed,
     bench_parse_frame,
+    bench_parse_frame_borrowed,
     bench_encode
 );
 criterion_main!(benches);

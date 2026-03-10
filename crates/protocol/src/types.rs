@@ -1,5 +1,4 @@
 use bytes::Bytes;
-
 use types::value::{CompactArg, CompactValue};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -9,21 +8,25 @@ pub enum BulkData {
 }
 
 impl BulkData {
+    #[inline(always)]
     pub fn from_vec(value: Vec<u8>) -> Self {
-        let _trace = profiler::scope("protocol::types::from_vec");
-        Self::Arg(CompactArg::from_vec(value))
+        if value.len() <= 15 {
+            Self::Arg(CompactArg::from_vec(value))
+        } else {
+            Self::Value(CompactValue::from_vec(value))
+        }
     }
 
+    #[inline(always)]
     pub fn as_slice(&self) -> &[u8] {
-        let _trace = profiler::scope("protocol::types::as_slice");
         match self {
             Self::Arg(value) => value.as_slice(),
             Self::Value(value) => value.as_slice(),
         }
     }
 
+    #[inline(always)]
     pub fn into_vec(self) -> Vec<u8> {
-        let _trace = profiler::scope("protocol::types::into_vec");
         match self {
             Self::Arg(value) => value.into_vec(),
             Self::Value(value) => value.into_vec(),
@@ -41,7 +44,6 @@ pub enum RespFrame {
     Bulk(Option<BulkData>),
     BulkOptions(Vec<Option<CompactValue>>),
     BulkValues(Vec<CompactValue>),
-    /// Pre-encoded RESP bytes, written directly to the output buffer.
     PreEncoded(Bytes),
     Array(Option<Vec<RespFrame>>),
     Map(Vec<(RespFrame, RespFrame)>),
@@ -50,19 +52,16 @@ pub enum RespFrame {
 impl RespFrame {
     #[inline(always)]
     pub fn ok() -> Self {
-        let _trace = profiler::scope("protocol::types::ok");
         Self::SimpleStatic("OK")
     }
 
     #[inline(always)]
     pub fn simple_static(value: &'static str) -> Self {
-        let _trace = profiler::scope("protocol::types::simple_static");
         Self::SimpleStatic(value)
     }
 
     #[inline(always)]
     pub fn error_static(value: &'static str) -> Self {
-        let _trace = profiler::scope("protocol::types::error_static");
         Self::ErrorStatic(value)
     }
 }
