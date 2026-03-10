@@ -65,13 +65,17 @@ macro_rules! with_command_registry {
                     {
                         variant: Lcs,
                         bytes: b"LCS",
-                        dispatch: [unsupported],
-                        supported: false,
-                        group: "",
-                        shape: (0, 0, 0, 0),
-                        readonly: false,
+                        dispatch: [string::lcs; store],
+                        supported: true,
+                        group: "string",
+                        shape: (-3, 1, 2, 1),
+                        readonly: true,
                         write: false,
-                        auth: none,
+                        auth: some {
+                            categories: &[AclCategory::Read, AclCategory::Slow, AclCategory::String],
+                            keys: KeyExtraction::Pair,
+                            channels: ChannelExtraction::None,
+                        },
                         notify: none,
                     }
                 }
