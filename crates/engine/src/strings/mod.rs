@@ -1,6 +1,7 @@
 mod bitmap;
 mod core;
 mod counter;
+mod delete;
 mod digest;
 mod expiry;
 mod hyperlog;
@@ -11,6 +12,7 @@ mod range;
 use types::value::{CompactKey, Entry};
 
 pub use counter::StringIntOpError;
+pub use delete::StringDigestCondition;
 pub use hyperlog::HyperLogLogError;
 
 fn write_entry(shard: &mut super::Shard, key: &[u8], entry: Entry, ttl_deadline: Option<u64>) {

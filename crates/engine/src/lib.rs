@@ -23,8 +23,9 @@ pub mod store {
     pub use super::keyspace::{
         PreDecodedRestoreEntry, RestoreError, SortError, SortOptions, SortOrder, SortResult,
     };
+    pub use super::stream::XDelexPolicy;
     pub use super::stream::{StreamRangeItem, StreamWriteError, XPendingSummary};
-    pub use super::strings::{HyperLogLogError, StringIntOpError};
+    pub use super::strings::{HyperLogLogError, StringDigestCondition, StringIntOpError};
     pub use super::zset::LexBound;
     pub use super::{
         BitFieldEncoding, BitFieldOp, BitFieldOverflow, BitOp, GetExMode, HashFloatOpError,

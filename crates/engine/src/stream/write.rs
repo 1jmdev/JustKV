@@ -67,31 +67,6 @@ impl Store {
         Ok(stream.entries.len() as i64)
     }
 
-    pub fn xdel(&self, key: &[u8], ids: &[StreamId]) -> Result<i64, StreamWriteError> {
-        let _trace = profiler::scope("engine::stream::write::xdel");
-        let idx = self.shard_index(key);
-        let mut shard = self.shards[idx].write();
-        let now_ms = monotonic_now_ms();
-        if purge_if_expired(&mut shard, key, now_ms) {
-            return Ok(0);
-        }
-        let Some(entry) = shard.entries.get_mut(key) else {
-            return Ok(0);
-        };
-        let stream = get_stream_mut(entry).ok_or(StreamWriteError::WrongType)?;
-
-        let mut removed = 0i64;
-        for id in ids {
-            if stream.entries.remove(id).is_some() {
-                removed += 1;
-            }
-            for group in stream.groups.values_mut() {
-                let _ = group.pending.remove(id);
-            }
-        }
-        Ok(removed)
-    }
-
     pub fn xtrim(
         &self,
         key: &[u8],

@@ -67,24 +67,6 @@ pub(crate) fn xlen(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
-pub(crate) fn xdel(store: &Store, args: &Args) -> RespFrame {
-    let _trace = profiler::scope("commands::stream::add::xdel");
-    if args.len() < 3 {
-        return wrong_args("XDEL");
-    }
-    let mut ids = Vec::with_capacity(args.len() - 2);
-    for raw in &args[2..] {
-        match parse_stream_id(raw) {
-            Ok(id) => ids.push(id),
-            Err(response) => return response,
-        }
-    }
-    match store.xdel(&args[1], &ids) {
-        Ok(value) => RespFrame::Integer(value),
-        Err(error) => stream_write_error_response(error),
-    }
-}
-
 pub(crate) fn xtrim(store: &Store, args: &Args) -> RespFrame {
     let _trace = profiler::scope("commands::stream::add::xtrim");
     if args.len() < 4 {

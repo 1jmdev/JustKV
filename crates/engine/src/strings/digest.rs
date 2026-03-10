@@ -5,14 +5,6 @@ use xxhash_rust::xxh3::xxh3_64;
 use super::super::helpers::{get_live_entry, monotonic_now_ms, purge_if_expired, unix_time_ms};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum StringDigestCondition<'a> {
-    Eq(&'a [u8]),
-    Ne(&'a [u8]),
-    DigestEq(&'a [u8]),
-    DigestNe(&'a [u8]),
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MSetExExistCondition {
     Any,
     Nx,
@@ -40,44 +32,6 @@ impl Store {
             return Err(());
         };
         Ok(Some(xxh3_hex(value)))
-    }
-
-    pub fn delex(
-        &self,
-        key: &[u8],
-        condition: Option<StringDigestCondition<'_>>,
-    ) -> Result<bool, ()> {
-        let _trace = profiler::scope("engine::strings::digest::delex");
-        let idx = self.shard_index(key);
-        let mut shard = self.shards[idx].write();
-        let now_ms = monotonic_now_ms();
-        if purge_if_expired(&mut shard, key, now_ms) {
-            return Ok(false);
-        }
-
-        let should_delete = match condition {
-            None => shard.entries.contains_key(key),
-            Some(condition) => {
-                let Some(entry) = shard.entries.get::<[u8]>(key) else {
-                    return Ok(false);
-                };
-                let Some(value) = entry.as_string() else {
-                    return Err(());
-                };
-                match condition {
-                    StringDigestCondition::Eq(expected) => value.as_slice() == expected,
-                    StringDigestCondition::Ne(expected) => value.as_slice() != expected,
-                    StringDigestCondition::DigestEq(expected) => xxh3_hex_eq(value, expected),
-                    StringDigestCondition::DigestNe(expected) => !xxh3_hex_eq(value, expected),
-                }
-            }
-        };
-
-        if !should_delete {
-            return Ok(false);
-        }
-
-        Ok(shard.remove_key(key).is_some())
     }
 
     pub fn msetex(
@@ -145,7 +99,7 @@ impl SharedTtl {
     }
 }
 
-pub fn xxh3_hex(value: &CompactValue) -> Vec<u8> {
+pub(super) fn xxh3_hex(value: &CompactValue) -> Vec<u8> {
     let digest = xxh3_64(value.as_slice());
     let mut out = Vec::with_capacity(16);
     for shift in (0..8).rev() {
@@ -154,10 +108,6 @@ pub fn xxh3_hex(value: &CompactValue) -> Vec<u8> {
         out.push(nibble_to_hex(byte & 0x0f));
     }
     out
-}
-
-fn xxh3_hex_eq(value: &CompactValue, expected: &[u8]) -> bool {
-    xxh3_hex(value).as_slice() == expected
 }
 
 #[inline]

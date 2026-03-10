@@ -859,14 +859,23 @@ macro_rules! with_command_registry {
                     {
                         variant: Delex,
                         bytes: b"DELEX",
-                        dispatch: [unsupported],
-                        supported: false,
-                        group: "",
-                        shape: (0, 0, 0, 0),
+                        dispatch: [string::delex; store],
+                        supported: true,
+                        group: "string",
+                        shape: (-2, 1, 1, 1),
                         readonly: false,
-                        write: false,
-                        auth: none,
-                        notify: none,
+                        write: true,
+                        auth: some {
+                            categories: &[AclCategory::Write, AclCategory::Fast, AclCategory::String],
+                            keys: KeyExtraction::Single,
+                            channels: ChannelExtraction::None,
+                        },
+                        notify: some {
+                            event: b"del",
+                            class: b'g',
+                            keys: NotificationKeyArguments::Argument(1),
+                            response: NotificationResponsePolicy::IntegerOne,
+                        },
                     }
                 }
                 b'g' => {
@@ -2013,6 +2022,22 @@ macro_rules! with_command_registry {
                     }
                 }
                 b'x' => {
+                    {
+                        variant: XDelex,
+                        bytes: b"XDELEX",
+                        dispatch: [stream::xdelex; store],
+                        supported: true,
+                        group: "stream",
+                        shape: (-5, 1, 1, 1),
+                        readonly: false,
+                        write: true,
+                        auth: some {
+                            categories: &[AclCategory::Write, AclCategory::Fast, AclCategory::Stream],
+                            keys: KeyExtraction::Single,
+                            channels: ChannelExtraction::None,
+                        },
+                        notify: none,
+                    }
                     {
                         variant: XRange,
                         bytes: b"XRANGE",

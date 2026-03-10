@@ -1,4 +1,5 @@
 mod claim;
+mod delete;
 mod group;
 mod range;
 mod stream_types;
@@ -6,6 +7,7 @@ mod write;
 
 use types::value::{Entry, StreamValue};
 
+pub use delete::XDelexPolicy;
 pub use stream_types::{StreamRangeItem, XPendingSummary};
 pub use write::StreamWriteError;
 
