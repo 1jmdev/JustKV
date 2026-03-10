@@ -68,4 +68,10 @@ impl Store {
 
         Ok(data[start_index as usize..=end_index as usize].to_vec())
     }
+
+    #[inline]
+    pub fn substr(&self, key: &[u8], start: i64, end: i64) -> Result<Vec<u8>, ()> {
+        let _trace = profiler::scope("engine::strings::range::substr");
+        self.getrange(key, start, end)
+    }
 }

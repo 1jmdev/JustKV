@@ -17,5 +17,5 @@ pub(crate) use expiry::{getex, psetex, setex};
 pub(crate) use get_set::{get, getdel, getset, set, setnx};
 pub(crate) use hyperlog::{pfadd, pfcount, pfmerge};
 pub(crate) use lcs::lcs;
-pub(crate) use length::{append, getrange, setrange, strlen};
+pub(crate) use length::{append, getrange, setrange, strlen, substr};
 pub(crate) use multi::{mget, mset, msetex, msetnx};

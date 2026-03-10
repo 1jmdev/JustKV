@@ -1,4 +1,4 @@
-use crate::util::{Args, int_error, parse_i64_bytes, parse_u64_bytes, wrong_args, wrong_type};
+use crate::util::{int_error, parse_i64_bytes, parse_u64_bytes, wrong_args, wrong_type, Args};
 use engine::store::Store;
 use protocol::types::{BulkData, RespFrame};
 
@@ -55,6 +55,26 @@ pub(crate) fn getrange(store: &Store, args: &Args) -> RespFrame {
     };
 
     match store.getrange(&args[1], start, end) {
+        Ok(value) => RespFrame::Bulk(Some(BulkData::from_vec(value))),
+        Err(_) => wrong_type(),
+    }
+}
+
+pub(crate) fn substr(store: &Store, args: &Args) -> RespFrame {
+    let _trace = profiler::scope("commands::string::length::substr");
+    if args.len() != 4 {
+        return wrong_args("SUBSTR");
+    }
+    let start = match parse_i64(&args[2]) {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
+    let end = match parse_i64(&args[3]) {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
+
+    match store.substr(&args[1], start, end) {
         Ok(value) => RespFrame::Bulk(Some(BulkData::from_vec(value))),
         Err(_) => wrong_type(),
     }
