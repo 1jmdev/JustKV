@@ -1,8 +1,7 @@
 use std::alloc::Layout;
-use std::sync::Mutex;
 
-use crate::header::{SMALL_OFFSET, write_small_header};
-use crate::small::class::{CLASS_COUNT, SizeClass};
+use crate::lock::SpinLock;
+use crate::small::class::{SizeClass, CLASS_COUNT};
 use crate::small::freelist::FreeList;
 use crate::system;
 
@@ -17,7 +16,7 @@ pub fn drain(class: SizeClass, local: &mut FreeList, retain: u16) {
 }
 
 struct CentralPool {
-    state: Mutex<CentralState>,
+    state: SpinLock<CentralState>,
 }
 
 struct CentralState {
@@ -27,17 +26,14 @@ struct CentralState {
 impl CentralPool {
     const fn new() -> Self {
         Self {
-            state: Mutex::new(CentralState {
+            state: SpinLock::new(CentralState {
                 free_list: FreeList::new(),
             }),
         }
     }
 
     fn refill(&self, class: SizeClass, local: &mut FreeList, target_count: u16) {
-        let mut state = match self.state.lock() {
-            Ok(guard) => guard,
-            Err(poisoned) => poisoned.into_inner(),
-        };
+        let mut state = self.state.lock();
 
         while local.len() < target_count {
             let slot_ptr = state.free_list.pop();
@@ -53,10 +49,7 @@ impl CentralPool {
     }
 
     fn drain(&self, local: &mut FreeList, retain: u16) {
-        let mut state = match self.state.lock() {
-            Ok(guard) => guard,
-            Err(poisoned) => poisoned.into_inner(),
-        };
+        let mut state = self.state.lock();
 
         while local.len() > retain {
             let slot_ptr = local.pop();
@@ -84,7 +77,6 @@ fn allocate_run(class: SizeClass, free_list: &mut FreeList) {
     for index in 0..slot_count {
         let slot_ptr = unsafe { base_ptr.add(index * slot_size) };
         unsafe {
-            write_small_header(slot_ptr.add(SMALL_OFFSET), class.index);
             free_list.push(slot_ptr);
         }
     }

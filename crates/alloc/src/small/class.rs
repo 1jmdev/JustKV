@@ -1,7 +1,5 @@
 use std::alloc::Layout;
 
-use crate::header::SMALL_OFFSET;
-
 pub const MAX_SMALL_ALIGN: usize = 16;
 pub const MAX_SMALL_SIZE: usize = 2048;
 pub const CLASS_COUNT: usize = 23;
@@ -28,7 +26,7 @@ impl SizeClass {
         Self {
             index,
             usable_size,
-            slot_size: SMALL_OFFSET + usable_size,
+            slot_size: usable_size,
         }
     }
 

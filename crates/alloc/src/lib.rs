@@ -1,6 +1,7 @@
 mod bucket;
 mod fallback;
 mod header;
+mod lock;
 mod small;
 mod system;
 

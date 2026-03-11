@@ -2,8 +2,8 @@ use std::alloc::Layout;
 use std::mem;
 use std::ops::{Index, IndexMut};
 use std::ptr;
-use std::sync::Mutex;
 
+use crate::lock::SpinLock;
 use crate::system;
 
 const MAX_BUCKET_POWER: usize = usize::BITS as usize - 1;
@@ -11,46 +11,39 @@ static BUCKET_SLOTS: [BucketSlot; MAX_BUCKET_POWER + 1] =
     [const { BucketSlot::new() }; MAX_BUCKET_POWER + 1];
 
 struct BucketSlot {
-    head: Mutex<usize>,
+    head: SpinLock<usize>,
 }
 
 struct FreeBucketNode {
-    next: *mut FreeBucketNode,
+    next: usize,
 }
 
 impl BucketSlot {
     const fn new() -> Self {
         Self {
-            head: Mutex::new(0),
+            head: SpinLock::new(0),
         }
     }
 
     fn pop(&self) -> *mut u32 {
-        let mut head = match self.head.lock() {
-            Ok(guard) => guard,
-            Err(poisoned) => poisoned.into_inner(),
-        };
-
+        let mut head = self.head.lock();
         let node = *head as *mut FreeBucketNode;
         if node.is_null() {
             return ptr::null_mut();
         }
 
         unsafe {
-            *head = (*node).next as usize;
+            *head = (*node).next;
         }
         node.cast::<u32>()
     }
 
     fn push(&self, ptr: *mut u32) {
-        let mut head = match self.head.lock() {
-            Ok(guard) => guard,
-            Err(poisoned) => poisoned.into_inner(),
-        };
+        let node = ptr.cast::<FreeBucketNode>();
+        let mut head = self.head.lock();
 
         unsafe {
-            let node = ptr.cast::<FreeBucketNode>();
-            (*node).next = *head as *mut FreeBucketNode;
+            (*node).next = *head;
             *head = node as usize;
         }
     }

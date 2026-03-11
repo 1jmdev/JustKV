@@ -5,8 +5,7 @@ use std::cmp;
 use std::ptr;
 
 use crate::fallback;
-use crate::header::{FALLBACK_CLASS, SMALL_OFFSET, read_header, slot_ptr_from_user};
-use crate::small::class::{SizeClass, class_for};
+use crate::small::class::{class_for, SizeClass, MAX_SMALL_ALIGN};
 use crate::small::local;
 
 pub struct BetterKvAllocator;
@@ -43,14 +42,10 @@ unsafe impl GlobalAlloc for BetterKvAllocator {
             return;
         }
 
-        let header = read_header(ptr);
-        if header.class_index == FALLBACK_CLASS {
-            fallback::dealloc(ptr, layout);
-            return;
+        match class_for(layout) {
+            Some(class) => local::dealloc(class, ptr),
+            None => fallback::dealloc(ptr, layout),
         }
-
-        let class = SizeClass::from_index(header.class_index as usize);
-        local::dealloc(class, slot_ptr_from_user(ptr));
     }
 
     unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
@@ -71,10 +66,8 @@ unsafe impl GlobalAlloc for BetterKvAllocator {
             Ok(new_layout) => new_layout,
             Err(_) => return ptr::null_mut(),
         };
-        let header = read_header(ptr);
-        if header.class_index != FALLBACK_CLASS {
-            let class = SizeClass::from_index(header.class_index as usize);
-            if layout.align() <= SMALL_OFFSET && new_size <= class.usable_size {
+        if let Some(class) = class_for(layout) {
+            if layout.align() <= MAX_SMALL_ALIGN && new_size <= class.usable_size {
                 return ptr;
             }
         }
@@ -92,8 +85,7 @@ unsafe impl GlobalAlloc for BetterKvAllocator {
 
 #[inline(always)]
 unsafe fn alloc_small(class: SizeClass) -> *mut u8 {
-    let slot_ptr = local::alloc(class);
-    slot_ptr.add(SMALL_OFFSET)
+    local::alloc(class)
 }
 
 #[inline(always)]

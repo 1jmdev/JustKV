@@ -1,7 +1,7 @@
-use std::cell::Cell;
+use std::cell::UnsafeCell;
 
 use crate::small::central;
-use crate::small::class::{CLASS_COUNT, LOCAL_FLUSH_COUNT, LOCAL_REFILL_COUNT, SizeClass};
+use crate::small::class::{SizeClass, CLASS_COUNT, LOCAL_FLUSH_COUNT, LOCAL_REFILL_COUNT};
 use crate::small::freelist::FreeList;
 
 thread_local! {
@@ -40,26 +40,28 @@ pub fn dealloc(class: SizeClass, slot_ptr: *mut u8) {
 }
 
 struct LocalCache {
-    heads: [Cell<usize>; CLASS_COUNT],
-    lens: [Cell<u16>; CLASS_COUNT],
+    heads: UnsafeCell<[usize; CLASS_COUNT]>,
+    lens: UnsafeCell<[u16; CLASS_COUNT]>,
 }
 
 impl LocalCache {
     const fn new() -> Self {
         Self {
-            heads: [const { Cell::new(0) }; CLASS_COUNT],
-            lens: [const { Cell::new(0) }; CLASS_COUNT],
+            heads: UnsafeCell::new([0; CLASS_COUNT]),
+            lens: UnsafeCell::new([0; CLASS_COUNT]),
         }
     }
 
     #[inline(always)]
     fn list(&self, index: usize) -> FreeList {
-        FreeList::from_raw(self.heads[index].get(), self.lens[index].get())
+        unsafe { FreeList::from_raw((*self.heads.get())[index], (*self.lens.get())[index]) }
     }
 
     #[inline(always)]
     fn store_list(&self, index: usize, list: FreeList) {
-        self.heads[index].set(list.head());
-        self.lens[index].set(list.len());
+        unsafe {
+            (*self.heads.get())[index] = list.head();
+            (*self.lens.get())[index] = list.len();
+        }
     }
 }
