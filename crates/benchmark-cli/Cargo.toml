@@ -8,7 +8,7 @@ name = "betterkv-benchmark"
 path = "src/main.rs"
 
 [dependencies]
-betterkv-alloc.workspace = true
+mimalloc = "0.1.48"
 bytes.workspace = true
 clap.workspace = true
 itoa.workspace = true

@@ -14,7 +14,7 @@ use render::render_result;
 use spec::{resolve_workload, tests};
 
 #[global_allocator]
-static GLOBAL_ALLOCATOR: betterkv_alloc::BetterKvAllocator = betterkv_alloc::BetterKvAllocator;
+static GLOBAL_ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 fn main() -> ExitCode {
     let args = Args::parse();
