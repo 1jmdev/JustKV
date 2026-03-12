@@ -9,6 +9,7 @@ const commandSidebar = [
     },
     {
         text: "Connection",
+        collapsed: true,
         items: [
             { text: "AUTH", link: "/commands/auth" },
             { text: "CLIENT", link: "/commands/client" },
@@ -21,6 +22,7 @@ const commandSidebar = [
     },
     {
         text: "Server",
+        collapsed: true,
         items: [
             { text: "COMMAND", link: "/commands/command" },
             { text: "CONFIG", link: "/commands/config" },
@@ -31,6 +33,7 @@ const commandSidebar = [
     },
     {
         text: "Keyspace",
+        collapsed: true,
         items: [
             { text: "COPY", link: "/commands/copy" },
             { text: "DEL", link: "/commands/del" },
@@ -59,6 +62,7 @@ const commandSidebar = [
     },
     {
         text: "String",
+        collapsed: true,
         items: [
             { text: "APPEND", link: "/commands/append" },
             { text: "BITCOUNT", link: "/commands/bitcount" },
@@ -99,6 +103,7 @@ const commandSidebar = [
     },
     {
         text: "Hash",
+        collapsed: true,
         items: [
             { text: "HDEL", link: "/commands/hdel" },
             { text: "HEXISTS", link: "/commands/hexists" },
@@ -120,6 +125,7 @@ const commandSidebar = [
     },
     {
         text: "List",
+        collapsed: true,
         items: [
             { text: "BLMPOP", link: "/commands/blmpop" },
             { text: "BLPOP", link: "/commands/blpop" },
@@ -146,6 +152,7 @@ const commandSidebar = [
     },
     {
         text: "Set",
+        collapsed: true,
         items: [
             { text: "SADD", link: "/commands/sadd" },
             { text: "SCARD", link: "/commands/scard" },
@@ -168,6 +175,7 @@ const commandSidebar = [
     },
     {
         text: "Sorted Set",
+        collapsed: true,
         items: [
             { text: "BZMPOP", link: "/commands/bzmpop" },
             { text: "BZPOPMAX", link: "/commands/bzpopmax" },
@@ -207,6 +215,7 @@ const commandSidebar = [
     },
     {
         text: "Geo",
+        collapsed: true,
         items: [
             { text: "GEOADD", link: "/commands/geoadd" },
             { text: "GEODIST", link: "/commands/geodist" },
@@ -222,6 +231,7 @@ const commandSidebar = [
     },
     {
         text: "Stream",
+        collapsed: true,
         items: [
             { text: "XACK", link: "/commands/xack" },
             { text: "XADD", link: "/commands/xadd" },
@@ -241,6 +251,7 @@ const commandSidebar = [
     },
     {
         text: "Scripting",
+        collapsed: true,
         items: [
             { text: "EVAL", link: "/commands/eval" },
             { text: "EVALSHA", link: "/commands/evalsha" },
@@ -251,6 +262,7 @@ const commandSidebar = [
     },
     {
         text: "Transaction",
+        collapsed: true,
         items: [
             { text: "DISCARD", link: "/commands/discard" },
             { text: "EXEC", link: "/commands/exec" },
@@ -261,6 +273,7 @@ const commandSidebar = [
     },
     {
         text: "Pub/Sub",
+        collapsed: true,
         items: [
             { text: "PSUBSCRIBE", link: "/commands/psubscribe" },
             { text: "PUBLISH", link: "/commands/publish" },
@@ -275,6 +288,7 @@ const commandSidebar = [
     },
     {
         text: "JSON",
+        collapsed: true,
         items: [
             { text: "JSON.ARRAPPEND", link: "/commands/json-arrappend" },
             { text: "JSON.ARRINDEX", link: "/commands/json-arrindex" },

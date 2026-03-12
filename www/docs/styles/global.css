@@ -1,17 +1,14 @@
-/* ============================================================
-   BetterKV — Custom Theme Overrides (Rspress CSS Variables)
-   ============================================================ */
+/* BetterKV — Custom Theme Overrides */
 
 /* ---- Brand Colors ---- */
 :where(:root) {
-    --rp-c-brand: #e5373a;
-    --rp-c-brand-light: #ff5c5f;
-    --rp-c-brand-lighter: #ffd0d1;
-    --rp-c-brand-dark: #c0272a;
-    --rp-c-brand-darker: #8f1c1e;
-    --rp-c-brand-tint: rgba(229, 55, 58, 0.1);
+    --rp-c-brand: oklch(0.65 0.2 280);
+    --rp-c-brand-light: oklch(0.72 0.18 280);
+    --rp-c-brand-lighter: oklch(0.8 0.1 280);
+    --rp-c-brand-dark: oklch(0.58 0.19 280);
+    --rp-c-brand-darker: oklch(0.5 0.17 280);
+    --rp-c-brand-tint: oklch(0.65 0.2 280 / 0.12);
 
-    /* Softer radius for a modern, sharp look */
     --rp-radius: 0.5rem;
     --rp-radius-small: 0.25rem;
     --rp-radius-large: 0.75rem;
@@ -19,50 +16,50 @@
 
 /* ---- Light Mode Base ---- */
 :where(html:not(.rp-dark)) {
-    --rp-c-bg: #fafafa;
-    --rp-c-bg-soft: #f3f3f5;
-    --rp-c-bg-mute: #eaeaed;
+    --rp-c-bg: #f6f3ff;
+    --rp-c-bg-soft: #efe9ff;
+    --rp-c-bg-mute: #e5dcff;
     --rp-c-bg-alt: #ffffff;
 
-    --rp-c-divider: rgba(0, 0, 0, 0.1);
-    --rp-c-divider-light: rgba(0, 0, 0, 0.06);
+    --rp-c-divider: oklch(0.65 0.03 280 / 0.18);
+    --rp-c-divider-light: oklch(0.65 0.03 280 / 0.1);
 
-    --rp-c-text-0: #09090b;
-    --rp-c-text-1: #18181b;
-    --rp-c-text-2: rgba(24, 24, 27, 0.65);
-    --rp-c-text-3: rgba(24, 24, 27, 0.35);
-    --rp-c-text-4: rgba(24, 24, 27, 0.2);
+    --rp-c-text-0: #130f1f;
+    --rp-c-text-1: #211933;
+    --rp-c-text-2: oklch(0.38 0.03 280 / 0.82);
+    --rp-c-text-3: oklch(0.38 0.03 280 / 0.5);
+    --rp-c-text-4: oklch(0.38 0.03 280 / 0.28);
 
-    --rp-c-text-code: #b91c1c;
-    --rp-c-text-code-bg: rgba(229, 55, 58, 0.06);
-    --rp-c-text-code-border: rgba(229, 55, 58, 0.15);
+    --rp-c-text-code: oklch(0.55 0.19 280);
+    --rp-c-text-code-bg: oklch(0.75 0.08 280 / 0.16);
+    --rp-c-text-code-border: oklch(0.65 0.08 280 / 0.28);
 
     --rp-c-link: var(--rp-c-brand-dark);
 
     /* Home page */
-    --rp-home-hero-secondary-color: #7c3aed;
+    --rp-home-hero-secondary-color: oklch(0.7 0.15 250);
     --rp-home-hero-title-color: transparent;
     --rp-home-hero-title-bg: linear-gradient(
         135deg,
-        #c0272a 0%,
-        #e5373a 45%,
-        #7c3aed 100%
+        oklch(0.58 0.19 280) 0%,
+        oklch(0.65 0.2 280) 45%,
+        oklch(0.7 0.15 250) 100%
     );
     --rp-home-background-bg: radial-gradient(
             ellipse 90% 70% at 70% -5%,
-            rgba(229, 55, 58, 0.1) 0%,
+            oklch(0.7 0.18 280 / 0.16) 0%,
             transparent 65%
         ),
         radial-gradient(
             ellipse 60% 50% at -5% 50%,
-            rgba(124, 58, 237, 0.08) 0%,
+            oklch(0.7 0.15 250 / 0.12) 0%,
             transparent 60%
         ),
         radial-gradient(
             ellipse 50% 40% at 50% 105%,
-            rgba(229, 55, 58, 0.06) 0%,
+            oklch(0.65 0.2 280 / 0.08) 0%,
             transparent 60%
-        ), #fafafa;
+        ), #f6f3ff;
     --rp-home-feature-bg: linear-gradient(
         145deg,
         #ffffff,
@@ -77,50 +74,50 @@
 
 /* ---- Dark Mode Base ---- */
 :where(html.rp-dark) {
-    --rp-c-bg: #0c0c0e;
-    --rp-c-bg-soft: #161619;
-    --rp-c-bg-mute: #1e1e22;
-    --rp-c-bg-alt: #101012;
+    --rp-c-bg: oklch(0.145 0.02 280);
+    --rp-c-bg-soft: oklch(0.175 0.022 280);
+    --rp-c-bg-mute: oklch(0.2 0.025 280);
+    --rp-c-bg-alt: oklch(0.17 0.025 280);
 
-    --rp-c-divider: rgba(255, 255, 255, 0.08);
-    --rp-c-divider-light: rgba(255, 255, 255, 0.05);
+    --rp-c-divider: oklch(1 0 0 / 0.08);
+    --rp-c-divider-light: oklch(1 0 0 / 0.05);
 
-    --rp-c-text-0: #ffffff;
-    --rp-c-text-1: rgba(255, 255, 252, 0.93);
-    --rp-c-text-2: rgba(255, 255, 252, 0.6);
-    --rp-c-text-3: rgba(235, 235, 235, 0.35);
-    --rp-c-text-4: rgba(235, 235, 235, 0.18);
+    --rp-c-text-0: oklch(0.98 0 0);
+    --rp-c-text-1: oklch(0.96 0.005 280 / 0.93);
+    --rp-c-text-2: oklch(0.92 0.01 280 / 0.68);
+    --rp-c-text-3: oklch(0.9 0.01 280 / 0.4);
+    --rp-c-text-4: oklch(0.9 0.01 280 / 0.22);
 
-    --rp-c-text-code: #ff8082;
-    --rp-c-text-code-bg: rgba(229, 55, 58, 0.12);
-    --rp-c-text-code-border: rgba(229, 55, 58, 0.2);
+    --rp-c-text-code: oklch(0.78 0.13 280);
+    --rp-c-text-code-bg: oklch(0.3 0.04 280 / 0.36);
+    --rp-c-text-code-border: oklch(0.55 0.09 280 / 0.36);
 
     --rp-c-link: var(--rp-c-brand-light);
 
     /* Home page */
-    --rp-home-hero-secondary-color: #a78bfa;
+    --rp-home-hero-secondary-color: oklch(0.7 0.15 160);
     --rp-home-hero-title-color: transparent;
     --rp-home-hero-title-bg: linear-gradient(
         135deg,
-        #ff5c5f 0%,
-        #e5373a 40%,
-        #a78bfa 100%
+        oklch(0.72 0.18 280) 0%,
+        oklch(0.65 0.2 280) 40%,
+        oklch(0.7 0.15 160) 100%
     );
     --rp-home-background-bg: radial-gradient(
             ellipse 90% 70% at 70% -5%,
-            rgba(229, 55, 58, 0.18) 0%,
+            oklch(0.65 0.2 280 / 0.2) 0%,
             transparent 65%
         ),
         radial-gradient(
             ellipse 60% 50% at -5% 50%,
-            rgba(124, 58, 237, 0.12) 0%,
+            oklch(0.65 0.18 250 / 0.14) 0%,
             transparent 60%
         ),
         radial-gradient(
             ellipse 80% 60% at 50% 110%,
-            rgba(229, 55, 58, 0.08) 0%,
+            oklch(0.65 0.2 300 / 0.1) 0%,
             transparent 60%
-        ), #0c0c0e;
+        ), oklch(0.145 0.02 280);
     --rp-home-feature-bg: linear-gradient(
         145deg,
         rgba(255, 255, 255, 0.04),
@@ -167,9 +164,7 @@
     --shiki-token-inserted: #4ade80;
 }
 
-/* ============================================================
-   NAVBAR
-   ============================================================ */
+/* navbar */
 .rp-nav {
     border-bottom: 1px solid var(--rp-c-divider);
     backdrop-filter: saturate(180%) blur(16px);
@@ -183,9 +178,7 @@
     letter-spacing: -0.04em;
 }
 
-/* ============================================================
-   HOME HERO
-   ============================================================ */
+/* home hero */
 .rp-home-hero-name {
     font-size: clamp(2.8rem, 7vw, 5.5rem);
     font-weight: 900;
@@ -204,9 +197,7 @@
     max-width: 540px;
 }
 
-/* ============================================================
-   FEATURE CARDS
-   ============================================================ */
+/* feature cards */
 .rp-home-feature-item {
     border: 1px solid var(--rp-c-divider) !important;
     border-radius: 0.65rem !important;
@@ -244,16 +235,55 @@
     letter-spacing: -0.01em !important;
 }
 
-/* ============================================================
-   SIDEBAR
-   ============================================================ */
+/* sidebar */
 .rp-sidebar {
     border-right: 1px solid var(--rp-c-divider) !important;
+    background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--rp-c-bg-soft) 92%, transparent),
+        color-mix(in srgb, var(--rp-c-bg) 96%, transparent)
+    ) !important;
 }
 
-/* ============================================================
-   CONTENT / TYPOGRAPHY
-   ============================================================ */
+.rp-sidebar-group {
+    margin-bottom: 0.4rem;
+}
+
+.rp-sidebar-group-title {
+    font-size: 0.72rem !important;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--rp-c-text-3) !important;
+}
+
+.rp-sidebar a,
+.rp-sidebar .rp-sidebar-link {
+    border-radius: 0.55rem;
+    transition: background-color 0.18s ease, color 0.18s ease,
+        box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.rp-sidebar a:hover,
+.rp-sidebar .rp-sidebar-link:hover {
+    background: color-mix(in srgb, var(--rp-c-brand) 10%, var(--rp-c-bg-alt)) !important;
+    color: var(--rp-c-text-1) !important;
+    transform: translateX(2px);
+}
+
+.rp-sidebar .active,
+.rp-sidebar a[aria-current="page"],
+.rp-sidebar .rp-sidebar-link-active {
+    background: linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--rp-c-brand) 18%, var(--rp-c-bg-alt)),
+        color-mix(in srgb, var(--rp-c-brand-light) 8%, var(--rp-c-bg-soft))
+    ) !important;
+    color: var(--rp-c-text-0) !important;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rp-c-brand) 28%, transparent),
+        0 8px 24px color-mix(in srgb, var(--rp-c-brand) 10%, transparent);
+}
+
+/* content/ typography */
 .rp-doc-content h1 {
     font-weight: 800;
     letter-spacing: -0.04em;
@@ -312,9 +342,7 @@
     background: var(--rp-c-bg-soft);
 }
 
-/* ============================================================
-   SCROLLBAR
-   ============================================================ */
+/* scrollbar */
 ::-webkit-scrollbar {
     width: 5px;
     height: 5px;
@@ -334,9 +362,7 @@
     background: var(--rp-c-brand);
 }
 
-/* ============================================================
-   PREV / NEXT LINKS
-   ============================================================ */
+/* prev /next link */
 .rp-prev-next-link {
     border: 1px solid var(--rp-c-divider) !important;
     border-radius: 0.5rem !important;
@@ -349,16 +375,12 @@
         color-mix(in srgb, var(--rp-c-brand) 10%, transparent) !important;
 }
 
-/* ============================================================
-   SEARCH
-   ============================================================ */
+/* search*/
 .rp-search-box {
     border-radius: 0.4rem !important;
 }
 
-/* ============================================================
-   FOOTER
-   ============================================================ */
+/* footer */
 .rp-footer {
     border-top: 1px solid var(--rp-c-divider);
     color: var(--rp-c-text-2);
