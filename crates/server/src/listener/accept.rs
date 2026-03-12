@@ -4,38 +4,20 @@ use std::net::SocketAddr;
 use socket2::{Domain, Protocol, Socket, Type};
 use tokio::net::TcpListener;
 
-use crate::auth::AuthService;
-use crate::connection::handle_connection;
+use crate::connection::{ConnectionShared, handle_connection};
 use crate::listener::ListenerResult;
-use crate::persistence::PersistenceHandle;
-use engine::pubsub::PubSubHub;
-use engine::store::Store;
 
 pub(crate) async fn run_accept_loop(
     listener: TcpListener,
-    store: Store,
-    pubsub: PubSubHub,
-    auth: AuthService,
-    persistence: PersistenceHandle,
+    shared: ConnectionShared,
 ) -> ListenerResult {
     loop {
         let (socket, _) = listener.accept().await?;
         socket.set_nodelay(true)?;
 
-        let shared_store = store.clone();
-        let shared_pubsub = pubsub.clone();
-        let shared_auth = auth.clone();
-        let shared_persistence = persistence.clone();
+        let shared = shared.clone();
         tokio::spawn(async move {
-            if let Err(err) = handle_connection(
-                socket,
-                shared_store,
-                shared_pubsub,
-                shared_auth,
-                shared_persistence,
-            )
-            .await
-            {
+            if let Err(err) = handle_connection(socket, shared).await {
                 tracing::debug!(error = %err, "connection closed with error");
             }
         });

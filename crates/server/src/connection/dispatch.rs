@@ -2,10 +2,10 @@ use commands::dispatch::CommandId;
 use commands::dispatch::dispatch_with_context;
 use commands::pubsub::DispatchContext;
 use engine::pubsub::PubSubHub;
-use engine::store::Store;
 use protocol::types::{BulkData, RespFrame};
 use types::value::CompactArg;
 
+use super::ConnectionShared;
 use super::PubSubSession;
 use super::notifications::emit_command_notifications;
 use super::util::wrong_args;
@@ -23,13 +23,10 @@ impl ClientState {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub(super) fn execute_regular_command(
-    store: &Store,
-    hub: &PubSubHub,
+    shared: &ConnectionShared,
     pubsub: &mut PubSubSession,
     client_state: &mut ClientState,
-    auth: &AuthService,
     auth_state: &mut SessionAuth,
     command: CommandId,
     args: &[CompactArg],
@@ -39,52 +36,55 @@ pub(super) fn execute_regular_command(
     }
 
     if command == CommandId::Auth {
-        return auth_command(auth, auth_state, args);
+        return auth_command(&shared.auth, auth_state, args);
     }
 
     if command == CommandId::Acl {
         if !auth_state.authorized() {
             return auth::no_auth();
         }
-        return auth.acl_command(auth_state, args);
+        return shared.auth.acl_command(auth_state, args);
     }
 
     if command == CommandId::Hello
-        && let Some(response) = hello_with_auth(auth, auth_state, args)
+        && let Some(response) = hello_with_auth(&shared.auth, auth_state, args)
     {
         return response;
     }
 
-    if auth.fast_path() {
-        return dispatch_authorized(store, hub, pubsub, client_state, command, args);
+    if shared.auth.fast_path() {
+        return dispatch_authorized(shared, pubsub, client_state, command, args);
     }
 
     // Hot path: already authorized
     if auth_state.authorized() {
-        let acl_epoch = auth.acl_epoch();
-        if auth_state.acl_epoch() != acl_epoch && !auth.refresh_session(auth_state, acl_epoch) {
+        let acl_epoch = shared.auth.acl_epoch();
+        if auth_state.acl_epoch() != acl_epoch
+            && !shared.auth.refresh_session(auth_state, acl_epoch)
+        {
             return auth::no_auth();
         }
         if auth_state.acl_check_required()
-            && let Err(error) = auth.dry_run(auth_state.user().unwrap_or_default(), command, args)
+            && let Err(error) =
+                shared
+                    .auth
+                    .dry_run(auth_state.user().unwrap_or_default(), command, args)
         {
             return no_perm(error);
         }
-        return dispatch_authorized(store, hub, pubsub, client_state, command, args);
+        return dispatch_authorized(shared, pubsub, client_state, command, args);
     }
 
     if !is_allowed_without_auth(command) {
         return auth::no_auth();
     }
 
-    dispatch_authorized(store, hub, pubsub, client_state, command, args)
+    dispatch_authorized(shared, pubsub, client_state, command, args)
 }
 
 #[inline]
-#[allow(clippy::too_many_arguments)]
 fn dispatch_authorized(
-    store: &Store,
-    hub: &PubSubHub,
+    shared: &ConnectionShared,
     pubsub: &mut PubSubSession,
     client_state: &mut ClientState,
     command: CommandId,
@@ -94,10 +94,13 @@ fn dispatch_authorized(
         return client_command(client_state, args);
     }
 
-    let mut context = ServerDispatchContext { hub, pubsub };
-    let response = dispatch_with_context(store, &mut context, command, args);
-    if hub.keyspace_notifications_enabled() {
-        emit_command_notifications(hub, command, args, &response);
+    let mut context = ServerDispatchContext {
+        hub: &shared.pubsub_hub,
+        pubsub,
+    };
+    let response = dispatch_with_context(&shared.store, &mut context, command, args);
+    if shared.pubsub_hub.keyspace_notifications_enabled() {
+        emit_command_notifications(&shared.pubsub_hub, command, args, &response);
     }
     response
 }

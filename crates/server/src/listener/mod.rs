@@ -8,6 +8,7 @@ use tokio::time::Duration;
 
 use crate::auth::AuthService;
 use crate::config::Config;
+use crate::connection::ConnectionShared;
 use crate::persistence::{self, PersistenceHandle};
 use accept::{bind_reuse_port_listeners, run_accept_loop};
 use background::{spawn_cached_clock_updater, spawn_expiry_sweeper};
@@ -45,6 +46,12 @@ pub async fn run_listener(config: Config) -> Result<(), Box<dyn std::error::Erro
         }
     }
     let persistence = PersistenceHandle::spawn(store.clone(), config.clone());
+    let shared = ConnectionShared::new(
+        store.clone(),
+        pubsub.clone(),
+        auth.clone(),
+        persistence.clone(),
+    );
 
     spawn_expiry_sweeper(
         store.clone(),
@@ -62,20 +69,8 @@ pub async fn run_listener(config: Config) -> Result<(), Box<dyn std::error::Erro
 
     let mut accept_tasks = JoinSet::new();
     for listener in listeners {
-        let shared_store = store.clone();
-        let shared_pubsub = pubsub.clone();
-        let shared_auth = auth.clone();
-        let shared_persistence = persistence.clone();
-        accept_tasks.spawn(async move {
-            run_accept_loop(
-                listener,
-                shared_store,
-                shared_pubsub,
-                shared_auth,
-                shared_persistence,
-            )
-            .await
-        });
+        let shared = shared.clone();
+        accept_tasks.spawn(async move { run_accept_loop(listener, shared).await });
     }
 
     loop {

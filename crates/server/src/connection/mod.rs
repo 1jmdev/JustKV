@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use bytes::{BytesMut, Buf};
+use bytes::{Buf, BytesMut};
 use commands::dispatch::CommandId;
 use commands::dispatch::identify;
 use commands::transaction::TransactionState;
@@ -122,6 +122,20 @@ impl PubSubSession {
             hub.cleanup_connection(state.id());
         }
     }
+
+    async fn push_rx_recv(&mut self) -> Option<RespFrame> {
+        match self.push_rx.as_mut() {
+            Some(push_rx) => push_rx.recv().await,
+            None => None,
+        }
+    }
+
+    fn try_recv_push(&mut self) -> Result<RespFrame, TryRecvError> {
+        match self.push_rx.as_mut() {
+            Some(push_rx) => push_rx.try_recv(),
+            None => Err(TryRecvError::Disconnected),
+        }
+    }
 }
 
 impl PubSubSink for ConnectionPushSink {
@@ -163,230 +177,236 @@ const READ_BUFFER_INITIAL: usize = 64 * 1024;
 const WRITE_BUFFER_INITIAL: usize = 64 * 1024;
 const PUSH_DRAIN_BATCH: usize = 128;
 
-pub async fn handle_connection(
-    mut stream: TcpStream,
+#[derive(Clone)]
+pub(crate) struct ConnectionShared {
     store: Store,
     pubsub_hub: PubSubHub,
     auth: AuthService,
     persistence: PersistenceHandle,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let mut read_buf = BytesMut::with_capacity(READ_BUFFER_INITIAL);
-    let mut write_buf = BytesMut::with_capacity(WRITE_BUFFER_INITIAL);
-
-    let mut encoder = Encoder::default();
-    let persistence_enabled = persistence.is_enabled();
-    let mut persistence_buf = if persistence_enabled {
-        Vec::with_capacity(1024)
-    } else {
-        Vec::new()
-    };
-    let mut persistence_dirty = 0u64;
-
-    let mut command_args_buf = Vec::with_capacity(16);
-    let mut tx_state = TransactionState::default();
-
-    let mut pubsub = PubSubSession::default();
-    let mut client_state = dispatch::ClientState::default();
-    let mut auth_state = auth.new_session();
-
-    let result = loop {
-        if pubsub.push_rx.is_some() {
-            tokio::select! {
-                biased;
-                read_result = read_into_buffer(&mut stream, &mut read_buf) => {
-                    let bytes_read = match read_result {
-                        Ok(value) => value,
-                        Err(err) => break Err(err.into()),
-                    };
-                    if bytes_read == 0 {
-                        break Ok(());
-                    }
-
-                    if let Err(err) = process_read_buf(
-                        &mut read_buf,
-                        &store,
-                        &pubsub_hub,
-                        &auth,
-                        &persistence,
-                        persistence_enabled,
-                        &mut encoder,
-                        &mut write_buf,
-                        &mut persistence_buf,
-                        &mut persistence_dirty,
-                        &mut command_args_buf,
-                        &mut tx_state,
-                        &mut pubsub,
-                        &mut client_state,
-                        &mut auth_state,
-                    ) {
-                        break Err(err.into());
-                    }
-
-                    if let Err(err) = flush_write_buf(&mut stream, &mut write_buf).await {
-                        break Err(err.into());
-                    }
-                }
-                push = pubsub.push_rx.as_mut().expect("push receiver active").recv() => {
-                    let Some(frame) = push else {
-                        break Ok(());
-                    };
-                    encoder.encode(&frame, &mut write_buf);
-
-                    let push_rx = pubsub.push_rx.as_mut().expect("push receiver active");
-                    let mut drained = 0;
-                    while drained < PUSH_DRAIN_BATCH {
-                        match push_rx.try_recv() {
-                            Ok(frame) => {
-                                encoder.encode(&frame, &mut write_buf);
-                                drained += 1;
-                            }
-                            Err(TryRecvError::Empty) => break,
-                            Err(TryRecvError::Disconnected) => break,
-                        }
-                    }
-
-                    if let Err(err) = flush_write_buf(&mut stream, &mut write_buf).await {
-                        break Err(err.into());
-                    }
-                }
-            }
-        } else {
-            let bytes_read = match read_into_buffer(&mut stream, &mut read_buf).await {
-                Ok(value) => value,
-                Err(err) => break Err(err.into()),
-            };
-            if bytes_read == 0 {
-                break Ok(());
-            }
-
-            if let Err(err) = process_read_buf(
-                &mut read_buf,
-                &store,
-                &pubsub_hub,
-                &auth,
-                &persistence,
-                persistence_enabled,
-                &mut encoder,
-                &mut write_buf,
-                &mut persistence_buf,
-                &mut persistence_dirty,
-                &mut command_args_buf,
-                &mut tx_state,
-                &mut pubsub,
-                &mut client_state,
-                &mut auth_state,
-            ) {
-                break Err(err.into());
-            }
-
-            if let Err(err) = flush_write_buf(&mut stream, &mut write_buf).await {
-                break Err(err.into());
-            }
-        }
-    };
-
-    if persistence_enabled {
-        persistence.flush_buffer(&mut persistence_buf, &mut persistence_dirty);
-    }
-    tx_state.cleanup(&store);
-    pubsub.cleanup(&pubsub_hub);
-    result
 }
 
-#[allow(clippy::too_many_arguments)]
-fn process_read_buf(
-    read_buf: &mut BytesMut,
-    store: &Store,
-    pubsub_hub: &PubSubHub,
-    auth: &AuthService,
-    persistence: &PersistenceHandle,
+impl ConnectionShared {
+    pub(crate) fn new(
+        store: Store,
+        pubsub_hub: PubSubHub,
+        auth: AuthService,
+        persistence: PersistenceHandle,
+    ) -> Self {
+        Self {
+            store,
+            pubsub_hub,
+            auth,
+            persistence,
+        }
+    }
+}
+
+struct ConnectionProcessor {
+    shared: ConnectionShared,
+    read_buf: BytesMut,
+    write_buf: BytesMut,
+    encoder: Encoder,
     persistence_enabled: bool,
-    encoder: &mut Encoder,
-    write_buf: &mut BytesMut,
-    persistence_buf: &mut Vec<u8>,
-    persistence_dirty: &mut u64,
-    command_args_buf: &mut Vec<CompactArg>,
-    tx_state: &mut TransactionState,
-    pubsub: &mut PubSubSession,
-    client_state: &mut dispatch::ClientState,
-    auth_state: &mut crate::auth::SessionAuth,
-) -> Result<(), protocol::parser::ParseError> {
-    while parse_command_into(read_buf, command_args_buf)?.is_some() {
-        let _trace = command_args_buf
-            .first();
-        let command = identify(command_args_buf[0].as_slice());
-        let response = if tx_state.is_plain_mode() && !is_transaction_command(command) {
-            store.with_command_gate(|| {
-                dispatch::execute_regular_command(
-                    store,
-                    pubsub_hub,
-                    pubsub,
-                    client_state,
-                    auth,
-                    auth_state,
-                    command,
-                    command_args_buf,
-                )
-            })
+    persistence_buf: Vec<u8>,
+    persistence_dirty: u64,
+    command_args_buf: Vec<CompactArg>,
+    tx_state: TransactionState,
+    pubsub: PubSubSession,
+    client_state: dispatch::ClientState,
+    auth_state: crate::auth::SessionAuth,
+}
+
+impl ConnectionProcessor {
+    fn new(shared: ConnectionShared) -> Self {
+        let persistence_enabled = shared.persistence.is_enabled();
+        let persistence_buf = if persistence_enabled {
+            Vec::with_capacity(1024)
         } else {
-            let outcome = tx_state.handle_args_with(
-                store,
-                command_args_buf,
-                command,
-                |store, command, args| {
-                    dispatch::execute_regular_command(
-                        store,
-                        pubsub_hub,
-                        pubsub,
-                        client_state,
-                        auth,
-                        auth_state,
-                        command,
-                        args,
-                    )
-                },
-            );
-
-            if persistence_enabled {
-                if !outcome.committed_commands.is_empty() {
-                    persistence.record_transaction_to_buffer(
-                        &outcome.committed_commands,
-                        persistence_buf,
-                        persistence_dirty,
-                    );
-                } else {
-                    persistence.record_command_to_buffer(
-                        command,
-                        command_args_buf,
-                        &outcome.response,
-                        persistence_buf,
-                        persistence_dirty,
-                    );
-                }
-            }
-
-            outcome.response
+            Vec::new()
         };
 
-        if persistence_enabled && tx_state.is_plain_mode() && !is_transaction_command(command) {
-            persistence.record_command_to_buffer(
-                command,
-                command_args_buf,
-                &response,
-                persistence_buf,
-                persistence_dirty,
-            );
-        }
-
-        if !client_state.take_suppress_current_reply() {
-            encoder.encode(&response, write_buf);
+        Self {
+            auth_state: shared.auth.new_session(),
+            shared,
+            read_buf: BytesMut::with_capacity(READ_BUFFER_INITIAL),
+            write_buf: BytesMut::with_capacity(WRITE_BUFFER_INITIAL),
+            encoder: Encoder::default(),
+            persistence_enabled,
+            persistence_buf,
+            persistence_dirty: 0,
+            command_args_buf: Vec::with_capacity(16),
+            tx_state: TransactionState::default(),
+            pubsub: PubSubSession::default(),
+            client_state: dispatch::ClientState::default(),
         }
     }
 
-    if persistence_enabled {
-        persistence.flush_buffer(persistence_buf, persistence_dirty);
+    async fn run(
+        &mut self,
+        stream: &mut TcpStream,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let result = loop {
+            if self.pubsub.push_rx.is_some() {
+                tokio::select! {
+                    biased;
+                    read_result = read_into_buffer(stream, &mut self.read_buf) => {
+                        let bytes_read = match read_result {
+                            Ok(value) => value,
+                            Err(err) => break Err(err.into()),
+                        };
+                        if bytes_read == 0 {
+                            break Ok(());
+                        }
+
+                        if let Err(err) = self.process_read_buf() {
+                            break Err(err.into());
+                        }
+
+                        if let Err(err) = flush_write_buf(stream, &mut self.write_buf).await {
+                            break Err(err.into());
+                        }
+                    }
+                    push = self.pubsub.push_rx_recv() => {
+                        let Some(frame) = push else {
+                            break Ok(());
+                        };
+                        self.encoder.encode(&frame, &mut self.write_buf);
+
+                        let mut drained = 0;
+                        while drained < PUSH_DRAIN_BATCH {
+                            match self.pubsub.try_recv_push() {
+                                Ok(frame) => {
+                                    self.encoder.encode(&frame, &mut self.write_buf);
+                                    drained += 1;
+                                }
+                                Err(TryRecvError::Empty) => break,
+                                Err(TryRecvError::Disconnected) => break,
+                            }
+                        }
+
+                        if let Err(err) = flush_write_buf(stream, &mut self.write_buf).await {
+                            break Err(err.into());
+                        }
+                    }
+                }
+            } else {
+                let bytes_read = match read_into_buffer(stream, &mut self.read_buf).await {
+                    Ok(value) => value,
+                    Err(err) => break Err(err.into()),
+                };
+                if bytes_read == 0 {
+                    break Ok(());
+                }
+
+                if let Err(err) = self.process_read_buf() {
+                    break Err(err.into());
+                }
+
+                if let Err(err) = flush_write_buf(stream, &mut self.write_buf).await {
+                    break Err(err.into());
+                }
+            }
+        };
+
+        if self.persistence_enabled {
+            self.shared
+                .persistence
+                .flush_buffer(&mut self.persistence_buf, &mut self.persistence_dirty);
+        }
+        self.tx_state.cleanup(&self.shared.store);
+        self.pubsub.cleanup(&self.shared.pubsub_hub);
+        result
     }
-    Ok(())
+
+    fn process_read_buf(&mut self) -> Result<(), protocol::parser::ParseError> {
+        while parse_command_into(&mut self.read_buf, &mut self.command_args_buf)?.is_some() {
+            let _trace = self.command_args_buf.first();
+            let command = identify(self.command_args_buf[0].as_slice());
+            let response = if self.tx_state.is_plain_mode() && !is_transaction_command(command) {
+                self.shared.store.with_command_gate(|| {
+                    dispatch::execute_regular_command(
+                        &self.shared,
+                        &mut self.pubsub,
+                        &mut self.client_state,
+                        &mut self.auth_state,
+                        command,
+                        &self.command_args_buf,
+                    )
+                })
+            } else {
+                let shared = &self.shared;
+                let pubsub = &mut self.pubsub;
+                let client_state = &mut self.client_state;
+                let auth_state = &mut self.auth_state;
+                let outcome = self.tx_state.handle_args_with(
+                    &shared.store,
+                    &mut self.command_args_buf,
+                    command,
+                    |_store, command, args| {
+                        dispatch::execute_regular_command(
+                            shared,
+                            pubsub,
+                            client_state,
+                            auth_state,
+                            command,
+                            args,
+                        )
+                    },
+                );
+
+                if self.persistence_enabled {
+                    if !outcome.committed_commands.is_empty() {
+                        self.shared.persistence.record_transaction_to_buffer(
+                            &outcome.committed_commands,
+                            &mut self.persistence_buf,
+                            &mut self.persistence_dirty,
+                        );
+                    } else {
+                        self.shared.persistence.record_command_to_buffer(
+                            command,
+                            &self.command_args_buf,
+                            &outcome.response,
+                            &mut self.persistence_buf,
+                            &mut self.persistence_dirty,
+                        );
+                    }
+                }
+
+                outcome.response
+            };
+
+            if self.persistence_enabled
+                && self.tx_state.is_plain_mode()
+                && !is_transaction_command(command)
+            {
+                self.shared.persistence.record_command_to_buffer(
+                    command,
+                    &self.command_args_buf,
+                    &response,
+                    &mut self.persistence_buf,
+                    &mut self.persistence_dirty,
+                );
+            }
+
+            if !self.client_state.take_suppress_current_reply() {
+                self.encoder.encode(&response, &mut self.write_buf);
+            }
+        }
+
+        if self.persistence_enabled {
+            self.shared
+                .persistence
+                .flush_buffer(&mut self.persistence_buf, &mut self.persistence_dirty);
+        }
+        Ok(())
+    }
+}
+
+pub(crate) async fn handle_connection(
+    mut stream: TcpStream,
+    shared: ConnectionShared,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    ConnectionProcessor::new(shared).run(&mut stream).await
 }
 
 #[inline(always)]
@@ -421,10 +441,7 @@ async fn read_into_buffer(
 }
 
 #[inline]
-async fn flush_write_buf(
-    stream: &mut TcpStream,
-    write_buf: &mut BytesMut,
-) -> std::io::Result<()> {
+async fn flush_write_buf(stream: &mut TcpStream, write_buf: &mut BytesMut) -> std::io::Result<()> {
     if write_buf.is_empty() {
         return Ok(());
     }
