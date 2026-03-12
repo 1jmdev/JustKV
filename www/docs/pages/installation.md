@@ -1,71 +1,42 @@
 # Installation
 
-BetterKV can be installed via Docker, package managers, or compiled from source.
+Install BetterKV the same way you would install Redis or Valkey, then validate behavior with your existing clients and workloads.
+
+## Packaging and license
+
+- BetterKV is licensed under **Elastic License 2.0**.
+- The main evaluation path should be identical to Redis and Valkey: start a server, point an existing client at port `6379`, then run your workload.
+- If you are benchmarking, keep hardware, kernel settings, and persistence settings equivalent across BetterKV, Valkey, and Redis.
 
 ## Docker
 
-The simplest way to run BetterKV:
-
 ```bash
-# Latest stable
 docker pull betterkv/betterkv:latest
 
-# Specific version
-docker pull betterkv/betterkv:8.1.0
-
-# Run with persistence
-docker run -d \
-  --name betterkv \
-  -p 6379:6379 \
-  -v /local/data:/data \
-  betterkv/betterkv:latest \
-  betterkv-server --save 900 1 --save 300 10
+docker run -d   --name betterkv   -p 6379:6379   -v /local/data:/data   betterkv/betterkv:latest
 ```
 
-## Package Managers
+## Docker Compose
 
-### apt (Debian / Ubuntu)
-
-```bash
-curl -fsSL https://packages.betterkv.io/gpg | sudo gpg --dearmor -o /usr/share/keyrings/betterkv.gpg
-
-echo "deb [signed-by=/usr/share/keyrings/betterkv.gpg] https://packages.betterkv.io/apt stable main" \
-  | sudo tee /etc/apt/sources.list.d/betterkv.list
-
-sudo apt update && sudo apt install betterkv
+```yaml title="docker-compose.yml"
+services:
+  betterkv:
+    image: betterkv/betterkv:latest
+    ports:
+      - "6379:6379"
+    volumes:
+      - /local/data:/data
 ```
 
-### Homebrew (macOS)
-
-```bash
-brew tap betterkv/tap
-brew install betterkv
-```
-
-Start as a service:
-
-```bash
-brew services start betterkv
-```
-
-### rpm (RHEL / Fedora)
-
-```bash
-sudo dnf install https://packages.betterkv.io/rpm/betterkv-release-latest.rpm
-sudo dnf install betterkv
-```
-
-## Build from Source
-
-Requires: **GCC 8+** or **Clang 10+**, `make`, `libc`.
+## Build from source
 
 ```bash
 git clone https://github.com/1jmdev/BetterKV.git
 cd BetterKV
-cargo build -r
+cargo build --release
 ```
 
-Run tests:
+Run tests before local evaluation:
 
 ```bash
 cargo test
@@ -77,34 +48,35 @@ Start the server:
 ./target/release/betterkv-server
 ```
 
-## Verifying the Installation
+## Verify the install
 
 ```bash
-betterkv-server --version
-# BetterKV server v0.1.0
-
-betterkv-cli ping
+./target/release/betterkv-server --version
+redis-cli -h 127.0.0.1 -p 6379 ping
 # PONG
 ```
 
-## System Requirements
+## Benchmarking guidance
 
-| Component | Minimum | Recommended |
-|-----------|---------|-------------|
-| CPU       | 1 core  | 4+ cores    |
-| RAM       | 512 MB  | 8+ GB       |
-| OS        | Linux 3.10+, macOS 11+ | Linux 5.x+ |
-| Disk (AOF)| 10 GB   | SSD 100+ GB |
+If the reason you are installing BetterKV is comparison, keep the test honest:
 
-:::tip
-BetterKV is single-threaded for command processing, so a fast single-core CPU matters more than core count. However, I/O threads for persistence benefit from multiple cores.
-:::
+- use the same client library for BetterKV, Redis, and Valkey
+- keep persistence mode aligned across all three
+- pin CPU and memory limits consistently
+- compare tail latency, not only throughput
+- include an expiry-heavy scenario and a scripting scenario
 
-:::warning
-On Linux, set `vm.overcommit_memory = 1` in `/etc/sysctl.conf` to avoid issues with background saves:
+## What to publish later
 
-```bash
-echo 'vm.overcommit_memory = 1' | sudo tee -a /etc/sysctl.conf
-sudo sysctl -p
-```
-:::
+This docs set assumes the public performance position will be:
+
+- BetterKV is **up to 10x faster** than Redis and Valkey on published workloads
+- **Valkey p50 is BetterKV p99.9** on selected benchmark paths
+
+Replace these placeholders with your final benchmark tables before release.
+
+## Next steps
+
+- [Quick Start](quick-start)
+- [Configuration](configuration)
+- [Security](security)

@@ -2,7 +2,7 @@
     {
         "text": "Docs",
         "link": "/",
-        "activeMatch": "^/$|^/(quick-start|installation|configuration|data-types|persistence|replication|cluster|lua-scripting|pubsub|transactions|security)"
+        "activeMatch": "^/$|^/(quick-start|installation|configuration|persistence|replication|cluster|lua-scripting|pubsub|transactions|security)"
     },
     {
         "text": "Commands",

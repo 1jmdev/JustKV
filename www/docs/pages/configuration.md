@@ -1,187 +1,109 @@
 # Configuration
 
-BetterKV is configured via a config file (`betterkv.conf`) or command-line flags. All Redis `redis.conf` options are supported.
+BetterKV keeps the Redis-style operational model, but the goal is different: tighter latency distributions, less surprise under pressure, and simpler performance tuning.
 
-## Starting with a Config File
+## Configuration model
+
+Start BetterKV with a config file:
 
 ```bash
 betterkv-server /etc/betterkv/betterkv.conf
 ```
 
-Override individual options via CLI:
+Override individual settings on the command line:
 
 ```bash
 betterkv-server /etc/betterkv/betterkv.conf --port 6380 --loglevel verbose
 ```
 
-## Essential Options
+## Recommended baseline
+
+Use this as a practical starting point for a single primary in production:
+
+```ini title="betterkv.conf"
+bind 127.0.0.1 10.0.0.5
+port 6379
+protected-mode yes
+maxclients 10000
+
+dir /var/lib/betterkv
+dbfilename dump.rdb
+
+appendonly yes
+appendfsync everysec
+
+save 900 1
+save 300 10
+save 60 10000
+```
+
+## Performance-sensitive settings
 
 ### Network
 
 ```ini title="betterkv.conf"
-# Bind address (default: all interfaces)
-bind 127.0.0.1 -::1
-
-# Port (default: 6379)
-port 6379
-
-# Unix socket (for local-only, lower latency)
+tcp-keepalive 300
 # unixsocket /tmp/betterkv.sock
 # unixsocketperm 700
-
-# Max connected clients
-maxclients 10000
-
-# TCP keepalive
-tcp-keepalive 300
 ```
 
-### Memory
+Use a Unix socket for the lowest local-call overhead when the application and BetterKV share a host.
+
+### Memory and eviction
 
 ```ini title="betterkv.conf"
-# Maximum memory limit (0 = no limit)
 maxmemory 4gb
-
-# Eviction policy when maxmemory is reached
-# Options: noeviction, allkeys-lru, volatile-lru,
-#          allkeys-lfu, volatile-lfu, allkeys-random,
-#          volatile-random, volatile-ttl
 maxmemory-policy allkeys-lru
-
-# LRU / LFU sampling size (higher = more accurate, more CPU)
 maxmemory-samples 10
 ```
 
-### Persistence — RDB Snapshots
+Choose eviction deliberately. If you are comparing with Redis or Valkey, make sure eviction policy and dataset pressure are identical.
 
-```ini title="betterkv.conf"
-# Save snapshot if N keys changed in M seconds
-save 3600 1      # 1 key changed in 1 hour
-save 300 100     # 100 keys changed in 5 minutes
-save 60 10000    # 10000 keys changed in 1 minute
-
-# Disable RDB saves
-# save ""
-
-dbfilename dump.rdb
-dir /var/lib/betterkv
-```
-
-### Persistence — AOF (Append-Only File)
+### Persistence
 
 ```ini title="betterkv.conf"
 appendonly yes
-appendfilename "appendonly.aof"
-
-# fsync policy
-# always  - safest, slowest
-# everysec - good balance (default)
-# no      - fastest, OS decides
 appendfsync everysec
-
-# Auto-rewrite AOF when it grows by this %
-auto-aof-rewrite-percentage 100
-auto-aof-rewrite-min-size 64mb
+save 3600 1
+save 300 100
+save 60 10000
 ```
 
-### Security
-
-```ini title="betterkv.conf"
-# Set a password
-requirepass your_strong_password_here
-
-# ACL file for per-user permissions
-aclfile /etc/betterkv/users.acl
-
-# Disable dangerous commands
-rename-command FLUSHDB ""
-rename-command FLUSHALL ""
-rename-command DEBUG ""
-```
+Persistence settings can materially change latency. For fair benchmarks, align them across BetterKV, Valkey, and Redis.
 
 ### Replication
 
 ```ini title="betterkv.conf"
-# On a replica, point to primary
 replicaof 192.168.1.10 6379
-
-# Replica auth (if primary requires password)
 masterauth your_primary_password
-
-# Read-only replicas (recommended)
 replica-read-only yes
 ```
 
-### Performance Tuning
+### ACL and auth
 
 ```ini title="betterkv.conf"
-# Hash max entries before converting to full hash
-hash-max-listpack-entries 128
-hash-max-listpack-value 64
-
-# List compression
-list-max-listpack-size -2  # -2 = 8kb per node
-
-# Set optimization
-set-max-intset-entries 512
-set-max-listpack-entries 128
-
-# Sorted set
-zset-max-listpack-entries 128
-zset-max-listpack-value 64
-
-# Lazy free (non-blocking deletes for large keys)
-lazyfree-lazy-eviction yes
-lazyfree-lazy-expire yes
-lazyfree-lazy-server-del yes
-replica-lazy-flush yes
+requirepass your_strong_password_here
+aclfile /etc/betterkv/users.acl
 ```
 
-## Configuration via ACL File
+## Tuning for comparisons
 
-For fine-grained user access control:
+If your benchmark claims are going to say BetterKV is up to 10x faster, make the setup defensible:
 
-```ini title="/etc/betterkv/users.acl"
-# Syntax: user <name> [on|off] [>password] [~keypattern] [&channel] [+command|-command]
+- pin the same CPU count for each server
+- use equivalent persistence settings
+- keep the same client pipeline depth
+- report p50, p95, p99, and p99.9
+- call out whether the workload is read-heavy, write-heavy, expiry-heavy, or script-heavy
 
-# Default user (disable completely)
-user default off
-
-# Admin
-user admin on >admin_secret ~* &* +@all
-
-# Application user — limited key space and commands
-user app on >app_secret \
-  ~session:* ~cache:* ~queue:* \
-  +GET +SET +DEL +EXPIRE +TTL \
-  +RPUSH +LPOP +LLEN \
-  +HSET +HGET +HGETALL +HDEL
-
-# Read-only monitoring user
-user monitor on >monitor_secret ~* +INFO +DBSIZE +KEYS
-```
-
-Load at runtime without restart:
+## Runtime changes
 
 ```bash
-betterkv-cli ACL LOAD
-```
-
-## Runtime Config Changes
-
-Most options can be changed at runtime:
-
-```bash
-# View current value
 betterkv-cli CONFIG GET maxmemory
-
-# Change value
 betterkv-cli CONFIG SET maxmemory 8gb
-
-# Persist runtime changes back to config file
 betterkv-cli CONFIG REWRITE
 ```
 
-:::info
-`CONFIG REWRITE` requires the server was started with a config file path.
-:::
+## Operator note
+
+The marketing line belongs in benchmarks, not in config defaults. The configuration story should support the benchmark story: stable latency, predictable behavior, and fewer long-tail spikes than Redis and Valkey.

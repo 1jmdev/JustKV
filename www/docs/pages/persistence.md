@@ -1,128 +1,79 @@
 # Persistence
 
-BetterKV offers two persistence mechanisms: **RDB** (point-in-time snapshots) and **AOF** (append-only log). You can use either or both.
+Persistence is where many in-memory systems stop looking fast once the workload becomes real. BetterKV aims to keep stronger latency behavior than Redis and Valkey even when durability is enabled, but your benchmark methodology still needs to be explicit.
 
-## RDB — Snapshot Persistence
+## Persistence modes
 
-RDB produces compact, point-in-time snapshots of your dataset using a fork-based background save.
+BetterKV supports the familiar Redis-style model:
 
-**Pros:** Compact file, fast restarts, minimal runtime overhead.  
-**Cons:** Data since last snapshot is lost on crash.
+- RDB snapshots for compact point-in-time recovery
+- AOF for durable write replay
+- both together for balanced recovery and durability
 
-### Configuration
-
-```ini title="betterkv.conf"
-# Trigger a save when N keys change within M seconds
-save 3600 1       # 1+ keys changed in 1 hour
-save 300 100      # 100+ keys changed in 5 minutes
-save 60 10000     # 10000+ keys changed in 1 minute
-
-# Snapshot filename and directory
-dbfilename dump.rdb
-dir /var/lib/betterkv
-
-# Compression (recommended)
-rdbcompression yes
-
-# Checksum (integrity check on load)
-rdbchecksum yes
-```
-
-### Manual Snapshot
-
-```bash
-# Synchronous (blocks until done — avoid in production)
-betterkv-cli BGSAVE SYNC
-
-# Background (non-blocking)
-betterkv-cli BGSAVE
-
-# Check last save time
-betterkv-cli LASTSAVE
-```
-
-## AOF — Append-Only File
-
-AOF logs every write command. On restart, BetterKV replays the log to reconstruct the dataset.
-
-**Pros:** Much more durable — can lose at most 1 second of data.  
-**Cons:** Larger files, slightly slower writes.
-
-### Configuration
+## RDB snapshots
 
 ```ini title="betterkv.conf"
-appendonly yes
-appendfilename "appendonly.aof"
-appenddirname "appendonlydir"
-
-# fsync policy
-appendfsync everysec   # recommended: sync every second
-# appendfsync always   # safest: sync after every write
-# appendfsync no       # fastest: let OS decide
-
-# Prevent fsync during rewrites (reduces latency spikes)
-no-appendfsync-on-rewrite yes
-
-# Auto-rewrite when AOF is N% larger than last rewrite
-auto-aof-rewrite-percentage 100
-auto-aof-rewrite-min-size 64mb
-```
-
-### Manual AOF Rewrite
-
-```bash
-# Trigger background rewrite (compacts the log)
-betterkv-cli BGREWRITEAOF
-```
-
-## Using Both (Recommended for Production)
-
-```ini title="betterkv.conf"
-# RDB: safety net and fast restart
 save 3600 1
 save 300 100
 save 60 10000
 
-# AOF: durability
+dbfilename dump.rdb
+dir /var/lib/betterkv
+rdbcompression yes
+rdbchecksum yes
+```
+
+RDB is the lowest-overhead option when you want smaller files and faster cold restarts.
+
+## AOF
+
+```ini title="betterkv.conf"
 appendonly yes
+appendfilename "appendonly.aof"
 appendfsync everysec
-no-appendfsync-on-rewrite yes
 auto-aof-rewrite-percentage 100
 auto-aof-rewrite-min-size 64mb
 ```
 
-When both are enabled:
-- BetterKV prefers AOF on restart (more complete data)
-- RDB is still created and can be used for backups
+AOF is the better default when durability matters more than absolute write-path minimalism.
 
-## Durability Comparison
+## Recommended production profile
 
-| Mode             | Max Data Loss | Write Latency | File Size |
-|------------------|---------------|---------------|-----------|
-| No persistence   | All data      | Minimal       | None      |
-| RDB only         | Minutes       | Low           | Small     |
-| AOF (everysec)   | ~1 second     | Low           | Large     |
-| AOF (always)     | ~1 command    | High          | Large     |
-| RDB + AOF        | ~1 second     | Low           | Both      |
-
-## Backup Strategy
-
-```bash
-#!/bin/bash
-# backup.sh — copy snapshot to S3
-
-TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-betterkv-cli BGSAVE
-
-# Wait for save to complete
-while [ $(betterkv-cli LASTSAVE) -eq $LAST_SAVE ]; do
-  sleep 1
-done
-
-cp /var/lib/betterkv/dump.rdb /backups/dump_${TIMESTAMP}.rdb
-aws s3 cp /backups/dump_${TIMESTAMP}.rdb s3://my-bucket/backups/
+```ini title="betterkv.conf"
+save 3600 1
+save 300 100
+save 60 10000
+appendonly yes
+appendfsync everysec
 ```
 
-:::tip
-For production, combine AOF (durability) with periodic RDB copies to object storage (recovery). Keep at least 7 days of RDB snapshots.
-:::
+## Benchmarking persistence correctly
+
+If you claim BetterKV is up to 10x faster than Redis and Valkey, publish persistence context next to the numbers.
+
+At minimum, state:
+
+- whether persistence was disabled, RDB-only, AOF-only, or both
+- the `appendfsync` mode
+- whether background rewrite/save activity was active
+- the dataset size and write amplification
+- p50, p95, p99, and p99.9 under the same persistence profile for all systems
+
+## Operational advice
+
+- Use RDB for backup portability and fast recovery points.
+- Use AOF when you need tighter durability.
+- Use both when you want a practical production default.
+- Put persistence files on fast storage if you care about long-tail stability.
+
+## Manual operations
+
+```bash
+betterkv-cli BGSAVE
+betterkv-cli BGREWRITEAOF
+betterkv-cli LASTSAVE
+```
+
+## Positioning guidance
+
+Persistence is one of the best places to show BetterKV's value. If your benchmark story says "Valkey p50 is BetterKV p99.9," include a persistence-enabled workload so the claim reflects production reality rather than memory-only microbenchmarks.

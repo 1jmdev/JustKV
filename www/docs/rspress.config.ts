@@ -351,7 +351,7 @@ export default defineConfig({
                 text: "Docs",
                 link: "/",
                 activeMatch:
-                    "^/$|^/(quick-start|installation|configuration|data-types|persistence|replication|cluster|lua-scripting|pubsub|transactions|security)",
+                    "^/$|^/(quick-start|installation|configuration|persistence|replication|cluster|lua-scripting|pubsub|transactions|security)",
             },
             { text: "Commands", link: "/commands/", activeMatch: "/commands/" },
         ],
@@ -369,7 +369,6 @@ export default defineConfig({
                 {
                     text: "Core Concepts",
                     items: [
-                        { text: "Data Types", link: "/data-types" },
                         { text: "Persistence", link: "/persistence" },
                         { text: "Replication", link: "/replication" },
                         { text: "Cluster Mode", link: "/cluster" },
