@@ -38,7 +38,7 @@ itoa = "1.0.17"
 parking_lot = "0.12.5"
 proptest = "1.10.0"
 thiserror = "2.0.18"
-tokio = { version = "1.49.0", features = ["full"] }
+tokio = { version = "1.49.0", features = ["rt-multi-thread", "fs", "io-uring", "full"] }
 tokio-test = "0.4.5"
 ryu = "1.0.23"
 socket2 = "0.6.2"
