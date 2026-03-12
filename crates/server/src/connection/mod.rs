@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use bytes::BytesMut;
+use bytes::{BytesMut, Buf};
 use commands::dispatch::CommandId;
 use commands::dispatch::identify;
 use commands::transaction::TransactionState;
@@ -192,29 +192,7 @@ pub async fn handle_connection(
     let result = loop {
         if pubsub.push_rx.is_some() {
             tokio::select! {
-                push = pubsub.push_rx.as_mut().expect("push receiver active").recv() => {
-                    let Some(frame) = push else {
-                        break Ok(());
-                    };
-                    encoder.encode(&frame, &mut write_buf);
-
-                    let push_rx = pubsub.push_rx.as_mut().expect("push receiver active");
-                    let mut drained = 0;
-                    while drained < PUSH_DRAIN_BATCH {
-                        match push_rx.try_recv() {
-                            Ok(frame) => {
-                                encoder.encode(&frame, &mut write_buf);
-                                drained += 1;
-                            }
-                            Err(TryRecvError::Empty) => break,
-                            Err(TryRecvError::Disconnected) => break,
-                        }
-                    }
-
-                    if let Err(err) = flush_write_buf(&mut stream, &mut write_buf).await {
-                        break Err(err.into());
-                    }
-                }
+                biased;
                 read_result = read_into_buffer(&mut stream, &mut read_buf) => {
                     let bytes_read = match read_result {
                         Ok(value) => value,
@@ -242,6 +220,29 @@ pub async fn handle_connection(
                         &mut auth_state,
                     ) {
                         break Err(err.into());
+                    }
+
+                    if let Err(err) = flush_write_buf(&mut stream, &mut write_buf).await {
+                        break Err(err.into());
+                    }
+                }
+                push = pubsub.push_rx.as_mut().expect("push receiver active").recv() => {
+                    let Some(frame) = push else {
+                        break Ok(());
+                    };
+                    encoder.encode(&frame, &mut write_buf);
+
+                    let push_rx = pubsub.push_rx.as_mut().expect("push receiver active");
+                    let mut drained = 0;
+                    while drained < PUSH_DRAIN_BATCH {
+                        match push_rx.try_recv() {
+                            Ok(frame) => {
+                                encoder.encode(&frame, &mut write_buf);
+                                drained += 1;
+                            }
+                            Err(TryRecvError::Empty) => break,
+                            Err(TryRecvError::Disconnected) => break,
+                        }
                     }
 
                     if let Err(err) = flush_write_buf(&mut stream, &mut write_buf).await {
@@ -420,28 +421,32 @@ async fn read_into_buffer(
 }
 
 #[inline]
-async fn flush_write_buf(stream: &mut TcpStream, write_buf: &mut BytesMut) -> std::io::Result<()> {
+async fn flush_write_buf(
+    stream: &mut TcpStream,
+    write_buf: &mut BytesMut,
+) -> std::io::Result<()> {
     if write_buf.is_empty() {
         return Ok(());
     }
 
-    let mut written = 0usize;
-    while written < write_buf.len() {
-        match stream.try_write(&write_buf[written..]) {
+    loop {
+        match stream.try_write(write_buf.chunk()) {
             Ok(0) => {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::WriteZero,
-                    "socket write returned zero bytes",
+                    "write returned zero",
                 ));
             }
-            Ok(count) => written += count,
-            Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => {
+            Ok(n) => {
+                write_buf.advance(n);
+                if write_buf.is_empty() {
+                    return Ok(());
+                }
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
                 stream.writable().await?;
             }
-            Err(err) => return Err(err),
+            Err(e) => return Err(e),
         }
     }
-
-    write_buf.clear();
-    Ok(())
 }
