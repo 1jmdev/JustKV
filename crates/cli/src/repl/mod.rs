@@ -13,6 +13,7 @@ use rustyline::history::FileHistory;
 use crate::client::Client;
 use crate::command;
 use crate::output;
+use crate::timing;
 use helper::ReplHelper;
 use meta::{MetaCommand, parse as parse_meta};
 
@@ -76,13 +77,26 @@ fn run_blocking(
             continue;
         }
 
-        let command = command::parse_line(trimmed)?;
-        if command.is_empty() {
+        let prepared = command::parse_line(trimmed)?;
+        if prepared.args.is_empty() {
             continue;
         }
 
-        let selection = parse_select_db(command.as_slice());
-        let response = tokio::runtime::Handle::current().block_on(client.execute(command))?;
+        let selection = parse_select_db(prepared.args.as_slice());
+        if prepared.timed {
+            let timed =
+                tokio::runtime::Handle::current().block_on(client.execute_timed(prepared.args))?;
+            if let Some(next_db) = selection
+                && !matches!(timed.response, protocol::types::RespFrame::Error(_))
+            {
+                state.db = next_db;
+            }
+            println!("{}", output::render(&timed.response, state.raw));
+            println!("{}", timing::render_duration(timed.duration));
+            continue;
+        }
+
+        let response = tokio::runtime::Handle::current().block_on(client.execute(prepared.args))?;
         if let Some(next_db) = selection
             && !matches!(response, protocol::types::RespFrame::Error(_))
         {

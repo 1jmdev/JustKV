@@ -1,4 +1,5 @@
 use bytes::BytesMut;
+use std::time::{Duration, Instant};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
@@ -73,6 +74,15 @@ impl Client {
         self.read_frame().await
     }
 
+    pub async fn execute_timed(&mut self, command: Vec<Vec<u8>>) -> Result<TimedResponse, String> {
+        let started_at = Instant::now();
+        let response = self.execute(command).await?;
+        Ok(TimedResponse {
+            response,
+            duration: started_at.elapsed(),
+        })
+    }
+
     async fn read_frame(&mut self) -> Result<RespFrame, String> {
         loop {
             match parser::parse_frame(&mut self.read_buf) {
@@ -98,6 +108,11 @@ impl Client {
             self.read_buf.extend_from_slice(&chunk[..size]);
         }
     }
+}
+
+pub struct TimedResponse {
+    pub response: RespFrame,
+    pub duration: Duration,
 }
 
 fn strings_to_bytes(parts: Vec<String>) -> Vec<Vec<u8>> {

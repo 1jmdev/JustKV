@@ -4,6 +4,7 @@ mod client;
 mod command;
 mod output;
 mod repl;
+mod timing;
 
 use std::process::ExitCode;
 
