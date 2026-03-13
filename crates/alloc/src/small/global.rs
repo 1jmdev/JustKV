@@ -66,10 +66,11 @@ unsafe impl GlobalAlloc for BetterKvAllocator {
             Ok(new_layout) => new_layout,
             Err(_) => return ptr::null_mut(),
         };
-        if let Some(class) = class_for(layout) {
-            if layout.align() <= MAX_SMALL_ALIGN && new_size <= class.usable_size {
-                return ptr;
-            }
+        if let Some(class) = class_for(layout)
+            && layout.align() <= MAX_SMALL_ALIGN
+            && new_size <= class.usable_size
+        {
+            return ptr;
         }
 
         let new_ptr = self.alloc(new_layout);

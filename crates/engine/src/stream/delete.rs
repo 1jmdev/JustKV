@@ -81,12 +81,11 @@ impl Store {
                 XDelexPolicy::Acked => {
                     if !stream.entries.contains_key(id) {
                         -1
-                    } else if stream.groups.is_empty() {
-                        2
-                    } else if stream
-                        .groups
-                        .values()
-                        .any(|group| group.pending.contains_key(id))
+                    } else if stream.groups.is_empty()
+                        || stream
+                            .groups
+                            .values()
+                            .any(|group| group.pending.contains_key(id))
                     {
                         2
                     } else if stream.entries.remove(id).is_some() {

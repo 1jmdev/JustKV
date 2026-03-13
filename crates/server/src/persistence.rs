@@ -417,15 +417,15 @@ impl PersistenceThread {
         if self.config.snapshot_on_shutdown && self.dirty_changes > 0 {
             self.write_snapshot("shutdown")?;
         }
-        if self.config.appendonly {
-            if let Some(file) = &mut self.aof_file {
-                file.sync_all().map_err(|err| {
-                    format!(
-                        "failed to sync appendonly file {}: {err}",
-                        self.aof_path.display()
-                    )
-                })?;
-            }
+        if self.config.appendonly
+            && let Some(file) = &mut self.aof_file
+        {
+            file.sync_all().map_err(|err| {
+                format!(
+                    "failed to sync appendonly file {}: {err}",
+                    self.aof_path.display()
+                )
+            })?;
         }
         Ok(())
     }

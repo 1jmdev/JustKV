@@ -61,6 +61,12 @@ impl HashValue {
     }
 }
 
+impl Default for HashValue {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum Entry {
     String(CompactValue),
@@ -83,7 +89,7 @@ impl Entry {
     }
 
     pub fn empty_hash() -> Self {
-        Self::Hash(Box::new(HashValue::new()))
+        Self::Hash(Box::default())
     }
 
     pub fn as_string(&self) -> Option<&CompactValue> {

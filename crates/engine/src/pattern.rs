@@ -167,14 +167,15 @@ impl BoxMatch<'_> {
             };
             index = next_index;
 
-            if index + 1 < self.class.len() && self.class[index] == b'-' {
-                if let Some((end, range_next_index)) = read_class_byte(self.class, index + 1) {
-                    if start <= byte && byte <= end {
-                        matched = true;
-                    }
-                    index = range_next_index;
-                    continue;
+            if index + 1 < self.class.len()
+                && self.class[index] == b'-'
+                && let Some((end, range_next_index)) = read_class_byte(self.class, index + 1)
+            {
+                if start <= byte && byte <= end {
+                    matched = true;
                 }
+                index = range_next_index;
+                continue;
             }
 
             if start == byte {

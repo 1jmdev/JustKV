@@ -92,6 +92,11 @@ impl BucketArray {
     }
 
     #[inline(always)]
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    #[inline(always)]
     pub fn as_ptr(&self) -> *const u32 {
         self.ptr.cast_const()
     }

@@ -412,9 +412,9 @@ fn bench_helpers(c: &mut Criterion) {
         b.iter(|| commands::util::wrong_args(black_box("HSET")))
     });
 
-    g.bench_function("wrong_type", |b| b.iter(|| commands::util::wrong_type()));
+    g.bench_function("wrong_type", |b| b.iter(commands::util::wrong_type));
 
-    g.bench_function("int_error", |b| b.iter(|| commands::util::int_error()));
+    g.bench_function("int_error", |b| b.iter(commands::util::int_error));
 
     g.finish();
 }
@@ -432,7 +432,7 @@ fn bench_mixed_workload(c: &mut Criterion) {
             b.iter(|| {
                 let k = &keys[idx % 1000];
                 idx = idx.wrapping_add(1);
-                if idx % 5 == 0 {
+                if idx.is_multiple_of(5) {
                     let args: &[CompactArg] = &[arg("SET"), arg(k), arg("newval")];
                     dispatch_args(black_box(&store), args)
                 } else {
