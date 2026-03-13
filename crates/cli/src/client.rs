@@ -1,26 +1,42 @@
 use bytes::BytesMut;
 use std::time::{Duration, Instant};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpStream;
+use tokio::net::{TcpStream, UnixStream};
 
 use protocol::encoder::Encoder;
 use protocol::parser::{self, ParseError};
 use protocol::types::{BulkData, RespFrame};
 
-use crate::cli::ConnectionOptions;
+use crate::cli::{ConnectionOptions, ConnectionTarget};
+
+enum ClientStream {
+    Tcp(TcpStream),
+    Unix(UnixStream),
+}
 
 pub struct Client {
-    stream: TcpStream,
+    stream: ClientStream,
     read_buf: BytesMut,
     encoder: Encoder,
 }
 
 impl Client {
     pub async fn connect(options: &ConnectionOptions) -> Result<Self, String> {
-        let address = format!("{}:{}", options.host, options.port);
-        let stream = TcpStream::connect(address.as_str())
-            .await
-            .map_err(|err| format!("Connection error: {err}"))?;
+        let stream = match &options.target {
+            ConnectionTarget::Tcp { host, port } => {
+                let address = format!("{host}:{port}");
+                let stream = TcpStream::connect(address.as_str())
+                    .await
+                    .map_err(|err| format!("Connection error: {err}"))?;
+                ClientStream::Tcp(stream)
+            }
+            ConnectionTarget::Unix { path } => {
+                let stream = UnixStream::connect(path)
+                    .await
+                    .map_err(|err| format!("Connection error: {err}"))?;
+                ClientStream::Unix(stream)
+            }
+        };
 
         let mut client = Self {
             stream,
@@ -106,6 +122,22 @@ impl Client {
             }
 
             self.read_buf.extend_from_slice(&chunk[..size]);
+        }
+    }
+}
+
+impl ClientStream {
+    async fn write_all(&mut self, buf: &[u8]) -> std::io::Result<()> {
+        match self {
+            Self::Tcp(stream) => stream.write_all(buf).await,
+            Self::Unix(stream) => stream.write_all(buf).await,
+        }
+    }
+
+    async fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        match self {
+            Self::Tcp(stream) => stream.read(buf).await,
+            Self::Unix(stream) => stream.read(buf).await,
         }
     }
 }

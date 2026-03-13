@@ -2,6 +2,7 @@ use crate::auth::UserDirectiveConfig;
 
 #[derive(Clone, Debug)]
 pub struct Config {
+    pub socket: Option<String>,
     pub bind: String,
     pub port: u16,
     pub io_threads: usize,
@@ -45,6 +46,7 @@ pub enum AppendFsync {
 impl Default for Config {
     fn default() -> Self {
         Self {
+            socket: None,
             bind: "127.0.0.1".to_string(),
             port: 6379,
             io_threads: default_threads(),
@@ -84,6 +86,13 @@ impl Default for Config {
 impl Config {
     pub fn addr(&self) -> String {
         format!("{}:{}", self.bind, self.port)
+    }
+
+    pub fn listener_label(&self) -> String {
+        match self.socket.as_deref() {
+            Some(path) => format!("unix:{path}"),
+            None => self.addr(),
+        }
     }
 
     pub fn snapshot_path(&self) -> std::path::PathBuf {

@@ -25,10 +25,10 @@ pub async fn run() -> Result<(), String> {
         return Ok(());
     }
 
+    let endpoint_label = options.endpoint_label();
     repl::run(
         client,
-        options.host.as_str(),
-        options.port,
+        endpoint_label.as_str(),
         options.db,
         options.raw,
     )

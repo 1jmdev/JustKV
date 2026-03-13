@@ -14,6 +14,8 @@ pub struct Cli {
     pub host: String,
     #[arg(short = 'p', long = "port", default_value_t = 6379)]
     pub port: u16,
+    #[arg(long = "socket")]
+    pub socket: Option<String>,
     #[arg(short = 'a', long = "pass")]
     pub password: Option<String>,
     #[arg(long = "user")]
@@ -36,13 +38,18 @@ pub struct Cli {
 
 #[derive(Clone, Debug)]
 pub struct ConnectionOptions {
-    pub host: String,
-    pub port: u16,
+    pub target: ConnectionTarget,
     pub user: Option<String>,
     pub password: Option<String>,
     pub db: u32,
     pub proto: u8,
     pub raw: bool,
+}
+
+#[derive(Clone, Debug)]
+pub enum ConnectionTarget {
+    Tcp { host: String, port: u16 },
+    Unix { path: String },
 }
 
 impl Cli {
@@ -55,8 +62,10 @@ impl Cli {
         }
 
         let mut options = ConnectionOptions {
-            host: self.host,
-            port: self.port,
+            target: ConnectionTarget::Tcp {
+                host: self.host,
+                port: self.port,
+            },
             user: self.user,
             password: self.password,
             db: self.db,
@@ -68,11 +77,24 @@ impl Cli {
             parse_uri(&uri, &mut options)?;
         }
 
+        if let Some(path) = self.socket {
+            options.target = ConnectionTarget::Unix { path };
+        }
+
         if self.no_raw {
             options.raw = false;
         }
 
         Ok((options, self.command))
+    }
+}
+
+impl ConnectionOptions {
+    pub fn endpoint_label(&self) -> String {
+        match &self.target {
+            ConnectionTarget::Tcp { host, port } => format!("{host}:{port}"),
+            ConnectionTarget::Unix { path } => format!("unix:{path}"),
+        }
     }
 }
 
@@ -111,12 +133,17 @@ fn parse_uri(uri: &str, options: &mut ConnectionOptions) -> Result<(), String> {
     if host.is_empty() {
         return Err("Invalid redis URI host".to_string());
     }
-    options.host = host.to_string();
-    if let Some(port) = port {
-        options.port = port
+
+    let port = match port {
+        Some(port) => port
             .parse::<u16>()
-            .map_err(|_| "Invalid port in redis URI".to_string())?;
-    }
+            .map_err(|_| "Invalid port in redis URI".to_string())?,
+        None => 6379,
+    };
+    options.target = ConnectionTarget::Tcp {
+        host: host.to_string(),
+        port,
+    };
 
     if !db_path.is_empty() {
         options.db = db_path

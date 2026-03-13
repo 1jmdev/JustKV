@@ -6,7 +6,7 @@ use commands::dispatch::identify;
 use commands::transaction::TransactionState;
 use engine::pubsub::{ConnectionPubSub, PubSubHub, PubSubMessage, PubSubSink, SharedPubSubSink};
 use tokio::io::AsyncReadExt;
-use tokio::net::TcpStream;
+use tokio::net::{TcpStream, UnixStream};
 use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::mpsc::{UnboundedReceiver, unbounded_channel};
 
@@ -177,6 +177,41 @@ const READ_BUFFER_INITIAL: usize = 64 * 1024;
 const WRITE_BUFFER_INITIAL: usize = 64 * 1024;
 const PUSH_DRAIN_BATCH: usize = 128;
 
+pub enum ConnectionStream {
+    Tcp(TcpStream),
+    Unix(UnixStream),
+}
+
+impl ConnectionStream {
+    async fn read_buf(&mut self, buf: &mut BytesMut) -> std::io::Result<usize> {
+        match self {
+            Self::Tcp(stream) => stream.read_buf(buf).await,
+            Self::Unix(stream) => stream.read_buf(buf).await,
+        }
+    }
+
+    fn try_read_buf(&mut self, buf: &mut BytesMut) -> std::io::Result<usize> {
+        match self {
+            Self::Tcp(stream) => stream.try_read_buf(buf),
+            Self::Unix(stream) => stream.try_read_buf(buf),
+        }
+    }
+
+    fn try_write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        match self {
+            Self::Tcp(stream) => stream.try_write(buf),
+            Self::Unix(stream) => stream.try_write(buf),
+        }
+    }
+
+    async fn writable(&self) -> std::io::Result<()> {
+        match self {
+            Self::Tcp(stream) => stream.writable().await,
+            Self::Unix(stream) => stream.writable().await,
+        }
+    }
+}
+
 #[derive(Clone)]
 #[doc(hidden)]
 pub struct ConnectionShared {
@@ -245,7 +280,7 @@ impl ConnectionProcessor {
 
     async fn run(
         &mut self,
-        stream: &mut TcpStream,
+        stream: &mut ConnectionStream,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let result = loop {
             if self.pubsub.push_rx.is_some() {
@@ -406,7 +441,7 @@ impl ConnectionProcessor {
 
 #[doc(hidden)]
 pub async fn handle_connection(
-    mut stream: TcpStream,
+    mut stream: ConnectionStream,
     shared: ConnectionShared,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     ConnectionProcessor::new(shared).run(&mut stream).await
@@ -425,7 +460,7 @@ fn is_transaction_command(command: CommandId) -> bool {
 }
 
 async fn read_into_buffer(
-    stream: &mut TcpStream,
+    stream: &mut ConnectionStream,
     read_buf: &mut BytesMut,
 ) -> std::io::Result<usize> {
     let mut total_read = stream.read_buf(read_buf).await?;
@@ -444,7 +479,10 @@ async fn read_into_buffer(
 }
 
 #[inline]
-async fn flush_write_buf(stream: &mut TcpStream, write_buf: &mut BytesMut) -> std::io::Result<()> {
+async fn flush_write_buf(
+    stream: &mut ConnectionStream,
+    write_buf: &mut BytesMut,
+) -> std::io::Result<()> {
     if write_buf.is_empty() {
         return Ok(());
     }

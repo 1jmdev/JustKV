@@ -3,6 +3,7 @@ mod background;
 mod shutdown;
 
 use std::io;
+use std::path::{Path, PathBuf};
 use tokio::task::JoinSet;
 use tokio::time::Duration;
 
@@ -10,15 +11,16 @@ use crate::auth::AuthService;
 use crate::config::Config;
 use crate::connection::ConnectionShared;
 use crate::persistence::{self, PersistenceHandle};
-use accept::{bind_reuse_port_listeners, run_accept_loop};
+use accept::{bind_listeners, run_accept_loop};
 use background::{spawn_cached_clock_updater, spawn_expiry_sweeper};
 use engine::pubsub::PubSubHub;
 use engine::store::Store;
 use shutdown::shutdown_signal;
 
 pub async fn run_listener(config: Config) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let bind_addr = config.addr();
-    let listeners = bind_reuse_port_listeners(bind_addr.clone(), config.io_threads).await?;
+    let listener_label = config.listener_label();
+    let _socket_cleanup = config.socket.as_deref().map(UnixSocketCleanup::new);
+    let listeners = bind_listeners(&config).await?;
     let store = Store::new(config.shards);
     let pubsub = PubSubHub::new();
     let auth = AuthService::from_config(&config).map_err(io::Error::other)?;
@@ -59,7 +61,7 @@ pub async fn run_listener(config: Config) -> Result<(), Box<dyn std::error::Erro
     );
     spawn_cached_clock_updater(store.clone());
     tracing::info!(
-        bind = %bind_addr,
+        listener = %listener_label,
         io_threads = config.io_threads,
         sweep_interval_ms = config.sweep_interval_ms,
         save_rules = config.save_rules.len(),
@@ -98,3 +100,27 @@ pub async fn run_listener(config: Config) -> Result<(), Box<dyn std::error::Erro
 }
 
 pub(crate) type ListenerResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
+
+struct UnixSocketCleanup {
+    path: PathBuf,
+}
+
+impl UnixSocketCleanup {
+    fn new(path: &str) -> Self {
+        Self {
+            path: Path::new(path).to_path_buf(),
+        }
+    }
+}
+
+impl Drop for UnixSocketCleanup {
+    fn drop(&mut self) {
+        match std::fs::remove_file(&self.path) {
+            Ok(()) => {}
+            Err(err) if err.kind() == io::ErrorKind::NotFound => {}
+            Err(err) => {
+                tracing::warn!(path = %self.path.display(), error = %err, "failed to remove unix socket");
+            }
+        }
+    }
+}

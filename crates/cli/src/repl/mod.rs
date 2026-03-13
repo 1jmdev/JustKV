@@ -19,18 +19,16 @@ use meta::{MetaCommand, parse as parse_meta};
 
 pub async fn run(
     mut client: Client,
-    host: &str,
-    port: u16,
+    endpoint: &str,
     db: u32,
     raw: bool,
 ) -> Result<(), String> {
-    tokio::task::block_in_place(|| run_blocking(&mut client, host, port, db, raw))
+    tokio::task::block_in_place(|| run_blocking(&mut client, endpoint, db, raw))
 }
 
 fn run_blocking(
     client: &mut Client,
-    host: &str,
-    port: u16,
+    endpoint: &str,
     db: u32,
     raw: bool,
 ) -> Result<(), String> {
@@ -49,8 +47,7 @@ fn run_blocking(
 
     let mut state = ReplState {
         raw,
-        host: host.to_string(),
-        port,
+        endpoint: endpoint.to_string(),
         db,
     };
 
@@ -167,17 +164,16 @@ fn parse_select_db(command: &[Vec<u8>]) -> Option<u32> {
 
 struct ReplState {
     raw: bool,
-    host: String,
-    port: u16,
+    endpoint: String,
     db: u32,
 }
 
 impl ReplState {
     fn prompt(&self) -> String {
         if self.db == 0 {
-            format!("{}:{}> ", self.host, self.port)
+            format!("{}> ", self.endpoint)
         } else {
-            format!("{}:{}[{}]> ", self.host, self.port, self.db)
+            format!("{}[{}]> ", self.endpoint, self.db)
         }
     }
 }

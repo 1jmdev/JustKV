@@ -22,6 +22,9 @@ pub(crate) fn run(cli: Cli) -> Result<(), String> {
     if let Some(v) = cli.port {
         config.port = v;
     }
+    if let Some(v) = cli.socket {
+        config.socket = Some(v);
+    }
     if let Some(v) = cli.io_threads {
         config.io_threads = v.max(1);
     }
@@ -91,8 +94,7 @@ pub(crate) fn run(cli: Cli) -> Result<(), String> {
     let logging_guard = init_logging(&config)?;
     let _ = &logging_guard.file_guard;
     tracing::info!(
-        bind = %config.bind,
-        port = config.port,
+        listener = %config.listener_label(),
         io_threads = config.io_threads,
         shards = config.shards,
         requirepass = config.requirepass.is_some(),
@@ -153,6 +155,7 @@ pub(crate) fn parse_config_content_into(content: &str, config: &mut Config) -> R
         let name = tokens[0].to_ascii_lowercase();
         let values = &tokens[1..];
         match name.as_str() {
+            "socket" => config.socket = Some(values[0].clone()),
             "bind" => config.bind = values[0].clone(),
             "port" => {
                 config.port = values[0]

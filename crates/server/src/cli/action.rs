@@ -31,6 +31,13 @@ pub(crate) struct Cli {
     pub config: Option<String>,
 
     #[arg(
+        long = "socket",
+        value_name = "PATH",
+        help = "Unix socket path to listen on"
+    )]
+    pub socket: Option<String>,
+
+    #[arg(
         long = "bind",
         value_name = "ADDRESS",
         help = "IP address to bind to (default: 127.0.0.1)"

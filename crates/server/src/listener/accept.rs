@@ -1,30 +1,63 @@
 use std::io;
 use std::net::SocketAddr;
+use std::path::Path;
 
 use socket2::{Domain, Protocol, Socket, Type};
-use tokio::net::TcpListener;
+use tokio::net::{TcpListener, UnixListener};
 
-use crate::connection::{ConnectionShared, handle_connection};
+use crate::config::Config;
+use crate::connection::{ConnectionShared, ConnectionStream, handle_connection};
 use crate::listener::ListenerResult;
 
-pub(crate) async fn run_accept_loop(
-    listener: TcpListener,
-    shared: ConnectionShared,
-) -> ListenerResult {
+pub(crate) enum ServerListener {
+    Tcp(TcpListener),
+    Unix(UnixListener),
+}
+
+pub(crate) async fn run_accept_loop(listener: ServerListener, shared: ConnectionShared) -> ListenerResult {
+    match listener {
+        ServerListener::Tcp(listener) => run_tcp_accept_loop(listener, shared).await,
+        ServerListener::Unix(listener) => run_unix_accept_loop(listener, shared).await,
+    }
+}
+
+pub(crate) async fn bind_listeners(config: &Config) -> Result<Vec<ServerListener>, io::Error> {
+    match config.socket.as_deref() {
+        Some(path) => Ok(vec![ServerListener::Unix(bind_unix_listener(path)?)]),
+        None => bind_reuse_port_listeners(config.addr(), config.io_threads)
+            .await
+            .map(|listeners| listeners.into_iter().map(ServerListener::Tcp).collect()),
+    }
+}
+
+async fn run_tcp_accept_loop(listener: TcpListener, shared: ConnectionShared) -> ListenerResult {
     loop {
         let (socket, _) = listener.accept().await?;
         socket.set_nodelay(true)?;
 
         let shared = shared.clone();
         tokio::spawn(async move {
-            if let Err(err) = handle_connection(socket, shared).await {
+            if let Err(err) = handle_connection(ConnectionStream::Tcp(socket), shared).await {
                 tracing::debug!(error = %err, "connection closed with error");
             }
         });
     }
 }
 
-pub(crate) async fn bind_reuse_port_listeners(
+async fn run_unix_accept_loop(listener: UnixListener, shared: ConnectionShared) -> ListenerResult {
+    loop {
+        let (socket, _) = listener.accept().await?;
+
+        let shared = shared.clone();
+        tokio::spawn(async move {
+            if let Err(err) = handle_connection(ConnectionStream::Unix(socket), shared).await {
+                tracing::debug!(error = %err, "connection closed with error");
+            }
+        });
+    }
+}
+
+async fn bind_reuse_port_listeners(
     bind_addr: String,
     io_threads: usize,
 ) -> Result<Vec<TcpListener>, io::Error> {
@@ -62,4 +95,32 @@ fn bind_single_listener(address: SocketAddr) -> Result<TcpListener, io::Error> {
 
     let std_listener: std::net::TcpListener = socket.into();
     TcpListener::from_std(std_listener)
+}
+
+fn bind_unix_listener(path: &str) -> Result<UnixListener, io::Error> {
+    let socket_path = Path::new(path);
+    if let Some(parent) = socket_path.parent()
+        && !parent.as_os_str().is_empty()
+    {
+        std::fs::metadata(parent)?;
+    }
+
+    match std::fs::symlink_metadata(socket_path) {
+        Ok(metadata) => {
+            use std::os::unix::fs::FileTypeExt;
+
+            if metadata.file_type().is_socket() {
+                std::fs::remove_file(socket_path)?;
+            } else {
+                return Err(io::Error::new(
+                    io::ErrorKind::AlreadyExists,
+                    format!("socket path is not a Unix socket: {path}"),
+                ));
+            }
+        }
+        Err(err) if err.kind() == io::ErrorKind::NotFound => {}
+        Err(err) => return Err(err),
+    }
+
+    UnixListener::bind(socket_path)
 }

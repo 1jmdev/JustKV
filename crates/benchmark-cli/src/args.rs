@@ -21,6 +21,9 @@ pub struct Args {
     #[arg(short = 'p', long = "port", default_value_t = DEFAULT_PORT, value_parser = parse_positive_u16)]
     pub port: u16,
 
+    #[arg(long = "socket")]
+    pub socket: Option<String>,
+
     #[arg(short = 'a')]
     pub password: Option<String>,
 
@@ -84,18 +87,24 @@ impl Args {
             parse_redis_uri(uri)?
         } else {
             Connection {
-                host: self.host.clone(),
-                port: self.port,
+                target: ConnectionTarget::Tcp {
+                    host: self.host.clone(),
+                    port: self.port,
+                },
                 user: None,
                 password: None,
             }
         };
 
-        if self.host != DEFAULT_HOST {
-            connection.host = self.host.clone();
-        }
-        if self.port != DEFAULT_PORT {
-            connection.port = self.port;
+        if let Some(path) = self.socket.clone() {
+            connection.target = ConnectionTarget::Unix { path };
+        } else {
+            if self.host != DEFAULT_HOST {
+                connection.target.set_host(self.host.clone());
+            }
+            if self.port != DEFAULT_PORT {
+                connection.target.set_port(self.port);
+            }
         }
         if self.password.is_some() {
             connection.password = self.password.clone();
@@ -124,10 +133,29 @@ impl Args {
 
 #[derive(Debug, Clone)]
 pub struct Connection {
-    pub host: String,
-    pub port: u16,
+    pub target: ConnectionTarget,
     pub user: Option<String>,
     pub password: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub enum ConnectionTarget {
+    Tcp { host: String, port: u16 },
+    Unix { path: String },
+}
+
+impl ConnectionTarget {
+    fn set_host(&mut self, host: String) {
+        if let Self::Tcp { host: current, .. } = self {
+            *current = host;
+        }
+    }
+
+    fn set_port(&mut self, port: u16) {
+        if let Self::Tcp { port: current, .. } = self {
+            *current = port;
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -238,8 +266,7 @@ fn parse_redis_uri(uri: &str) -> Result<Connection, String> {
     };
 
     Ok(Connection {
-        host,
-        port,
+        target: ConnectionTarget::Tcp { host, port },
         user,
         password,
     })

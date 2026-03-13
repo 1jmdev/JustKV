@@ -9,12 +9,11 @@ use hdrhistogram::Histogram;
 use indicatif::{ProgressBar, ProgressStyle};
 use protocol::parser::{self, ParseError};
 use protocol::types::{BulkData, RespFrame};
-use tokio::io::AsyncReadExt;
-use tokio::io::AsyncWriteExt;
-use tokio::net::TcpStream;
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::net::{TcpStream, UnixStream};
 use tokio::task::JoinSet;
 
-use crate::args::{Args, Connection};
+use crate::args::{Args, Connection, ConnectionTarget};
 use crate::resp::{
     ExpectedResponse, append_resp_parts, encode_expected_response, encode_resp_parts,
     make_key_into, read_n_responses, read_n_strict_repeated_exact_responses,
@@ -76,8 +75,7 @@ struct ProgressSnapshot {
 }
 
 struct Shared {
-    host: String,
-    port: u16,
+    target: ConnectionTarget,
     user: Option<String>,
     password: Option<String>,
     strict: bool,
@@ -294,8 +292,7 @@ pub async fn run_single_benchmark(
     let start = Instant::now();
 
     let shared = Arc::new(Shared {
-        host: connection.host.clone(),
-        port: connection.port,
+        target: connection.target.clone(),
         user: connection.user.clone(),
         password: connection.password.clone(),
         strict: args.strict,
@@ -402,13 +399,7 @@ async fn run_worker(
     mut tracked_remaining: u64,
     cfg: Arc<Shared>,
 ) -> Result<WorkerStats, String> {
-    let addr = format!("{}:{}", cfg.host, cfg.port);
-    let mut stream = TcpStream::connect(&addr)
-        .await
-        .map_err(|err| format!("connect {addr}: {err}"))?;
-    stream
-        .set_nodelay(true)
-        .map_err(|err| format!("set_nodelay: {err}"))?;
+    let mut stream = connect_stream(&cfg.target).await?;
 
     let mut parse_buf = BytesMut::with_capacity(8192);
 
@@ -850,7 +841,7 @@ fn format_duration(seconds: f64) -> String {
 }
 
 async fn setup_worker_state(
-    stream: &mut TcpStream,
+    stream: &mut (impl AsyncRead + AsyncWrite + Unpin),
     parse_buf: &mut BytesMut,
     spec: &BenchRun,
     key_base: &[u8],
@@ -892,7 +883,7 @@ async fn setup_worker_state(
 }
 
 async fn prime_keyspace(
-    stream: &mut TcpStream,
+    stream: &mut (impl AsyncRead + AsyncWrite + Unpin),
     parse_buf: &mut BytesMut,
     kind: BenchKind,
     key_base: &[u8],
@@ -941,7 +932,7 @@ async fn prime_keyspace(
 }
 
 async fn read_one_response(
-    stream: &mut TcpStream,
+    stream: &mut (impl AsyncRead + Unpin),
     parse_buf: &mut BytesMut,
 ) -> Result<RespFrame, String> {
     let mut chunk = [0u8; 8192];
@@ -962,6 +953,31 @@ async fn read_one_response(
         parse_buf.extend_from_slice(&chunk[..read]);
     }
 }
+
+async fn connect_stream(target: &ConnectionTarget) -> Result<Box<dyn AsyncReadWrite>, String> {
+    match target {
+        ConnectionTarget::Tcp { host, port } => {
+            let addr = format!("{host}:{port}");
+            let stream = TcpStream::connect(&addr)
+                .await
+                .map_err(|err| format!("connect {addr}: {err}"))?;
+            stream
+                .set_nodelay(true)
+                .map_err(|err| format!("set_nodelay: {err}"))?;
+            Ok(Box::new(stream) as Box<dyn AsyncReadWrite>)
+        }
+        ConnectionTarget::Unix { path } => {
+            let stream = UnixStream::connect(path)
+                .await
+                .map_err(|err| format!("connect unix:{path}: {err}"))?;
+            Ok(Box::new(stream) as Box<dyn AsyncReadWrite>)
+        }
+    }
+}
+
+trait AsyncReadWrite: AsyncRead + AsyncWrite + Unpin + Send {}
+
+impl<T> AsyncReadWrite for T where T: AsyncRead + AsyncWrite + Unpin + Send {}
 
 fn build_setup_command(kind: BenchKind, key: &[u8], value: &[u8]) -> Option<Vec<u8>> {
     let mut out = Vec::with_capacity(value.len() + key.len() + 64);

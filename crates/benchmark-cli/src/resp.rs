@@ -1,8 +1,7 @@
 use bytes::{Buf, BytesMut};
 use protocol::parser::{self, ParseError};
 use protocol::types::{BulkData, RespFrame};
-use tokio::io::AsyncReadExt;
-use tokio::net::TcpStream;
+use tokio::io::{AsyncRead, AsyncReadExt};
 
 #[derive(Clone, Debug)]
 pub enum ExpectedResponse {
@@ -51,7 +50,7 @@ pub fn make_key_into(base: &[u8], sequence: u64, key: &mut Vec<u8>) {
 }
 
 pub async fn read_n_responses(
-    stream: &mut TcpStream,
+    stream: &mut (impl AsyncRead + Unpin),
     parse_buf: &mut BytesMut,
     expected: usize,
 ) -> Result<(), String> {
@@ -68,7 +67,7 @@ pub async fn read_n_responses(
 }
 
 pub async fn read_n_strict_responses(
-    stream: &mut TcpStream,
+    stream: &mut (impl AsyncRead + Unpin),
     parse_buf: &mut BytesMut,
     expected: &[ExpectedResponse],
     encoded: &[Option<Vec<u8>>],
@@ -88,7 +87,7 @@ pub async fn read_n_strict_responses(
 }
 
 pub async fn read_n_strict_repeated_exact_responses(
-    stream: &mut TcpStream,
+    stream: &mut (impl AsyncRead + Unpin),
     parse_buf: &mut BytesMut,
     expected: &[u8],
     count: usize,
@@ -103,7 +102,7 @@ pub async fn read_n_strict_repeated_exact_responses(
 }
 
 pub async fn read_n_unchecked_responses(
-    stream: &mut TcpStream,
+    stream: &mut (impl AsyncRead + Unpin),
     parse_buf: &mut BytesMut,
     encoded: &[Option<Vec<u8>>],
     mut on_response: impl FnMut() -> Result<(), String>,
@@ -121,7 +120,7 @@ pub async fn read_n_unchecked_responses(
 }
 
 pub async fn read_n_unchecked_repeated_exact_responses(
-    stream: &mut TcpStream,
+    stream: &mut (impl AsyncRead + Unpin),
     parse_buf: &mut BytesMut,
     expected: &[u8],
     count: usize,
@@ -136,7 +135,7 @@ pub async fn read_n_unchecked_repeated_exact_responses(
 }
 
 pub async fn read_one_response(
-    stream: &mut TcpStream,
+    stream: &mut (impl AsyncRead + Unpin),
     parse_buf: &mut BytesMut,
 ) -> Result<RespFrame, String> {
     loop {
@@ -157,7 +156,7 @@ pub async fn read_one_response(
 }
 
 async fn skip_exact_response(
-    stream: &mut TcpStream,
+    stream: &mut (impl AsyncRead + Unpin),
     parse_buf: &mut BytesMut,
     expected: &[u8],
 ) -> Result<(), String> {
@@ -181,7 +180,7 @@ async fn skip_exact_response(
 }
 
 async fn validate_exact_response(
-    stream: &mut TcpStream,
+    stream: &mut (impl AsyncRead + Unpin),
     parse_buf: &mut BytesMut,
     expected: &[u8],
 ) -> Result<(), String> {
@@ -209,7 +208,10 @@ async fn validate_exact_response(
     Ok(())
 }
 
-async fn skip_one_response(stream: &mut TcpStream, parse_buf: &mut BytesMut) -> Result<(), String> {
+async fn skip_one_response(
+    stream: &mut (impl AsyncRead + Unpin),
+    parse_buf: &mut BytesMut,
+) -> Result<(), String> {
     loop {
         match try_skip_frame(parse_buf)? {
             Some(()) => return Ok(()),
