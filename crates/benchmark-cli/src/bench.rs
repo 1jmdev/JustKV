@@ -15,8 +15,10 @@ use tokio::net::TcpStream;
 
 use crate::args::{Args, Connection};
 use crate::resp::{
-    ExpectedResponse, encode_expected_response, encode_resp_parts, make_key, read_n_responses,
-    read_n_strict_responses, read_n_unchecked_responses, repeat_payload,
+    ExpectedResponse, append_resp_parts, encode_expected_response, encode_resp_parts,
+    make_key_into, read_n_responses, read_n_strict_repeated_exact_responses,
+    read_n_strict_responses, read_n_unchecked_repeated_exact_responses, read_n_unchecked_responses,
+    repeat_payload,
 };
 use crate::spec::{BenchKind, BenchRun};
 
@@ -97,6 +99,20 @@ struct ResponseModel {
     flags: Vec<bool>,
     ints: Vec<i64>,
     lens: Vec<i64>,
+}
+
+struct CommandScratch {
+    key: Vec<u8>,
+    related_key: Vec<u8>,
+}
+
+impl CommandScratch {
+    fn new(base_len: usize) -> Self {
+        Self {
+            key: Vec::with_capacity(base_len + 21),
+            related_key: Vec::with_capacity(base_len + 24),
+        }
+    }
 }
 
 impl ResponseModel {
@@ -477,41 +493,28 @@ async fn run_worker(
     let mut stats = WorkerStats::new()?;
     let mut response_model = ResponseModel::new(&cfg.spec, value.clone());
     let mut sequence = 0u64;
+    let fixed_exact_response = if has_fixed_response_shape(cfg.spec.kind) {
+        let response = response_model.expected(0);
+        encode_expected_response(&response)
+    } else {
+        None
+    };
+    let sample_command = build_command(
+        cfg.spec.kind,
+        key_base.as_bytes(),
+        &value,
+        0,
+        script_sha.as_deref(),
+    )?;
 
     if !cfg.spec.random_keys {
-        let one = build_command(
-            cfg.spec.kind,
-            key_base.as_bytes(),
-            &value,
-            0,
-            script_sha.as_deref(),
-        );
-        let full_batch = repeat_payload(&one, cfg.spec.pipeline);
+        let full_batch = repeat_payload(&sample_command, cfg.spec.pipeline);
         while warmup_remaining > 0 || tracked_remaining > 0 {
             let track = warmup_remaining == 0;
             let batch = if track {
                 cfg.spec.pipeline
             } else {
                 warmup_remaining.min(cfg.spec.pipeline as u64) as usize
-            };
-            let expected = if cfg.strict {
-                (0..batch)
-                    .map(|_| response_model.expected(0))
-                    .collect::<Vec<_>>()
-            } else {
-                Vec::new()
-            };
-            let encoded = if has_fixed_response_shape(cfg.spec.kind) {
-                let response = response_model.expected(0);
-                let encoded = encode_expected_response(&response);
-                (0..batch).map(|_| encoded.clone()).collect::<Vec<_>>()
-            } else if cfg.strict {
-                expected
-                    .iter()
-                    .map(encode_expected_response)
-                    .collect::<Vec<_>>()
-            } else {
-                vec![None; batch]
             };
             if track {
                 mark_counted_phase_started(&cfg.progress, cfg.started);
@@ -523,32 +526,102 @@ async fn run_worker(
                     .await
                     .map_err(|err| format!("write failed: {err}"))?;
             } else {
-                let tail = repeat_payload(&one, batch);
+                let tail = repeat_payload(&sample_command, batch);
                 stream
                     .write_all(&tail)
                     .await
                     .map_err(|err| format!("write failed: {err}"))?;
             }
-            if cfg.strict {
-                read_n_strict_responses(&mut stream, &mut parse_buf, &expected, &encoded, || {
-                    if track {
-                        let latency_ns =
-                            started.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64;
-                        total_latency_ns_add(&cfg.progress, &mut stats, latency_ns)?;
-                    }
-                    Ok(())
-                })
-                .await?;
+            let mut batch_latency_ns = 0u64;
+            if let Some(encoded_response) = fixed_exact_response.as_deref() {
+                if cfg.strict {
+                    read_n_strict_repeated_exact_responses(
+                        &mut stream,
+                        &mut parse_buf,
+                        encoded_response,
+                        batch,
+                        || {
+                            if track {
+                                let latency_ns =
+                                    started.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64;
+                                record_latency_sample(&mut stats, latency_ns)?;
+                                batch_latency_ns = batch_latency_ns.saturating_add(latency_ns);
+                            }
+                            Ok(())
+                        },
+                    )
+                    .await?;
+                } else {
+                    read_n_unchecked_repeated_exact_responses(
+                        &mut stream,
+                        &mut parse_buf,
+                        encoded_response,
+                        batch,
+                        || {
+                            if track {
+                                let latency_ns =
+                                    started.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64;
+                                record_latency_sample(&mut stats, latency_ns)?;
+                                batch_latency_ns = batch_latency_ns.saturating_add(latency_ns);
+                            }
+                            Ok(())
+                        },
+                    )
+                    .await?;
+                }
             } else {
-                read_n_unchecked_responses(&mut stream, &mut parse_buf, &encoded, || {
-                    if track {
-                        let latency_ns =
-                            started.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64;
-                        total_latency_ns_add(&cfg.progress, &mut stats, latency_ns)?;
-                    }
-                    Ok(())
-                })
-                .await?;
+                let expected = if cfg.strict {
+                    (0..batch)
+                        .map(|_| response_model.expected(0))
+                        .collect::<Vec<_>>()
+                } else {
+                    Vec::new()
+                };
+                let encoded = if cfg.strict {
+                    expected
+                        .iter()
+                        .map(encode_expected_response)
+                        .collect::<Vec<_>>()
+                } else {
+                    (0..batch)
+                        .map(|_| encode_expected_response(&response_model.expected(0)))
+                        .collect::<Vec<_>>()
+                };
+                if cfg.strict {
+                    read_n_strict_responses(
+                        &mut stream,
+                        &mut parse_buf,
+                        &expected,
+                        &encoded,
+                        || {
+                            if track {
+                                let latency_ns =
+                                    started.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64;
+                                record_latency_sample(&mut stats, latency_ns)?;
+                                batch_latency_ns = batch_latency_ns.saturating_add(latency_ns);
+                            }
+                            Ok(())
+                        },
+                    )
+                    .await?;
+                } else {
+                    read_n_unchecked_responses(&mut stream, &mut parse_buf, &encoded, || {
+                        if track {
+                            let latency_ns =
+                                started.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64;
+                            record_latency_sample(&mut stats, latency_ns)?;
+                            batch_latency_ns = batch_latency_ns.saturating_add(latency_ns);
+                        }
+                        Ok(())
+                    })
+                    .await?;
+                }
+            }
+
+            if track && batch_latency_ns > 0 {
+                cfg.progress
+                    .latency_ns
+                    .fetch_add(batch_latency_ns, Ordering::Relaxed);
             }
 
             if track {
@@ -566,6 +639,11 @@ async fn run_worker(
         return Ok(stats);
     }
 
+    let mut payload = Vec::with_capacity(sample_command.len() * cfg.spec.pipeline.max(1));
+    let mut command_scratch = CommandScratch::new(key_base.len());
+    let mut expected = Vec::with_capacity(cfg.spec.pipeline);
+    let mut encoded = Vec::with_capacity(cfg.spec.pipeline);
+
     while warmup_remaining > 0 || tracked_remaining > 0 {
         let track = warmup_remaining == 0;
         let batch = if track {
@@ -573,22 +651,27 @@ async fn run_worker(
         } else {
             warmup_remaining.min(cfg.spec.pipeline as u64) as usize
         };
-        let mut payload = Vec::with_capacity(batch * (cfg.spec.data_size + 128));
-        let mut expected = Vec::with_capacity(batch);
-        let mut encoded = Vec::with_capacity(batch);
+        payload.clear();
+        expected.clear();
+        encoded.clear();
         for _ in 0..batch {
             let key_slot = random_slot(client_id, sequence, cfg.spec.keyspace);
-            let command = build_command(
+            append_command(
+                &mut payload,
                 cfg.spec.kind,
                 key_base.as_bytes(),
                 &value,
                 key_slot,
                 script_sha.as_deref(),
-            );
-            payload.extend_from_slice(&command);
-            let response = response_model.expected(key_slot);
-            encoded.push(encode_expected_response(&response));
-            expected.push(response);
+                &mut command_scratch,
+            )?;
+            if fixed_exact_response.is_none() {
+                let response = response_model.expected(key_slot);
+                encoded.push(encode_expected_response(&response));
+                if cfg.strict {
+                    expected.push(response);
+                }
+            }
             sequence = sequence.wrapping_add(1);
         }
 
@@ -600,24 +683,73 @@ async fn run_worker(
             .write_all(&payload)
             .await
             .map_err(|err| format!("write failed: {err}"))?;
-        if cfg.strict {
-            read_n_strict_responses(&mut stream, &mut parse_buf, &expected, &encoded, || {
-                if track {
-                    let latency_ns = started.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64;
-                    total_latency_ns_add(&cfg.progress, &mut stats, latency_ns)?;
-                }
-                Ok(())
-            })
-            .await?;
+        let mut batch_latency_ns = 0u64;
+        if let Some(encoded_response) = fixed_exact_response.as_deref() {
+            if cfg.strict {
+                read_n_strict_repeated_exact_responses(
+                    &mut stream,
+                    &mut parse_buf,
+                    encoded_response,
+                    batch,
+                    || {
+                        if track {
+                            let latency_ns =
+                                started.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64;
+                            record_latency_sample(&mut stats, latency_ns)?;
+                            batch_latency_ns = batch_latency_ns.saturating_add(latency_ns);
+                        }
+                        Ok(())
+                    },
+                )
+                .await?;
+            } else {
+                read_n_unchecked_repeated_exact_responses(
+                    &mut stream,
+                    &mut parse_buf,
+                    encoded_response,
+                    batch,
+                    || {
+                        if track {
+                            let latency_ns =
+                                started.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64;
+                            record_latency_sample(&mut stats, latency_ns)?;
+                            batch_latency_ns = batch_latency_ns.saturating_add(latency_ns);
+                        }
+                        Ok(())
+                    },
+                )
+                .await?;
+            }
         } else {
-            read_n_unchecked_responses(&mut stream, &mut parse_buf, &encoded, || {
-                if track {
-                    let latency_ns = started.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64;
-                    total_latency_ns_add(&cfg.progress, &mut stats, latency_ns)?;
-                }
-                Ok(())
-            })
-            .await?;
+            if cfg.strict {
+                read_n_strict_responses(&mut stream, &mut parse_buf, &expected, &encoded, || {
+                    if track {
+                        let latency_ns =
+                            started.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64;
+                        record_latency_sample(&mut stats, latency_ns)?;
+                        batch_latency_ns = batch_latency_ns.saturating_add(latency_ns);
+                    }
+                    Ok(())
+                })
+                .await?;
+            } else {
+                read_n_unchecked_responses(&mut stream, &mut parse_buf, &encoded, || {
+                    if track {
+                        let latency_ns =
+                            started.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64;
+                        record_latency_sample(&mut stats, latency_ns)?;
+                        batch_latency_ns = batch_latency_ns.saturating_add(latency_ns);
+                    }
+                    Ok(())
+                })
+                .await?;
+            }
+        }
+
+        if track && batch_latency_ns > 0 {
+            cfg.progress
+                .latency_ns
+                .fetch_add(batch_latency_ns, Ordering::Relaxed);
         }
 
         if track {
@@ -818,11 +950,17 @@ async fn prime_keyspace(
     }
 
     let mut payload = Vec::new();
+    let mut command_scratch = CommandScratch::new(key_base.len());
     let mut pending = 0usize;
     for slot in 0..keyspace {
-        let key = make_key(key_base, slot);
-        if let Some(setup) = build_setup_command(kind, &key, value) {
-            payload.extend_from_slice(&setup);
+        make_key_into(key_base, slot, &mut command_scratch.key);
+        if append_setup_command(
+            &mut payload,
+            kind,
+            command_scratch.key.as_slice(),
+            value,
+            &mut command_scratch.related_key,
+        ) {
             pending += 1;
         }
 
@@ -872,6 +1010,18 @@ async fn read_one_response(
 }
 
 fn build_setup_command(kind: BenchKind, key: &[u8], value: &[u8]) -> Option<Vec<u8>> {
+    let mut out = Vec::with_capacity(value.len() + key.len() + 64);
+    let mut related_key = Vec::with_capacity(key.len() + 3);
+    append_setup_command(&mut out, kind, key, value, &mut related_key).then_some(out)
+}
+
+fn append_setup_command(
+    out: &mut Vec<u8>,
+    kind: BenchKind,
+    key: &[u8],
+    value: &[u8],
+    related_key: &mut Vec<u8>,
+) -> bool {
     match kind {
         BenchKind::Get
         | BenchKind::GetSet
@@ -882,37 +1032,45 @@ fn build_setup_command(kind: BenchKind, key: &[u8], value: &[u8]) -> Option<Vec<
         | BenchKind::SetRange
         | BenchKind::GetRange
         | BenchKind::EvalRo
-        | BenchKind::EvalShaRo => Some(encode_resp_parts(&[b"SET", key, value])),
+        | BenchKind::EvalShaRo => {
+            append_resp_parts(out, &[b"SET", key, value]);
+            true
+        }
         BenchKind::Mget => {
-            let key2 = related_multi_key(key);
-            Some(encode_resp_parts(&[
-                b"MSET",
-                key,
-                value,
-                key2.as_slice(),
-                value,
-            ]))
+            related_multi_key_into(key, related_key);
+            append_resp_parts(out, &[b"MSET", key, value, related_key.as_slice(), value]);
+            true
         }
         BenchKind::Mset => {
-            let key2 = related_multi_key(key);
-            Some(encode_resp_parts(&[b"DEL", key, key2.as_slice()]))
+            related_multi_key_into(key, related_key);
+            append_resp_parts(out, &[b"DEL", key, related_key.as_slice()]);
+            true
         }
         BenchKind::Lpop | BenchKind::Rpop | BenchKind::Llen | BenchKind::Lrange => {
-            Some(encode_resp_parts(&[b"LPUSH", key, value]))
+            append_resp_parts(out, &[b"LPUSH", key, value]);
+            true
         }
         BenchKind::Srem | BenchKind::Scard | BenchKind::Sismember => {
-            Some(encode_resp_parts(&[b"SADD", key, value]))
+            append_resp_parts(out, &[b"SADD", key, value]);
+            true
         }
         BenchKind::Hget | BenchKind::Hgetall => {
-            Some(encode_resp_parts(&[b"HSET", key, b"field", value]))
+            append_resp_parts(out, &[b"HSET", key, b"field", value]);
+            true
         }
-        BenchKind::Hincrby => Some(encode_resp_parts(&[b"HSET", key, b"field", b"0"])),
+        BenchKind::Hincrby => {
+            append_resp_parts(out, &[b"HSET", key, b"field", b"0"]);
+            true
+        }
         BenchKind::Zrem
         | BenchKind::Zcard
         | BenchKind::Zscore
         | BenchKind::Zrank
-        | BenchKind::Zrevrank => Some(encode_resp_parts(&[b"ZADD", key, b"1", value])),
-        _ => None,
+        | BenchKind::Zrevrank => {
+            append_resp_parts(out, &[b"ZADD", key, b"1", value]);
+            true
+        }
+        _ => false,
     }
 }
 
@@ -948,11 +1106,226 @@ fn requires_existing_state(kind: BenchKind) -> bool {
     )
 }
 
-fn related_multi_key(key: &[u8]) -> Vec<u8> {
-    let mut related = Vec::with_capacity(key.len() + 3);
+fn related_multi_key_into(key: &[u8], related: &mut Vec<u8>) {
+    related.clear();
     related.extend_from_slice(key);
     related.extend_from_slice(b":m2");
-    related
+}
+
+fn append_command(
+    out: &mut Vec<u8>,
+    kind: BenchKind,
+    key_base: &[u8],
+    value: &[u8],
+    key_slot: u64,
+    script_sha: Option<&[u8]>,
+    scratch: &mut CommandScratch,
+) -> Result<(), String> {
+    match kind {
+        BenchKind::PingInline => out.extend_from_slice(b"PING\r\n"),
+        BenchKind::PingMbulk => append_resp_parts(out, &[b"PING"]),
+        BenchKind::Echo => append_resp_parts(out, &[b"ECHO", value]),
+        BenchKind::Set => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"SET", scratch.key.as_slice(), value]);
+        }
+        BenchKind::SetNx => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"SETNX", scratch.key.as_slice(), value]);
+        }
+        BenchKind::Get => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"GET", scratch.key.as_slice()]);
+        }
+        BenchKind::GetSet => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"GETSET", scratch.key.as_slice(), value]);
+        }
+        BenchKind::Mset => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            related_multi_key_into(scratch.key.as_slice(), &mut scratch.related_key);
+            append_resp_parts(
+                out,
+                &[
+                    b"MSET",
+                    scratch.key.as_slice(),
+                    value,
+                    scratch.related_key.as_slice(),
+                    value,
+                ],
+            );
+        }
+        BenchKind::Mget => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            related_multi_key_into(scratch.key.as_slice(), &mut scratch.related_key);
+            append_resp_parts(
+                out,
+                &[
+                    b"MGET",
+                    scratch.key.as_slice(),
+                    scratch.related_key.as_slice(),
+                ],
+            );
+        }
+        BenchKind::Del => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"DEL", scratch.key.as_slice()]);
+        }
+        BenchKind::Exists => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"EXISTS", scratch.key.as_slice()]);
+        }
+        BenchKind::Expire => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"EXPIRE", scratch.key.as_slice(), b"60"]);
+        }
+        BenchKind::Ttl => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"TTL", scratch.key.as_slice()]);
+        }
+        BenchKind::Incr => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"INCR", scratch.key.as_slice()]);
+        }
+        BenchKind::IncrBy => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"INCRBY", scratch.key.as_slice(), b"3"]);
+        }
+        BenchKind::Decr => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"DECR", scratch.key.as_slice()]);
+        }
+        BenchKind::DecrBy => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"DECRBY", scratch.key.as_slice(), b"3"]);
+        }
+        BenchKind::Strlen => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"STRLEN", scratch.key.as_slice()]);
+        }
+        BenchKind::SetRange => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"SETRANGE", scratch.key.as_slice(), b"0", value]);
+        }
+        BenchKind::GetRange => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"GETRANGE", scratch.key.as_slice(), b"0", b"2"]);
+        }
+        BenchKind::Lpush => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"LPUSH", scratch.key.as_slice(), value]);
+        }
+        BenchKind::Rpush => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"RPUSH", scratch.key.as_slice(), value]);
+        }
+        BenchKind::Lpop => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"LPOP", scratch.key.as_slice()]);
+        }
+        BenchKind::Rpop => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"RPOP", scratch.key.as_slice()]);
+        }
+        BenchKind::Llen => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"LLEN", scratch.key.as_slice()]);
+        }
+        BenchKind::Lrange => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"LRANGE", scratch.key.as_slice(), b"0", b"9"]);
+        }
+        BenchKind::Sadd => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"SADD", scratch.key.as_slice(), value]);
+        }
+        BenchKind::Srem => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"SREM", scratch.key.as_slice(), value]);
+        }
+        BenchKind::Scard => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"SCARD", scratch.key.as_slice()]);
+        }
+        BenchKind::Sismember => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"SISMEMBER", scratch.key.as_slice(), value]);
+        }
+        BenchKind::Hset => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"HSET", scratch.key.as_slice(), b"field", value]);
+        }
+        BenchKind::Hget => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"HGET", scratch.key.as_slice(), b"field"]);
+        }
+        BenchKind::Hgetall => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"HGETALL", scratch.key.as_slice()]);
+        }
+        BenchKind::Hincrby => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"HINCRBY", scratch.key.as_slice(), b"field", b"1"]);
+        }
+        BenchKind::Zadd => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"ZADD", scratch.key.as_slice(), b"1", value]);
+        }
+        BenchKind::Zrem => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"ZREM", scratch.key.as_slice(), value]);
+        }
+        BenchKind::Zcard => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"ZCARD", scratch.key.as_slice()]);
+        }
+        BenchKind::Zscore => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"ZSCORE", scratch.key.as_slice(), value]);
+        }
+        BenchKind::Zrank => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"ZRANK", scratch.key.as_slice(), value]);
+        }
+        BenchKind::Zrevrank => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(out, &[b"ZREVRANK", scratch.key.as_slice(), value]);
+        }
+        BenchKind::Eval => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(
+                out,
+                &[
+                    b"EVAL",
+                    SCRIPT_SET_BODY,
+                    b"1",
+                    scratch.key.as_slice(),
+                    value,
+                ],
+            );
+        }
+        BenchKind::EvalRo => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            append_resp_parts(
+                out,
+                &[b"EVAL_RO", SCRIPT_GET_BODY, b"1", scratch.key.as_slice()],
+            );
+        }
+        BenchKind::EvalSha => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            let sha =
+                script_sha.ok_or_else(|| "missing script sha for EVALSHA benchmark".to_string())?;
+            append_resp_parts(out, &[b"EVALSHA", sha, b"1", scratch.key.as_slice(), value]);
+        }
+        BenchKind::EvalShaRo => {
+            make_key_into(key_base, key_slot, &mut scratch.key);
+            let sha = script_sha
+                .ok_or_else(|| "missing script sha for EVALSHA_RO benchmark".to_string())?;
+            append_resp_parts(out, &[b"EVALSHA_RO", sha, b"1", scratch.key.as_slice()]);
+        }
+    }
+
+    Ok(())
 }
 
 fn build_command(
@@ -961,180 +1334,19 @@ fn build_command(
     value: &[u8],
     key_slot: u64,
     script_sha: Option<&[u8]>,
-) -> Vec<u8> {
-    match kind {
-        BenchKind::PingInline => b"PING\r\n".to_vec(),
-        BenchKind::PingMbulk => encode_resp_parts(&[b"PING"]),
-        BenchKind::Echo => encode_resp_parts(&[b"ECHO", value]),
-        BenchKind::Set => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"SET", key.as_slice(), value])
-        }
-        BenchKind::SetNx => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"SETNX", key.as_slice(), value])
-        }
-        BenchKind::Get => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"GET", key.as_slice()])
-        }
-        BenchKind::GetSet => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"GETSET", key.as_slice(), value])
-        }
-        BenchKind::Mset => {
-            let key1 = make_key(key_base, key_slot);
-            let key2 = related_multi_key(&key1);
-            encode_resp_parts(&[b"MSET", key1.as_slice(), value, key2.as_slice(), value])
-        }
-        BenchKind::Mget => {
-            let key1 = make_key(key_base, key_slot);
-            let key2 = related_multi_key(&key1);
-            encode_resp_parts(&[b"MGET", key1.as_slice(), key2.as_slice()])
-        }
-        BenchKind::Del => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"DEL", key.as_slice()])
-        }
-        BenchKind::Exists => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"EXISTS", key.as_slice()])
-        }
-        BenchKind::Expire => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"EXPIRE", key.as_slice(), b"60"])
-        }
-        BenchKind::Ttl => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"TTL", key.as_slice()])
-        }
-        BenchKind::Incr => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"INCR", key.as_slice()])
-        }
-        BenchKind::IncrBy => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"INCRBY", key.as_slice(), b"3"])
-        }
-        BenchKind::Decr => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"DECR", key.as_slice()])
-        }
-        BenchKind::DecrBy => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"DECRBY", key.as_slice(), b"3"])
-        }
-        BenchKind::Strlen => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"STRLEN", key.as_slice()])
-        }
-        BenchKind::SetRange => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"SETRANGE", key.as_slice(), b"0", value])
-        }
-        BenchKind::GetRange => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"GETRANGE", key.as_slice(), b"0", b"2"])
-        }
-        BenchKind::Lpush => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"LPUSH", key.as_slice(), value])
-        }
-        BenchKind::Rpush => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"RPUSH", key.as_slice(), value])
-        }
-        BenchKind::Lpop => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"LPOP", key.as_slice()])
-        }
-        BenchKind::Rpop => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"RPOP", key.as_slice()])
-        }
-        BenchKind::Llen => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"LLEN", key.as_slice()])
-        }
-        BenchKind::Lrange => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"LRANGE", key.as_slice(), b"0", b"9"])
-        }
-        BenchKind::Sadd => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"SADD", key.as_slice(), value])
-        }
-        BenchKind::Srem => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"SREM", key.as_slice(), value])
-        }
-        BenchKind::Scard => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"SCARD", key.as_slice()])
-        }
-        BenchKind::Sismember => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"SISMEMBER", key.as_slice(), value])
-        }
-        BenchKind::Hset => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"HSET", key.as_slice(), b"field", value])
-        }
-        BenchKind::Hget => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"HGET", key.as_slice(), b"field"])
-        }
-        BenchKind::Hgetall => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"HGETALL", key.as_slice()])
-        }
-        BenchKind::Hincrby => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"HINCRBY", key.as_slice(), b"field", b"1"])
-        }
-        BenchKind::Zadd => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"ZADD", key.as_slice(), b"1", value])
-        }
-        BenchKind::Zrem => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"ZREM", key.as_slice(), value])
-        }
-        BenchKind::Zcard => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"ZCARD", key.as_slice()])
-        }
-        BenchKind::Zscore => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"ZSCORE", key.as_slice(), value])
-        }
-        BenchKind::Zrank => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"ZRANK", key.as_slice(), value])
-        }
-        BenchKind::Zrevrank => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"ZREVRANK", key.as_slice(), value])
-        }
-        BenchKind::Eval => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"EVAL", SCRIPT_SET_BODY, b"1", key.as_slice(), value])
-        }
-        BenchKind::EvalRo => {
-            let key = make_key(key_base, key_slot);
-            encode_resp_parts(&[b"EVAL_RO", SCRIPT_GET_BODY, b"1", key.as_slice()])
-        }
-        BenchKind::EvalSha => {
-            let key = make_key(key_base, key_slot);
-            let sha = script_sha.expect("missing script sha for EVALSHA benchmark");
-            encode_resp_parts(&[b"EVALSHA", sha, b"1", key.as_slice(), value])
-        }
-        BenchKind::EvalShaRo => {
-            let key = make_key(key_base, key_slot);
-            let sha = script_sha.expect("missing script sha for EVALSHA_RO benchmark");
-            encode_resp_parts(&[b"EVALSHA_RO", sha, b"1", key.as_slice()])
-        }
-    }
+) -> Result<Vec<u8>, String> {
+    let mut out = Vec::with_capacity(value.len() + key_base.len() + 96);
+    let mut scratch = CommandScratch::new(key_base.len());
+    append_command(
+        &mut out,
+        kind,
+        key_base,
+        value,
+        key_slot,
+        script_sha,
+        &mut scratch,
+    )?;
+    Ok(out)
 }
 
 fn random_slot(client_id: u64, sequence: u64, keyspace: u64) -> u64 {
@@ -1165,17 +1377,12 @@ fn latency_histogram() -> Result<Histogram<u64>, String> {
         .map_err(|err| format!("failed to create latency histogram: {err}"))
 }
 
-fn total_latency_ns_add(
-    progress: &ProgressState,
-    stats: &mut WorkerStats,
-    latency_ns: u64,
-) -> Result<(), String> {
+fn record_latency_sample(stats: &mut WorkerStats, latency_ns: u64) -> Result<(), String> {
     stats
         .histogram
         .record(latency_ns.max(1))
         .map_err(|err| format!("failed to record latency: {err}"))?;
     stats.total_latency_ns = stats.total_latency_ns.saturating_add(latency_ns);
-    progress.latency_ns.fetch_add(latency_ns, Ordering::Relaxed);
     Ok(())
 }
 

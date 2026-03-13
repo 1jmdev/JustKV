@@ -15,30 +15,8 @@ pub enum ExpectedResponse {
 
 pub fn encode_resp_parts(parts: &[&[u8]]) -> Vec<u8> {
     let mut out = Vec::with_capacity(parts.iter().map(|part| part.len() + 16).sum::<usize>() + 16);
-    out.push(b'*');
-    append_u64(&mut out, parts.len() as u64);
-    out.extend_from_slice(b"\r\n");
-
-    for part in parts {
-        out.push(b'$');
-        append_u64(&mut out, part.len() as u64);
-        out.extend_from_slice(b"\r\n");
-        out.extend_from_slice(part);
-        out.extend_from_slice(b"\r\n");
-    }
+    append_resp_parts(&mut out, parts);
     out
-}
-
-pub fn make_key(base: &[u8], sequence: u64) -> Vec<u8> {
-    if sequence == 0 {
-        return base.to_vec();
-    }
-
-    let mut key = Vec::with_capacity(base.len() + 1 + 20);
-    key.extend_from_slice(base);
-    key.push(b':');
-    append_u64(&mut key, sequence);
-    key
 }
 
 pub fn repeat_payload(one: &[u8], count: usize) -> Vec<u8> {
@@ -47,6 +25,29 @@ pub fn repeat_payload(one: &[u8], count: usize) -> Vec<u8> {
         out.extend_from_slice(one);
     }
     out
+}
+
+pub fn append_resp_parts(out: &mut Vec<u8>, parts: &[&[u8]]) {
+    out.push(b'*');
+    append_u64(out, parts.len() as u64);
+    out.extend_from_slice(b"\r\n");
+
+    for part in parts {
+        out.push(b'$');
+        append_u64(out, part.len() as u64);
+        out.extend_from_slice(b"\r\n");
+        out.extend_from_slice(part);
+        out.extend_from_slice(b"\r\n");
+    }
+}
+
+pub fn make_key_into(base: &[u8], sequence: u64, key: &mut Vec<u8>) {
+    key.clear();
+    key.extend_from_slice(base);
+    if sequence != 0 {
+        key.push(b':');
+        append_u64(key, sequence);
+    }
 }
 
 pub async fn read_n_responses(
@@ -86,6 +87,21 @@ pub async fn read_n_strict_responses(
     Ok(())
 }
 
+pub async fn read_n_strict_repeated_exact_responses(
+    stream: &mut TcpStream,
+    parse_buf: &mut BytesMut,
+    expected: &[u8],
+    count: usize,
+    mut on_response: impl FnMut() -> Result<(), String>,
+) -> Result<(), String> {
+    for _ in 0..count {
+        validate_exact_response(stream, parse_buf, expected).await?;
+        on_response()?;
+    }
+
+    Ok(())
+}
+
 pub async fn read_n_unchecked_responses(
     stream: &mut TcpStream,
     parse_buf: &mut BytesMut,
@@ -98,6 +114,21 @@ pub async fn read_n_unchecked_responses(
         } else {
             skip_one_response(stream, parse_buf).await?;
         }
+        on_response()?;
+    }
+
+    Ok(())
+}
+
+pub async fn read_n_unchecked_repeated_exact_responses(
+    stream: &mut TcpStream,
+    parse_buf: &mut BytesMut,
+    expected: &[u8],
+    count: usize,
+    mut on_response: impl FnMut() -> Result<(), String>,
+) -> Result<(), String> {
+    for _ in 0..count {
+        skip_exact_response(stream, parse_buf, expected).await?;
         on_response()?;
     }
 
