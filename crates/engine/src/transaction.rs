@@ -1,10 +1,11 @@
-use ahash::AHashMap;
+use hashbrown::HashMap;
+use rapidhash::fast::RandomState;
 
 use crate::store::Store;
 
 #[derive(Default)]
 pub struct WatchState {
-    watched: AHashMap<Vec<u8>, Option<Vec<u8>>>,
+    watched: HashMap<Vec<u8>, Option<Vec<u8>>, RandomState>,
 }
 
 impl WatchState {

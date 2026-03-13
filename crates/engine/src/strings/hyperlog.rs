@@ -1,7 +1,7 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
-use ahash::RandomState;
+use rapidhash::fast::RandomState;
 use hashbrown::HashSet;
 
 use crate::store::Store;

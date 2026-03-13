@@ -14,7 +14,6 @@ harness = false
 engine.workspace = true
 types.workspace = true
 protocol.workspace = true
-ahash.workspace = true
 bytes.workspace = true
 memchr.workspace = true
 hashbrown.workspace = true

@@ -6,7 +6,7 @@ use std::io::Write;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use ahash::RandomState;
+use rapidhash::fast::RandomState;
 use hashbrown::HashMap;
 use indexmap::IndexSet;
 use lz4_flex::{compress_prepend_size, decompress_size_prepended};

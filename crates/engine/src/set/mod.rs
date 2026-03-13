@@ -3,7 +3,7 @@ mod core;
 mod random;
 mod scan;
 
-use ahash::RandomState;
+use rapidhash::fast::RandomState;
 
 use types::value::{CompactKey, Entry, SetValue};
 

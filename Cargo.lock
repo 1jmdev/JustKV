@@ -9,19 +9,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
-name = "ahash"
-version = "0.8.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a15f179cd60c4584b8a8c596927aadc462e27f2ca70c04e0071964a73ba7a75"
-dependencies = [
- "cfg-if",
- "getrandom 0.3.4",
- "once_cell",
- "version_check",
- "zerocopy",
-]
-
-[[package]]
 name = "aho-corasick"
 version = "1.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -154,7 +141,6 @@ dependencies = [
 name = "betterkv-server"
 version = "0.1.0"
 dependencies = [
- "ahash",
  "betterkv-alloc",
  "bytes",
  "clap",
@@ -168,6 +154,7 @@ dependencies = [
  "parking_lot",
  "protocol",
  "rand 0.10.0",
+ "rapidhash",
  "sha2",
  "smallvec",
  "socket2 0.6.2",
@@ -392,7 +379,6 @@ dependencies = [
 name = "commands"
 version = "0.1.0"
 dependencies = [
- "ahash",
  "bytes",
  "criterion",
  "engine",
@@ -607,13 +593,13 @@ checksum = "c34f04666d835ff5d62e058c3995147c06f42fe86ff053337632bca83e42702d"
 name = "engine"
 version = "0.1.0"
 dependencies = [
- "ahash",
  "bytes",
  "hashbrown 0.16.1",
  "indexmap",
  "itoa",
  "parking_lot",
  "proptest",
+ "rapidhash",
  "rehash",
  "ryu",
  "serde_json",
@@ -1372,6 +1358,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rapidhash"
+version = "4.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b5e48930979c155e2f33aa36ab3119b5ee81332beb6482199a8ecd6029b80b59"
+dependencies = [
+ "rustversion",
+]
+
+[[package]]
 name = "rayon"
 version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1882,10 +1877,10 @@ checksum = "562d481066bde0658276a35467c4af00bdc6ee726305698a55b86e61d7ad82bb"
 name = "types"
 version = "0.1.0"
 dependencies = [
- "ahash",
  "bytes",
  "hashbrown 0.16.1",
  "indexmap",
+ "rapidhash",
  "serde_json",
 ]
 

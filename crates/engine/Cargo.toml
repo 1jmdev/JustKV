@@ -6,7 +6,7 @@ edition.workspace = true
 [dependencies]
 rehash.workspace = true
 types.workspace = true
-ahash.workspace = true
+rapidhash.workspace = true
 bytes.workspace = true
 hashbrown.workspace = true
 indexmap.workspace = true

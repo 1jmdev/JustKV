@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use ahash::RandomState;
+use rapidhash::fast::RandomState;
 use bytes::Bytes;
 use hashbrown::HashMap;
 use indexmap::IndexSet;

@@ -26,7 +26,7 @@ engine   = { path = "crates/engine" }
 commands = { path = "crates/commands" }
 betterkv-server = { path = "crates/server" }
 
-ahash = "0.8.12"
+rapidhash = "4.4.1"
 criterion = { version = "0.8.2", features = ["html_reports"] }
 bytes = "1.11.1"
 clap = { version = "4.5.60", features = ["derive"] }

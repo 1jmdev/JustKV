@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use ahash::RandomState;
+use rapidhash::fast::RandomState;
 use hashbrown::HashMap;
 
 use super::{CompactKey, CompactValue};

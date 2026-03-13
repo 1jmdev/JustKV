@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, VecDeque};
 use std::io::Write;
 
-use ahash::RandomState;
+use rapidhash::fast::RandomState;
 use hashbrown::HashMap;
 use indexmap::IndexSet;
 

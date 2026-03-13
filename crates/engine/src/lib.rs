@@ -42,9 +42,10 @@ pub mod store {
 use std::hint::spin_loop;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
+use std::hash::BuildHasher;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
-use ahash::RandomState;
+use rapidhash::fast::RandomState;
 use parking_lot::RwLock;
 
 use rehash::RehashingMap;

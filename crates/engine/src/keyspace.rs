@@ -810,8 +810,11 @@ fn deserialize_entry(payload: &[u8]) -> Option<Entry> {
         }
         3 => {
             let count = read_u32(&mut input)? as usize;
-            let mut set: indexmap::IndexSet<CompactKey, ahash::RandomState> =
-                indexmap::IndexSet::with_capacity_and_hasher(count, ahash::RandomState::new());
+            let mut set: indexmap::IndexSet<CompactKey, rapidhash::fast::RandomState> =
+                indexmap::IndexSet::with_capacity_and_hasher(
+                    count,
+                    rapidhash::fast::RandomState::new(),
+                );
             for _ in 0..count {
                 set.insert(CompactKey::from_vec(read_bytes(&mut input)?));
             }
@@ -841,7 +844,10 @@ fn deserialize_entry(payload: &[u8]) -> Option<Entry> {
         5 => {
             let count = read_u32(&mut input)? as usize;
             let mut geo =
-                hashbrown::HashMap::with_capacity_and_hasher(count, ahash::RandomState::new());
+                hashbrown::HashMap::with_capacity_and_hasher(
+                    count,
+                    rapidhash::fast::RandomState::new(),
+                );
             for _ in 0..count {
                 let member = CompactKey::from_vec(read_bytes(&mut input)?);
                 if input.len() < 16 {

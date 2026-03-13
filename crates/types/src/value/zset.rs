@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 use std::collections::BTreeSet;
 
-use ahash::RandomState;
+use rapidhash::fast::RandomState;
 use hashbrown::HashMap;
 
 use super::CompactKey;

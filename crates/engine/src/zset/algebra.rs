@@ -1,4 +1,4 @@
-use ahash::RandomState;
+use rapidhash::fast::RandomState;
 use hashbrown::HashMap;
 
 use crate::helpers::purge_if_expired;

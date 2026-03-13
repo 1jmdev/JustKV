@@ -1,12 +1,14 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU16, AtomicU64, Ordering};
+use std::hash::BuildHasher;
 
-use ahash::{AHashMap, AHashSet, RandomState};
+use hashbrown::{HashMap, HashSet};
+use rapidhash::fast::RandomState;
 use types::value::CompactArg;
 
 use crate::pattern::wildcard_match;
 
-type SubscriberMap = AHashMap<u64, SharedPubSubSink>;
+type SubscriberMap = HashMap<u64, SharedPubSubSink, RandomState>;
 
 pub type SharedPubSubSink = Arc<dyn PubSubSink>;
 
@@ -21,16 +23,16 @@ pub struct PubSubHub {
 }
 
 struct PubSubShard {
-    channels: AHashMap<Vec<u8>, SubscriberMap>,
-    shard_channels: AHashMap<Vec<u8>, SubscriberMap>,
-    patterns_by_prefix: AHashMap<Vec<u8>, AHashMap<Vec<u8>, SubscriberMap>>,
+    channels: HashMap<Vec<u8>, SubscriberMap, RandomState>,
+    shard_channels: HashMap<Vec<u8>, SubscriberMap, RandomState>,
+    patterns_by_prefix: HashMap<Vec<u8>, HashMap<Vec<u8>, SubscriberMap, RandomState>, RandomState>,
 }
 
 pub struct ConnectionPubSub {
     id: u64,
-    channels: AHashSet<Vec<u8>>,
-    patterns: AHashSet<Vec<u8>>,
-    shard_channels: AHashSet<Vec<u8>>,
+    channels: HashSet<Vec<u8>, RandomState>,
+    patterns: HashSet<Vec<u8>, RandomState>,
+    shard_channels: HashSet<Vec<u8>, RandomState>,
 }
 
 #[derive(Clone)]
@@ -66,9 +68,9 @@ impl PubSubHub {
         let mut shards = Vec::with_capacity(shard_count);
         for _ in 0..shard_count {
             shards.push(parking_lot::RwLock::new(PubSubShard {
-                channels: AHashMap::new(),
-                shard_channels: AHashMap::new(),
-                patterns_by_prefix: AHashMap::new(),
+                channels: HashMap::with_hasher(RandomState::new()),
+                shard_channels: HashMap::with_hasher(RandomState::new()),
+                patterns_by_prefix: HashMap::with_hasher(RandomState::new()),
             }));
         }
 
@@ -401,9 +403,9 @@ impl ConnectionPubSub {
     pub fn new(id: u64) -> Self {
         Self {
             id,
-            channels: AHashSet::new(),
-            patterns: AHashSet::new(),
-            shard_channels: AHashSet::new(),
+            channels: HashSet::with_hasher(RandomState::new()),
+            patterns: HashSet::with_hasher(RandomState::new()),
+            shard_channels: HashSet::with_hasher(RandomState::new()),
         }
     }
 

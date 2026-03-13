@@ -3,7 +3,7 @@ mod read;
 mod search;
 mod write;
 
-use ahash::RandomState;
+use rapidhash::fast::RandomState;
 use hashbrown::HashMap;
 
 use types::value::{CompactKey, Entry, GeoValue};
