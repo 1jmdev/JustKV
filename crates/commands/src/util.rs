@@ -1,8 +1,14 @@
 use bytes::{BufMut, BytesMut};
-use protocol::types::RespFrame;
+use protocol::types::{BulkData, RespFrame};
 use types::value::CompactArg;
 
 pub type Args = [CompactArg];
+
+pub struct ScanOptions<'a> {
+    pub cursor: u64,
+    pub pattern: Option<&'a [u8]>,
+    pub count: usize,
+}
 
 #[inline]
 pub fn eq_ascii(command: &[u8], expected: &[u8]) -> bool {
@@ -148,6 +154,49 @@ pub fn parse_u64_bytes(raw: &[u8]) -> Option<u64> {
         }
         Some(value)
     }
+}
+
+pub fn parse_scan_options<'a>(args: &'a Args, command: &str) -> Result<ScanOptions<'a>, RespFrame> {
+    if args.len() < 3 {
+        return Err(wrong_args(command));
+    }
+
+    let cursor = parse_u64_bytes(args[2].as_slice()).ok_or_else(invalid_cursor)?;
+    let mut pattern = None;
+    let mut count = 10usize;
+    let mut index = 3;
+    while index < args.len() {
+        if eq_ascii(&args[index], b"MATCH") {
+            index += 1;
+            if index >= args.len() {
+                return Err(syntax_error());
+            }
+            pattern = Some(args[index].as_slice());
+        } else if eq_ascii(&args[index], b"COUNT") {
+            index += 1;
+            if index >= args.len() {
+                return Err(syntax_error());
+            }
+            let value = parse_u64_bytes(args[index].as_slice()).ok_or_else(invalid_cursor)?;
+            count = usize::try_from(value).map_err(|_| int_error())?;
+        } else {
+            return Err(syntax_error());
+        }
+        index += 1;
+    }
+
+    Ok(ScanOptions {
+        cursor,
+        pattern,
+        count,
+    })
+}
+
+pub fn scan_array_response(next_cursor: u64, items: Vec<RespFrame>) -> RespFrame {
+    RespFrame::Array(Some(vec![
+        RespFrame::Bulk(Some(BulkData::from_vec(u64_to_bytes(next_cursor)))),
+        RespFrame::Array(Some(items)),
+    ]))
 }
 
 pub fn preencode_bulk_str(value: &str) -> bytes::Bytes {

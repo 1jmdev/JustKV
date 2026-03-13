@@ -67,6 +67,30 @@ impl Default for HashValue {
     }
 }
 
+macro_rules! entry_ref_accessor {
+    ($name:ident, $variant:ident, $ty:ty) => {
+        pub fn $name(&self) -> Option<&$ty> {
+            if let Self::$variant(value) = self {
+                Some(value)
+            } else {
+                None
+            }
+        }
+    };
+}
+
+macro_rules! entry_mut_accessor {
+    ($name:ident, $variant:ident, $ty:ty) => {
+        pub fn $name(&mut self) -> Option<&mut $ty> {
+            if let Self::$variant(value) = self {
+                Some(value)
+            } else {
+                None
+            }
+        }
+    };
+}
+
 #[derive(Clone, Debug)]
 pub enum Entry {
     String(CompactValue),
@@ -92,201 +116,61 @@ impl Entry {
         Self::Hash(Box::default())
     }
 
-    pub fn as_string(&self) -> Option<&CompactValue> {
-        match self {
-            Self::String(value) => Some(value),
-            Self::Hash(_)
-            | Self::List(_)
-            | Self::Set(_)
-            | Self::ZSet(_)
-            | Self::Geo(_)
-            | Self::Stream(_)
-            | Self::Json(_) => None,
-        }
-    }
+    entry_ref_accessor!(as_string, String, CompactValue);
 
     pub fn into_string(self) -> Option<CompactValue> {
-        match self {
-            Self::String(value) => Some(value),
-            Self::Hash(_)
-            | Self::List(_)
-            | Self::Set(_)
-            | Self::ZSet(_)
-            | Self::Geo(_)
-            | Self::Stream(_)
-            | Self::Json(_) => None,
+        if let Self::String(value) = self {
+            Some(value)
+        } else {
+            None
         }
     }
 
     pub fn as_hash(&self) -> Option<&HashValueMap> {
-        match self {
-            Self::Hash(value) => Some(value.map()),
-            Self::String(_)
-            | Self::List(_)
-            | Self::Set(_)
-            | Self::ZSet(_)
-            | Self::Geo(_)
-            | Self::Stream(_)
-            | Self::Json(_) => None,
+        if let Self::Hash(value) = self {
+            Some(value.map())
+        } else {
+            None
         }
     }
 
     pub fn as_hash_mut(&mut self) -> Option<&mut HashValueMap> {
-        match self {
-            Self::Hash(value) => Some(value.map_mut()),
-            Self::String(_) => None,
-            Self::List(_) => None,
-            Self::Set(_) => None,
-            Self::ZSet(_) => None,
-            Self::Geo(_) => None,
-            Self::Stream(_) => None,
-            Self::Json(_) => None,
+        if let Self::Hash(value) = self {
+            Some(value.map_mut())
+        } else {
+            None
         }
     }
 
-    pub fn as_list(&self) -> Option<&ListValue> {
-        match self {
-            Self::List(value) => Some(value),
-            Self::String(_)
-            | Self::Hash(_)
-            | Self::Set(_)
-            | Self::ZSet(_)
-            | Self::Geo(_)
-            | Self::Stream(_)
-            | Self::Json(_) => None,
-        }
-    }
+    entry_ref_accessor!(as_list, List, ListValue);
+    entry_mut_accessor!(as_list_mut, List, ListValue);
 
-    pub fn as_list_mut(&mut self) -> Option<&mut ListValue> {
-        match self {
-            Self::List(value) => Some(value),
-            Self::String(_)
-            | Self::Hash(_)
-            | Self::Set(_)
-            | Self::ZSet(_)
-            | Self::Geo(_)
-            | Self::Stream(_)
-            | Self::Json(_) => None,
-        }
-    }
+    entry_ref_accessor!(as_set, Set, SetValue);
+    entry_mut_accessor!(as_set_mut, Set, SetValue);
 
-    pub fn as_set(&self) -> Option<&SetValue> {
-        match self {
-            Self::Set(value) => Some(value),
-            Self::String(_)
-            | Self::Hash(_)
-            | Self::List(_)
-            | Self::ZSet(_)
-            | Self::Geo(_)
-            | Self::Stream(_)
-            | Self::Json(_) => None,
-        }
-    }
+    entry_ref_accessor!(as_zset, ZSet, ZSetValueMap);
+    entry_mut_accessor!(as_zset_mut, ZSet, ZSetValueMap);
 
-    pub fn as_set_mut(&mut self) -> Option<&mut SetValue> {
-        match self {
-            Self::Set(value) => Some(value),
-            Self::String(_)
-            | Self::Hash(_)
-            | Self::List(_)
-            | Self::ZSet(_)
-            | Self::Geo(_)
-            | Self::Stream(_)
-            | Self::Json(_) => None,
-        }
-    }
+    entry_ref_accessor!(as_geo, Geo, GeoValue);
+    entry_mut_accessor!(as_geo_mut, Geo, GeoValue);
 
-    pub fn as_zset(&self) -> Option<&ZSetValueMap> {
-        match self {
-            Self::ZSet(value) => Some(value),
-            Self::String(_)
-            | Self::Hash(_)
-            | Self::List(_)
-            | Self::Set(_)
-            | Self::Geo(_)
-            | Self::Stream(_)
-            | Self::Json(_) => None,
-        }
-    }
-
-    pub fn as_zset_mut(&mut self) -> Option<&mut ZSetValueMap> {
-        match self {
-            Self::ZSet(value) => Some(value),
-            Self::String(_)
-            | Self::Hash(_)
-            | Self::List(_)
-            | Self::Set(_)
-            | Self::Geo(_)
-            | Self::Stream(_)
-            | Self::Json(_) => None,
-        }
-    }
-
-    pub fn as_geo(&self) -> Option<&GeoValue> {
-        match self {
-            Self::Geo(value) => Some(value),
-            Self::String(_)
-            | Self::Hash(_)
-            | Self::List(_)
-            | Self::Set(_)
-            | Self::ZSet(_)
-            | Self::Stream(_)
-            | Self::Json(_) => None,
-        }
-    }
-
-    pub fn as_geo_mut(&mut self) -> Option<&mut GeoValue> {
-        match self {
-            Self::Geo(value) => Some(value),
-            Self::String(_)
-            | Self::Hash(_)
-            | Self::List(_)
-            | Self::Set(_)
-            | Self::ZSet(_)
-            | Self::Stream(_)
-            | Self::Json(_) => None,
-        }
-    }
-
-    pub fn as_stream(&self) -> Option<&StreamValue> {
-        match self {
-            Self::Stream(value) => Some(value),
-            Self::String(_)
-            | Self::Hash(_)
-            | Self::List(_)
-            | Self::Set(_)
-            | Self::ZSet(_)
-            | Self::Geo(_)
-            | Self::Json(_) => None,
-        }
-    }
+    entry_ref_accessor!(as_stream, Stream, StreamValue);
+    entry_mut_accessor!(as_stream_mut, Stream, StreamValue);
 
     pub fn hash_getall_cache(&self) -> Option<&Bytes> {
-        match self {
-            Self::Hash(value) => value.getall_cache(),
-            Self::String(_)
-            | Self::List(_)
-            | Self::Set(_)
-            | Self::ZSet(_)
-            | Self::Geo(_)
-            | Self::Stream(_)
-            | Self::Json(_) => None,
+        if let Self::Hash(value) = self {
+            value.getall_cache()
+        } else {
+            None
         }
     }
 
     pub fn set_hash_getall_cache(&mut self, encoded: Bytes) -> bool {
-        match self {
-            Self::Hash(value) => {
-                value.set_getall_cache(encoded);
-                true
-            }
-            Self::String(_)
-            | Self::List(_)
-            | Self::Set(_)
-            | Self::ZSet(_)
-            | Self::Geo(_)
-            | Self::Stream(_)
-            | Self::Json(_) => false,
+        if let Self::Hash(value) = self {
+            value.set_getall_cache(encoded);
+            true
+        } else {
+            false
         }
     }
 
@@ -296,44 +180,8 @@ impl Entry {
         }
     }
 
-    pub fn as_stream_mut(&mut self) -> Option<&mut StreamValue> {
-        match self {
-            Self::Stream(value) => Some(value),
-            Self::String(_)
-            | Self::Hash(_)
-            | Self::List(_)
-            | Self::Set(_)
-            | Self::ZSet(_)
-            | Self::Geo(_)
-            | Self::Json(_) => None,
-        }
-    }
-
-    pub fn as_json(&self) -> Option<&JsonValue> {
-        match self {
-            Self::Json(value) => Some(value),
-            Self::String(_)
-            | Self::Hash(_)
-            | Self::List(_)
-            | Self::Set(_)
-            | Self::ZSet(_)
-            | Self::Geo(_)
-            | Self::Stream(_) => None,
-        }
-    }
-
-    pub fn as_json_mut(&mut self) -> Option<&mut JsonValue> {
-        match self {
-            Self::Json(value) => Some(value),
-            Self::String(_)
-            | Self::Hash(_)
-            | Self::List(_)
-            | Self::Set(_)
-            | Self::ZSet(_)
-            | Self::Geo(_)
-            | Self::Stream(_) => None,
-        }
-    }
+    entry_ref_accessor!(as_json, Json, JsonValue);
+    entry_mut_accessor!(as_json_mut, Json, JsonValue);
 
     pub fn kind(&self) -> &'static str {
         match self {

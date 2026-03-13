@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use betterkv_server::config::Config;
 
-use crate::cli::runtime::parse_config_content_into;
+use crate::cli::runtime::{parse_config_content_into, tokenize_config_line};
 
 pub(crate) fn load_config_file_into(path: &str, config: &mut Config) -> Result<(), String> {
     let mut visited = BTreeSet::new();
@@ -25,14 +25,9 @@ fn load_file_recursive(
         .map_err(|err| format!("failed to read {}: {err}", canonical.display()))?;
 
     for line in content.lines() {
-        let trimmed = line.trim();
-        if trimmed.is_empty() || trimmed.starts_with('#') {
+        let Some(tokens) = tokenize_config_line(line) else {
             continue;
-        }
-        let tokens: Vec<String> = trimmed.split_whitespace().map(str::to_string).collect();
-        if tokens.is_empty() {
-            continue;
-        }
+        };
         if tokens[0].eq_ignore_ascii_case("include") {
             for include in &tokens[1..] {
                 let include_path = if Path::new(include).is_absolute() {

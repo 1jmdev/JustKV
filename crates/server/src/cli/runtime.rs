@@ -129,18 +129,27 @@ fn load_stdin_into(config: &mut Config) -> Result<(), String> {
     parse_config_content_into(&content, config)
 }
 
+pub(crate) fn tokenize_config_line(line: &str) -> Option<Vec<String>> {
+    let trimmed = line.trim();
+    if trimmed.is_empty() || trimmed.starts_with('#') {
+        return None;
+    }
+
+    let tokens: Vec<String> = trimmed.split_whitespace().map(str::to_string).collect();
+    if tokens.is_empty() {
+        None
+    } else {
+        Some(tokens)
+    }
+}
+
 pub(crate) fn parse_config_content_into(content: &str, config: &mut Config) -> Result<(), String> {
     use betterkv_server::auth::parse_user_directive;
 
     for line in content.lines() {
-        let trimmed = line.trim();
-        if trimmed.is_empty() || trimmed.starts_with('#') {
+        let Some(tokens) = tokenize_config_line(line) else {
             continue;
-        }
-        let tokens: Vec<String> = trimmed.split_whitespace().map(str::to_string).collect();
-        if tokens.is_empty() {
-            continue;
-        }
+        };
         let name = tokens[0].to_ascii_lowercase();
         let values = &tokens[1..];
         match name.as_str() {

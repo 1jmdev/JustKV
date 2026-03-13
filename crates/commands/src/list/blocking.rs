@@ -1,6 +1,5 @@
-use crate::util::{
-    Args, eq_ascii, int_error, parse_u64_bytes, timeout_error, wrong_args, wrong_type,
-};
+use crate::list::{lmpop_response, parse_side, parse_timeout, parse_usize};
+use crate::util::{Args, eq_ascii, timeout_error, wrong_args, wrong_type};
 use engine::store::{ListSide, Store};
 use protocol::types::{BulkData, RespFrame};
 
@@ -71,39 +70,8 @@ pub(crate) fn blmpop(store: &Store, args: &Args) -> RespFrame {
     }
 
     match store.lmpop(&args[keys_start..keys_end], side, count) {
-        Ok(Some((key, values))) => RespFrame::Array(Some(vec![
-            RespFrame::Bulk(Some(BulkData::Arg(key))),
-            RespFrame::Array(Some(
-                values
-                    .into_iter()
-                    .map(|value| RespFrame::Bulk(Some(BulkData::Value(value))))
-                    .collect(),
-            )),
-        ])),
+        Ok(Some((key, values))) => lmpop_response(key, values),
         Ok(None) => RespFrame::Bulk(None),
         Err(_) => wrong_type(),
     }
-}
-
-fn parse_side(raw: &[u8]) -> Result<ListSide, RespFrame> {
-    if eq_ascii(raw, b"LEFT") {
-        Ok(ListSide::Left)
-    } else if eq_ascii(raw, b"RIGHT") {
-        Ok(ListSide::Right)
-    } else {
-        Err(crate::util::syntax_error())
-    }
-}
-
-fn parse_usize(raw: &[u8]) -> Result<usize, RespFrame> {
-    let v = parse_u64_bytes(raw).ok_or_else(int_error)?;
-    usize::try_from(v).map_err(|_| int_error())
-}
-
-fn parse_timeout(raw: &[u8]) -> Result<f64, ()> {
-    std::str::from_utf8(raw)
-        .ok()
-        .and_then(|value| value.parse::<f64>().ok())
-        .filter(|value| *value >= 0.0)
-        .ok_or(())
 }
