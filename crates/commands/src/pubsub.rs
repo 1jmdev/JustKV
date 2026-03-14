@@ -2,7 +2,7 @@ use protocol::types::{BulkData, RespFrame};
 use types::value::CompactArg;
 
 use crate::dispatch::CommandId;
-use crate::util::{Args, wrong_args};
+use crate::util::{wrong_args, Args};
 
 pub trait DispatchContext {
     fn publish(&mut self, channel: &[u8], payload: &[u8]) -> i64;
@@ -18,10 +18,10 @@ pub trait DispatchContext {
     fn sunsubscribe_all(&mut self) -> Vec<Vec<u8>>;
     fn subscription_count(&self) -> i64;
     fn pubsub_channels(&self, pattern: Option<&[u8]>) -> Vec<Vec<u8>>;
-    fn pubsub_numsub(&self, channels: &[Vec<u8>]) -> Vec<(Vec<u8>, i64)>;
+    fn pubsub_numsub(&self, channels: &[CompactArg]) -> Vec<(Vec<u8>, i64)>;
     fn pubsub_numpat(&self) -> i64;
     fn pubsub_shardchannels(&self, pattern: Option<&[u8]>) -> Vec<Vec<u8>>;
-    fn pubsub_shardnumsub(&self, channels: &[Vec<u8>]) -> Vec<(Vec<u8>, i64)>;
+    fn pubsub_shardnumsub(&self, channels: &[CompactArg]) -> Vec<(Vec<u8>, i64)>;
     fn set_notify_flags(&mut self, flags: &[u8]) -> Result<(), ()>;
     fn get_notify_flags(&self) -> Vec<u8>;
 }
@@ -182,11 +182,7 @@ fn pubsub_command(context: &mut dyn DispatchContext, args: &Args) -> RespFrame {
     }
 
     if subcommand.eq_ignore_ascii_case(b"NUMSUB") {
-        let channels = args[2..]
-            .iter()
-            .map(|channel| channel.to_vec())
-            .collect::<Vec<_>>();
-        return paired_counts_response(context.pubsub_numsub(&channels));
+        return paired_counts_response(context.pubsub_numsub(&args[2..]));
     }
 
     if subcommand.eq_ignore_ascii_case(b"NUMPAT") {
@@ -208,11 +204,7 @@ fn pubsub_command(context: &mut dyn DispatchContext, args: &Args) -> RespFrame {
     }
 
     if subcommand.eq_ignore_ascii_case(b"SHARDNUMSUB") {
-        let channels = args[2..]
-            .iter()
-            .map(|channel| channel.to_vec())
-            .collect::<Vec<_>>();
-        return paired_counts_response(context.pubsub_shardnumsub(&channels));
+        return paired_counts_response(context.pubsub_shardnumsub(&args[2..]));
     }
 
     unknown_subcommand_error(subcommand)

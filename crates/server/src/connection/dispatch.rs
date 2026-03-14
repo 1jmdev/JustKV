@@ -328,7 +328,7 @@ impl DispatchContext for ServerDispatchContext<'_> {
         self.hub.pubsub_channels(pattern)
     }
 
-    fn pubsub_numsub(&self, channels: &[Vec<u8>]) -> Vec<(Vec<u8>, i64)> {
+    fn pubsub_numsub(&self, channels: &[CompactArg]) -> Vec<(Vec<u8>, i64)> {
         self.hub.pubsub_numsub(channels)
     }
 
@@ -340,7 +340,7 @@ impl DispatchContext for ServerDispatchContext<'_> {
         self.hub.pubsub_shardchannels(pattern)
     }
 
-    fn pubsub_shardnumsub(&self, channels: &[Vec<u8>]) -> Vec<(Vec<u8>, i64)> {
+    fn pubsub_shardnumsub(&self, channels: &[CompactArg]) -> Vec<(Vec<u8>, i64)> {
         self.hub.pubsub_shardnumsub(channels)
     }
 

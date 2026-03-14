@@ -183,17 +183,18 @@ impl Store {
     pub fn mset(&self, pairs: Vec<(CompactArg, CompactArg)>) {
         let shard_count = self.shards.len();
         let mut grouped = vec![Vec::new(); shard_count];
+        let mut touched = Vec::with_capacity(pairs.len().min(shard_count));
 
         for (key, value) in pairs {
             let idx = self.shard_index(&key);
+            if grouped[idx].is_empty() {
+                touched.push(idx);
+            }
             grouped[idx].push((CompactKey::from_slice(&key), Entry::from_slice(&value)));
         }
 
-        for (idx, entries) in grouped.into_iter().enumerate() {
-            if entries.is_empty() {
-                continue;
-            }
-
+        for idx in touched {
+            let entries = std::mem::take(&mut grouped[idx]);
             let mut shard = self.shards[idx].write();
             for (key, entry) in entries {
                 shard.insert_entry(key, entry, None);

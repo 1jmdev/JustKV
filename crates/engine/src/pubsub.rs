@@ -1,6 +1,6 @@
 use std::hash::BuildHasher;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU16, AtomicU64, Ordering};
+use std::sync::Arc;
 
 use hashbrown::{HashMap, HashSet};
 use rapidhash::fast::RandomState;
@@ -289,17 +289,21 @@ impl PubSubHub {
         channels
     }
 
-    pub fn pubsub_numsub(&self, channels: &[Vec<u8>]) -> Vec<(Vec<u8>, i64)> {
+    pub fn pubsub_numsub<K>(&self, channels: &[K]) -> Vec<(Vec<u8>, i64)>
+    where
+        K: AsRef<[u8]>,
+    {
         channels
             .iter()
             .map(|channel| {
+                let channel = channel.as_ref();
                 let idx = self.shard_index(channel);
                 let shard = self.shards[idx].read();
                 let count = shard
                     .channels
-                    .get(channel.as_slice())
+                    .get(channel)
                     .map_or(0_i64, |subscribers| subscribers.len() as i64);
-                (channel.clone(), count)
+                (channel.to_vec(), count)
             })
             .collect()
     }
@@ -336,17 +340,21 @@ impl PubSubHub {
         channels
     }
 
-    pub fn pubsub_shardnumsub(&self, channels: &[Vec<u8>]) -> Vec<(Vec<u8>, i64)> {
+    pub fn pubsub_shardnumsub<K>(&self, channels: &[K]) -> Vec<(Vec<u8>, i64)>
+    where
+        K: AsRef<[u8]>,
+    {
         channels
             .iter()
             .map(|channel| {
+                let channel = channel.as_ref();
                 let idx = self.shard_index(channel);
                 let shard = self.shards[idx].read();
                 let count = shard
                     .shard_channels
-                    .get(channel.as_slice())
+                    .get(channel)
                     .map_or(0_i64, |subscribers| subscribers.len() as i64);
-                (channel.clone(), count)
+                (channel.to_vec(), count)
             })
             .collect()
     }
