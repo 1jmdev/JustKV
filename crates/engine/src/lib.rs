@@ -275,22 +275,32 @@ impl Shard {
     }
 
     pub fn insert_entry(&mut self, key: CompactKey, entry: Entry, deadline: Option<u64>) {
-        if self
-            .entries
-            .insert(key.clone(), StoredEntry::new(entry))
-            .is_some()
-            && self.ttl_count != 0
-            && self.expirations.remove(key.as_slice()).is_some()
-        {
-            self.ttl_count -= 1;
-        }
         if let Some(deadline) = deadline {
+            if self
+                .entries
+                .insert(key.clone(), StoredEntry::new(entry))
+                .is_some()
+                && self.ttl_count != 0
+                && self.expirations.remove(key.as_slice()).is_some()
+            {
+                self.ttl_count -= 1;
+            }
             if self.expirations.insert(key, deadline).is_none() {
                 self.ttl_count += 1;
             }
             self.track_deadline(deadline);
-        } else if self.ttl_count == 0 {
-            self.ttl_min_deadline = u64::MAX;
+        } else {
+            if self.ttl_count == 0 {
+                let _ = self.entries.insert(key, StoredEntry::new(entry));
+                self.ttl_min_deadline = u64::MAX;
+            } else if self
+                .entries
+                .insert(key.clone(), StoredEntry::new(entry))
+                .is_some()
+                && self.expirations.remove(key.as_slice()).is_some()
+            {
+                self.ttl_count -= 1;
+            }
         }
     }
 
