@@ -2362,6 +2362,27 @@ macro_rules! with_command_registry {
                         notify: none,
                     }
                     {
+                        variant: HGetDel,
+                        bytes: b"HGETDEL",
+                        dispatch: [hash::hgetdel; store],
+                        supported: true,
+                        group: "hash",
+                        shape: (-5, 1, 1, 1),
+                        readonly: false,
+                        write: true,
+                        auth: some {
+                            categories: &[AclCategory::Write, AclCategory::Fast, AclCategory::Hash],
+                            keys: KeyExtraction::Single,
+                            channels: ChannelExtraction::None,
+                        },
+                        notify: some {
+                            event: b"hdel",
+                            class: b'h',
+                            keys: NotificationKeyArguments::Argument(1),
+                            response: NotificationResponsePolicy::AnySuccess,
+                        },
+                    }
+                    {
                         variant: HExists,
                         bytes: b"HEXISTS",
                         dispatch: [hash::hexists; store],

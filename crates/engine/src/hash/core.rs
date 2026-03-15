@@ -226,6 +226,36 @@ impl Store {
         Ok(removed)
     }
 
+    pub fn hgetdel(
+        &self,
+        key: &[u8],
+        fields: &[CompactArg],
+    ) -> Result<Vec<Option<CompactValue>>, ()> {
+        let idx = self.shard_index(key);
+        let mut shard = self.shards[idx].write();
+        let now_ms = monotonic_now_ms();
+        if purge_if_expired(&mut shard, key, now_ms) {
+            return Ok(vec![None; fields.len()]);
+        }
+
+        let Some(entry) = shard.entries.get_mut(key) else {
+            return Ok(vec![None; fields.len()]);
+        };
+        entry.invalidate_hash_getall_cache();
+        let map = get_hash_map_mut(entry).ok_or(())?;
+
+        let mut results = Vec::with_capacity(fields.len());
+        for field in fields {
+            results.push(map.remove(field.as_slice()));
+        }
+
+        if map.is_empty() {
+            let _ = shard.remove_key(key);
+        }
+
+        Ok(results)
+    }
+
     pub fn hexists(&self, key: &[u8], field: &[u8]) -> Result<i64, ()> {
         Ok(self.hget(key, field)?.is_some() as i64)
     }

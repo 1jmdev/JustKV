@@ -79,6 +79,35 @@ pub(crate) fn hdel(store: &Store, args: &Args) -> RespFrame {
     }
 }
 
+pub(crate) fn hgetdel(store: &Store, args: &Args) -> RespFrame {
+    if args.len() < 5 {
+        return wrong_args("HGETDEL");
+    }
+    if !args[2].eq_ignore_ascii_case(b"FIELDS") {
+        return wrong_args("HGETDEL");
+    }
+    let numfields: usize = match std::str::from_utf8(&args[3])
+        .ok()
+        .and_then(|s| s.parse().ok())
+    {
+        Some(n) => n,
+        None => return wrong_args("HGETDEL"),
+    };
+    let field_args = &args[4..];
+    if field_args.len() != numfields {
+        return wrong_args("HGETDEL");
+    }
+    match store.hgetdel(&args[1], field_args) {
+        Ok(values) => RespFrame::Array(Some(
+            values
+                .into_iter()
+                .map(|value| RespFrame::Bulk(value.map(BulkData::Value)))
+                .collect(),
+        )),
+        Err(_) => wrong_type(),
+    }
+}
+
 pub(crate) fn hexists(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 3 {
         return wrong_args("HEXISTS");
