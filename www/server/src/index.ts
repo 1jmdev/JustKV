@@ -1,5 +1,6 @@
 import { Hono } from "hono";
-import { D1Database, RateLimit } from "@cloudflare/workers-types";
+import { cors } from "hono/cors";
+import type { D1Database, RateLimit } from "@cloudflare/workers-types";
 
 type CloudflareBindings = {
     RATELIMIT: RateLimit;
@@ -11,8 +12,18 @@ type WaitlistRequest = {
 };
 
 const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+const allowedOrigins = ["https://betterkv.com", "https://www.betterkv.com"];
 
 const app = new Hono<{ Bindings: CloudflareBindings }>();
+
+app.use(
+    "/waitlist",
+    cors({
+        origin: allowedOrigins,
+        allowMethods: ["POST", "OPTIONS"],
+        allowHeaders: ["Content-Type"],
+    }),
+);
 
 app.get("/", (c) => {
     return c.json({ ok: true });

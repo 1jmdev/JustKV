@@ -15,12 +15,44 @@ export function WaitlistModal({ children }: { children: React.ReactNode }) {
     const [email, setEmail] = useState("");
     const [submitted, setSubmitted] = useState(false);
     const [open, setOpen] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-    function handleSubmit(e: React.FormEvent) {
+    async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        if (!email) return;
-        setSubmitted(true);
-        setEmail("");
+        if (!email || isSubmitting) return;
+
+        setIsSubmitting(true);
+        setError(null);
+
+        try {
+            const response = await fetch("https://api.betterkv.com/waitlist", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ email }),
+            });
+
+            if (!response.ok) {
+                const payload = (await response.json().catch(() => null)) as
+                    | { error?: string }
+                    | null;
+
+                throw new Error(payload?.error ?? "Failed to join waitlist");
+            }
+
+            setSubmitted(true);
+            setEmail("");
+        } catch (submissionError) {
+            setError(
+                submissionError instanceof Error
+                    ? submissionError.message
+                    : "Failed to join waitlist",
+            );
+        } finally {
+            setIsSubmitting(false);
+        }
     }
 
     return (
@@ -29,7 +61,10 @@ export function WaitlistModal({ children }: { children: React.ReactNode }) {
             onOpenChange={(nextOpen) => {
                 setOpen(nextOpen);
                 if (!nextOpen) {
-                    setTimeout(() => setSubmitted(false), 300);
+                    setTimeout(() => {
+                        setSubmitted(false);
+                        setError(null);
+                    }, 300);
                 }
             }}
         >
@@ -56,21 +91,28 @@ export function WaitlistModal({ children }: { children: React.ReactNode }) {
                             <CheckIcon className="size-4 text-primary" />
                         </div>
                         <p className="text-sm text-muted-foreground">
-                            We'll send updates to your inbox. No spam, ever.
+                            We'll send updates to your inbox.
                         </p>
                     </div>
                 ) : (
-                    <form onSubmit={handleSubmit} className="flex gap-2">
-                        <Input
-                            type="email"
-                            placeholder="you@example.com"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            required
-                            className="flex-1"
-                        />
-                        <Button type="submit">Subscribe</Button>
-                    </form>
+                    <div className="space-y-3">
+                        <form onSubmit={handleSubmit} className="flex gap-2">
+                            <Input
+                                type="email"
+                                placeholder="you@example.com"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                required
+                                className="flex-1"
+                            />
+                            <Button type="submit" disabled={isSubmitting}>
+                                {isSubmitting ? "Submitting..." : "Subscribe"}
+                            </Button>
+                        </form>
+                        {error ? (
+                            <p className="text-sm text-destructive">{error}</p>
+                        ) : null}
+                    </div>
                 )}
             </DialogContent>
         </Dialog>
