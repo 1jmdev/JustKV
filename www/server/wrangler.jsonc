@@ -1,0 +1,24 @@
+{
+    "$schema": "node_modules/wrangler/config-schema.json",
+    "name": "betterkv-server",
+    "main": "src/index.ts",
+    "compatibility_date": "2026-03-16",
+    "d1_databases": [
+        {
+            "binding": "betterkv_waitlist",
+            "database_name": "betterkv-waitlist",
+            "database_id": "5f86e13f-3351-4849-8529-a59ca4144c0a",
+            "remote": true
+        }
+    ],
+    "ratelimits": [
+        {
+            "name": "RATELIMIT",
+            "namespace_id": "22987",
+            "simple": {
+                "limit": 1,
+                "period": 60
+            }
+        }
+    ]
+}

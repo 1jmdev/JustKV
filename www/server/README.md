@@ -1,0 +1,1 @@
+This is just simple backend for managed cloud hosting waitlist
