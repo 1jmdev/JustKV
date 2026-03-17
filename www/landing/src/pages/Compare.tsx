@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { CheckIcon, XIcon, MinusIcon } from "lucide-react";
+import { Seo } from "@/components/Seo";
 
 const features = [
     {
@@ -155,6 +156,11 @@ const fadeUp = {
 export function ComparePage() {
     return (
         <div>
+            <Seo
+                title="BetterKV vs Redis vs Dragonfly vs KeyDB"
+                description="Compare BetterKV against Redis, Dragonfly, and KeyDB on performance, threading model, Redis compatibility, memory usage, licensing, and operational complexity."
+                path="/compare"
+            />
             <PageHeader
                 badge="Compare"
                 title="BetterKV vs the competition."

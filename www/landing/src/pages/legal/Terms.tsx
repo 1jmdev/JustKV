@@ -1,8 +1,15 @@
 import { PageHeader } from "@/components/layout/PageHeader";
+import { Seo } from "@/components/Seo";
 
 export function TermsPage() {
     return (
         <div>
+            <Seo
+                title="Terms of Service — BetterKV"
+                description="BetterKV's terms of service. The terms governing your use of BetterKV software and services."
+                path="/terms"
+                noindex={true}
+            />
             <PageHeader
                 title="Terms of Service"
                 description="Terms governing your use of BetterKV. Last updated March 2026."

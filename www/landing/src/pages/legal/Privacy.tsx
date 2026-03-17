@@ -1,8 +1,15 @@
 import { PageHeader } from "@/components/layout/PageHeader";
+import { Seo } from "@/components/Seo";
 
 export function PrivacyPage() {
     return (
         <div>
+            <Seo
+                title="Privacy Policy — BetterKV"
+                description="BetterKV's privacy policy. How we collect, use, and protect your data."
+                path="/privacy"
+                noindex={true}
+            />
             <PageHeader
                 title="Privacy Policy"
                 description="How we handle your data. Last updated March 2026."

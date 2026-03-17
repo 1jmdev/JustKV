@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { Seo } from "@/components/Seo";
 
 const fadeUp = {
     initial: { opacity: 0, y: 20 },
@@ -11,6 +12,11 @@ const fadeUp = {
 export function RoadmapPage() {
     return (
         <div>
+            <Seo
+                title="Roadmap — BetterKV"
+                description="See what's coming next for BetterKV — an open-source Redis-compatible key-value store built in Rust. Follow development on GitHub."
+                path="/roadmap"
+            />
             <PageHeader
                 badge="Roadmap"
                 title="Coming soon."

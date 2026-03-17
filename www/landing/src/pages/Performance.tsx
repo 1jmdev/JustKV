@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/badge";
+import { Seo } from "@/components/Seo";
 
 const benchmarks = [
     {
@@ -79,6 +80,11 @@ const fadeUp = {
 export function PerformancePage() {
     return (
         <div>
+            <Seo
+                title="Performance Benchmarks — BetterKV vs Redis"
+                description="See how BetterKV achieves 5–30x higher throughput than Redis. Detailed benchmarks for GET, SET, HSET, LPUSH, ZADD, and more — powered by a Rust thread-per-core engine."
+                path="/performance"
+            />
             <PageHeader
                 badge="Performance"
                 title="5-30x faster than Redis."

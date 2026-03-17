@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { WaitlistModal } from "@/components/layout/WaitlistModal";
 import { CheckIcon, ArrowRightIcon } from "lucide-react";
+import { Seo } from "@/components/Seo";
 
 const plans = [
     {
@@ -59,6 +60,11 @@ const fadeUp = {
 export function PricingPage() {
     return (
         <div>
+            <Seo
+                title="Pricing — BetterKV"
+                description="BetterKV is free to self-host forever. BetterKV Cloud is coming soon — fully managed Redis-compatible key-value store with sub-millisecond latency."
+                path="/pricing"
+            />
             <PageHeader
                 badge="Pricing"
                 title="Simple, transparent pricing."

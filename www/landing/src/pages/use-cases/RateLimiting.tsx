@@ -8,6 +8,7 @@ import {
     GlobeIcon,
     ZapIcon,
 } from "lucide-react";
+import { Seo } from "@/components/Seo";
 
 const benefits = [
     {
@@ -46,6 +47,11 @@ const fadeUp = {
 export function RateLimitingPage() {
     return (
         <div>
+            <Seo
+                title="Distributed Rate Limiting with BetterKV"
+                description="Implement microsecond-decision rate limiting across distributed systems using BetterKV. Redis-compatible sliding window and token bucket patterns at massive scale."
+                path="/use-cases/rate-limiting"
+            />
             <PageHeader
                 badge="Use Case"
                 title="Rate Limiting"

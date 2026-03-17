@@ -8,6 +8,7 @@ import {
     MessageSquareIcon,
     HeartIcon,
 } from "lucide-react";
+import { Seo } from "@/components/Seo";
 
 const channels = [
     {
@@ -73,6 +74,11 @@ const fadeUp = {
 export function CommunityPage() {
     return (
         <div>
+            <Seo
+                title="Community — BetterKV"
+                description="BetterKV is open source. Contribute on GitHub, read the docs, or join the discussion. Built in the open, for developers."
+                path="/community"
+            />
             <PageHeader
                 badge="Community"
                 title="Built in the open."

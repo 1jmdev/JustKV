@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { Seo } from "@/components/Seo";
 
 const fadeUp = {
     initial: { opacity: 0, y: 20 },
@@ -11,6 +12,11 @@ const fadeUp = {
 export function ChangelogPage() {
     return (
         <div>
+            <Seo
+                title="Changelog — BetterKV"
+                description="Release notes and version history for BetterKV, the high-performance Redis-compatible key-value store built in Rust."
+                path="/changelog"
+            />
             <PageHeader
                 badge="Changelog"
                 title="Coming soon."

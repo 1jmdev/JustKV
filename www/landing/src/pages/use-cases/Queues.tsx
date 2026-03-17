@@ -8,6 +8,7 @@ import {
     ListIcon,
     ZapIcon,
 } from "lucide-react";
+import { Seo } from "@/components/Seo";
 
 const benefits = [
     {
@@ -46,6 +47,11 @@ const fadeUp = {
 export function QueuesPage() {
     return (
         <div>
+            <Seo
+                title="Message Queues & Pub/Sub with BetterKV"
+                description="Build high-throughput task queues and pub/sub messaging systems with BetterKV. Millions of messages per second using Redis-compatible LIST and SUBSCRIBE commands."
+                path="/use-cases/queues"
+            />
             <PageHeader
                 badge="Use Case"
                 title="Message Queues"

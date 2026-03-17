@@ -8,6 +8,7 @@ import {
     ServerIcon,
     BugIcon,
 } from "lucide-react";
+import { Seo } from "@/components/Seo";
 
 const securityFeatures = [
     {
@@ -58,6 +59,11 @@ const fadeUp = {
 export function SecurityPage() {
     return (
         <div>
+            <Seo
+                title="Security — BetterKV"
+                description="BetterKV is built in Rust for memory safety. TLS transport encryption, password authentication, and ACL-based access control keep your data secure."
+                path="/security"
+            />
             <PageHeader
                 badge="Security"
                 title="Secure by design."

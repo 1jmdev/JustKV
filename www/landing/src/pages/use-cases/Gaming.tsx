@@ -8,6 +8,7 @@ import {
     UsersIcon,
     ZapIcon,
 } from "lucide-react";
+import { Seo } from "@/components/Seo";
 
 const benefits = [
     {
@@ -46,6 +47,11 @@ const fadeUp = {
 export function GamingPage() {
     return (
         <div>
+            <Seo
+                title="Gaming Infrastructure with BetterKV — Leaderboards & Matchmaking"
+                description="Power gaming leaderboards, matchmaking queues, and real-time game state with BetterKV. Sorted sets and pub/sub at the latency your players expect."
+                path="/use-cases/gaming"
+            />
             <PageHeader
                 badge="Use Case"
                 title="Gaming"

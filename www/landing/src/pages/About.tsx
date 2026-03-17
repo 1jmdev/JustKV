@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { Seo } from "@/components/Seo";
 
 const values = [
     {
@@ -34,6 +35,11 @@ const fadeUp = {
 export function AboutPage() {
     return (
         <div>
+            <Seo
+                title="About — BetterKV"
+                description="BetterKV is an open-source Redis-compatible key-value store built in Rust from the ground up for low tail latency, high throughput, and operational simplicity."
+                path="/about"
+            />
             <PageHeader
                 badge="About"
                 title="We're building the future of in-memory data."

@@ -8,6 +8,7 @@ import {
     ShieldCheckIcon,
     ServerIcon,
 } from "lucide-react";
+import { Seo } from "@/components/Seo";
 
 const benefits = [
     {
@@ -46,6 +47,11 @@ const fadeUp = {
 export function SessionsPage() {
     return (
         <div>
+            <Seo
+                title="Session Storage with BetterKV — Fast, Scalable, Redis-Compatible"
+                description="Manage millions of concurrent user sessions with microsecond access times. BetterKV is a drop-in Redis replacement for high-scale session storage."
+                path="/use-cases/sessions"
+            />
             <PageHeader
                 badge="Use Case"
                 title="Session Storage"

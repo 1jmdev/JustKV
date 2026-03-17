@@ -8,6 +8,7 @@ import {
     GlobeIcon,
     ServerIcon,
 } from "lucide-react";
+import { Seo } from "@/components/Seo";
 
 const benefits = [
     {
@@ -46,6 +47,11 @@ const fadeUp = {
 export function CachingPage() {
     return (
         <div>
+            <Seo
+                title="High-Performance Caching with BetterKV"
+                description="Replace Redis as your cache layer with BetterKV. Sub-microsecond reads, millions of GET/SET operations per second, and full Redis client compatibility."
+                path="/use-cases/caching"
+            />
             <PageHeader
                 badge="Use Case"
                 title="Caching"

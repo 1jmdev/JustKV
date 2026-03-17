@@ -8,6 +8,7 @@ import {
     TrendingUpIcon,
     LayersIcon,
 } from "lucide-react";
+import { Seo } from "@/components/Seo";
 
 const benefits = [
     {
@@ -46,6 +47,11 @@ const fadeUp = {
 export function AnalyticsPage() {
     return (
         <div>
+            <Seo
+                title="Real-Time Analytics with BetterKV — Counters, Leaderboards & Time-Series"
+                description="Power real-time dashboards, counters, and leaderboards with BetterKV. Millions of increments per second, sorted sets for rankings, and Redis-compatible commands."
+                path="/use-cases/analytics"
+            />
             <PageHeader
                 badge="Use Case"
                 title="Real-time Analytics"

@@ -8,6 +8,7 @@ import {
     UsersIcon,
     ToggleLeftIcon,
 } from "lucide-react";
+import { Seo } from "@/components/Seo";
 
 const benefits = [
     {
@@ -46,6 +47,11 @@ const fadeUp = {
 export function FeatureFlagsPage() {
     return (
         <div>
+            <Seo
+                title="Feature Flags with BetterKV — Zero-Latency Flag Evaluation"
+                description="Store and evaluate feature flags with sub-millisecond latency using BetterKV. Redis-compatible hash and string operations for instant feature toggling across your infrastructure."
+                path="/use-cases/feature-flags"
+            />
             <PageHeader
                 badge="Use Case"
                 title="Feature Flags"

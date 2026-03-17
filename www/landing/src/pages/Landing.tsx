@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { WaitlistModal } from "@/components/layout/WaitlistModal";
+import { Seo } from "@/components/Seo";
 import {
     ZapIcon,
     ArrowLeftRightIcon,
@@ -105,8 +106,45 @@ const fadeUp = {
 };
 
 export function LandingPage() {
+    const jsonLd = {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "Organization",
+                "@id": "https://betterkv.com/#organization",
+                name: "BetterKV",
+                url: "https://betterkv.com",
+                logo: "https://betterkv.com/favicon.svg",
+                sameAs: ["https://github.com/1jmdev/BetterKV"],
+            },
+            {
+                "@type": "WebSite",
+                "@id": "https://betterkv.com/#website",
+                url: "https://betterkv.com",
+                name: "BetterKV",
+                publisher: { "@id": "https://betterkv.com/#organization" },
+            },
+            {
+                "@type": "SoftwareApplication",
+                name: "BetterKV",
+                applicationCategory: "DeveloperApplication",
+                operatingSystem: "Linux, macOS, Windows",
+                description:
+                    "BetterKV is a Redis-compatible in-memory key-value store built in Rust. Up to 30x faster than Redis with sub-millisecond latency, multi-threaded architecture, and a drop-in client experience.",
+                offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+                url: "https://betterkv.com",
+            },
+        ],
+    };
+
     return (
         <div>
+            <Seo
+                title="BetterKV — Redis-Compatible Key-Value Store Built in Rust"
+                description="BetterKV is a Redis-compatible in-memory key-value store built in Rust. Up to 30x faster than Redis with sub-millisecond tail latency, true multi-threading, and a drop-in client experience."
+                path="/"
+                jsonLd={jsonLd}
+            />
             <section className="relative overflow-hidden border-b border-border/50">
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,oklch(0.65_0.2_280/0.08),transparent_60%)]" />
                 <div className="relative mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24 lg:py-36">

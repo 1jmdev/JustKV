@@ -10,6 +10,7 @@ import {
     FlagIcon,
     GamepadIcon,
 } from "lucide-react";
+import { Seo } from "@/components/Seo";
 
 const useCases = [
     {
@@ -66,6 +67,11 @@ const useCases = [
 export function UseCasesOverviewPage() {
     return (
         <div>
+            <Seo
+                title="Use Cases — BetterKV"
+                description="BetterKV powers caching, session storage, real-time analytics, message queues, rate limiting, feature flags, and gaming leaderboards. 5–30x faster than Redis."
+                path="/use-cases"
+            />
             <PageHeader
                 badge="Use Cases"
                 title="Built for every workload."

@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { CheckIcon } from "lucide-react";
+import { Seo } from "@/components/Seo";
 
 const commandGroups = [
     {
@@ -322,6 +323,11 @@ const fadeUp = {
 export function CompatibilityPage() {
     return (
         <div>
+            <Seo
+                title="Redis Command Compatibility — BetterKV"
+                description="BetterKV supports 225+ Redis commands across strings, hashes, lists, sets, sorted sets, streams, JSON, Lua scripting, pub/sub, and transactions. Drop-in Redis replacement."
+                path="/compatibility"
+            />
             <PageHeader
                 badge="Compatibility"
                 title="Redis command compatibility."
