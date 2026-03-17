@@ -1,3 +1,27 @@
+---
+title: Persistence — BetterKV
+description: Learn how BetterKV handles persistence with RDB snapshots and AOF (Append-Only File). Durable in-memory storage without sacrificing latency.
+head:
+  - - meta
+    - property: og:title
+      content: Persistence — BetterKV
+  - - meta
+    - property: og:description
+      content: Learn how BetterKV handles persistence with RDB snapshots and AOF (Append-Only File). Durable in-memory storage without sacrificing latency.
+  - - meta
+    - property: og:url
+      content: https://docs.betterkv.com/persistence
+  - - meta
+    - name: twitter:card
+      content: summary_large_image
+  - - meta
+    - name: twitter:title
+      content: Persistence — BetterKV
+  - - meta
+    - name: twitter:description
+      content: Learn how BetterKV handles persistence with RDB snapshots and AOF (Append-Only File). Durable in-memory storage without sacrificing latency.
+---
+
 # Persistence
 
 Persistence is where many in-memory systems stop looking fast once the workload becomes real. BetterKV aims to keep stronger latency behavior than Redis and Valkey even when durability is enabled, but your benchmark methodology still needs to be explicit.

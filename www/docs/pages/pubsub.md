@@ -1,3 +1,27 @@
+---
+title: Pub/Sub — BetterKV
+description: Use BetterKV's Redis-compatible Pub/Sub for real-time messaging. SUBSCRIBE, PUBLISH, PSUBSCRIBE, and pattern-based channels with high-throughput delivery.
+head:
+  - - meta
+    - property: og:title
+      content: Pub/Sub — BetterKV
+  - - meta
+    - property: og:description
+      content: Use BetterKV's Redis-compatible Pub/Sub for real-time messaging. SUBSCRIBE, PUBLISH, PSUBSCRIBE, and pattern-based channels with high-throughput delivery.
+  - - meta
+    - property: og:url
+      content: https://docs.betterkv.com/pubsub
+  - - meta
+    - name: twitter:card
+      content: summary_large_image
+  - - meta
+    - name: twitter:title
+      content: Pub/Sub — BetterKV
+  - - meta
+    - name: twitter:description
+      content: Use BetterKV's Redis-compatible Pub/Sub for real-time messaging. SUBSCRIBE, PUBLISH, PSUBSCRIBE, and pattern-based channels with high-throughput delivery.
+---
+
 # Pub/Sub
 
 Pub/Sub is the simplest messaging surface in BetterKV, but it is not the best place to sell durability or replay. Use this page to explain where Pub/Sub fits, what is currently exposed in the command surface, and when Streams are the better choice.

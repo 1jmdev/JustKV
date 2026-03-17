@@ -1,3 +1,27 @@
+---
+title: Commands Reference — BetterKV
+description: Full reference for all 225+ BetterKV commands. Covers strings, hashes, lists, sets, sorted sets, streams, JSON, Lua scripting, pub/sub, transactions, and more.
+head:
+  - - meta
+    - property: og:title
+      content: Commands Reference — BetterKV
+  - - meta
+    - property: og:description
+      content: Full reference for all 225+ BetterKV commands. Covers strings, hashes, lists, sets, sorted sets, streams, JSON, Lua scripting, pub/sub, transactions, and more.
+  - - meta
+    - property: og:url
+      content: https://docs.betterkv.com/commands/
+  - - meta
+    - name: twitter:card
+      content: summary_large_image
+  - - meta
+    - name: twitter:title
+      content: Commands Reference — BetterKV
+  - - meta
+    - name: twitter:description
+      content: Full reference for all 225+ BetterKV commands. Covers strings, hashes, lists, sets, sorted sets, streams, JSON, Lua scripting, pub/sub, transactions, and more.
+---
+
 # Commands Reference
 
 BetterKV currently exposes 225 registry-backed commands. This index is the landing page for the command surface: use it to scan every command, then jump into the individual page for syntax, parameters, return shape, and examples.

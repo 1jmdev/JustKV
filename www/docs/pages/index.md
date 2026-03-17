@@ -1,3 +1,27 @@
+---
+title: BetterKV Docs — Redis-Compatible Key-Value Store Built in Rust
+description: BetterKV is a high-performance Redis-compatible in-memory key-value store. Learn why teams switch from Redis and Valkey for lower tail latency and higher throughput.
+head:
+  - - meta
+    - property: og:title
+      content: BetterKV Docs — Redis-Compatible Key-Value Store Built in Rust
+  - - meta
+    - property: og:description
+      content: BetterKV is a high-performance Redis-compatible in-memory key-value store. Learn why teams switch from Redis and Valkey for lower tail latency and higher throughput.
+  - - meta
+    - property: og:url
+      content: https://docs.betterkv.com/
+  - - meta
+    - name: twitter:card
+      content: summary_large_image
+  - - meta
+    - name: twitter:title
+      content: BetterKV Docs — Redis-Compatible Key-Value Store Built in Rust
+  - - meta
+    - name: twitter:description
+      content: BetterKV is a high-performance Redis-compatible in-memory key-value store. Learn why teams switch from Redis and Valkey for lower tail latency and higher throughput.
+---
+
 # BetterKV Docs
 
 BetterKV is a Redis-compatible in-memory server built for teams that care about tail latency, predictable throughput, and operational simplicity. It keeps the Redis protocol and developer ergonomics, but it is engineered to run harder under load.

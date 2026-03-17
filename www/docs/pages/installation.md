@@ -1,3 +1,27 @@
+---
+title: Installation — BetterKV
+description: Install BetterKV via Docker, binary download, or build from source. Drop-in Redis replacement — works with your existing clients and tooling.
+head:
+  - - meta
+    - property: og:title
+      content: Installation — BetterKV
+  - - meta
+    - property: og:description
+      content: Install BetterKV via Docker, binary download, or build from source. Drop-in Redis replacement — works with your existing clients and tooling.
+  - - meta
+    - property: og:url
+      content: https://docs.betterkv.com/installation
+  - - meta
+    - name: twitter:card
+      content: summary_large_image
+  - - meta
+    - name: twitter:title
+      content: Installation — BetterKV
+  - - meta
+    - name: twitter:description
+      content: Install BetterKV via Docker, binary download, or build from source. Drop-in Redis replacement — works with your existing clients and tooling.
+---
+
 # Installation
 
 Install BetterKV the same way you would install Redis or Valkey, then validate behavior with your existing clients and workloads.

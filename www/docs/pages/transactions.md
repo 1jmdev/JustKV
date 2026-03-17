@@ -1,3 +1,27 @@
+---
+title: Transactions — BetterKV
+description: Use MULTI/EXEC transactions in BetterKV for atomic command execution. Redis-compatible transactional workflows with WATCH for optimistic locking.
+head:
+  - - meta
+    - property: og:title
+      content: Transactions — BetterKV
+  - - meta
+    - property: og:description
+      content: Use MULTI/EXEC transactions in BetterKV for atomic command execution. Redis-compatible transactional workflows with WATCH for optimistic locking.
+  - - meta
+    - property: og:url
+      content: https://docs.betterkv.com/transactions
+  - - meta
+    - name: twitter:card
+      content: summary_large_image
+  - - meta
+    - name: twitter:title
+      content: Transactions — BetterKV
+  - - meta
+    - name: twitter:description
+      content: Use MULTI/EXEC transactions in BetterKV for atomic command execution. Redis-compatible transactional workflows with WATCH for optimistic locking.
+---
+
 # Transactions
 
 BetterKV supports Redis-style transactional workflows, but the real developer question is when to use transactions versus Lua scripts versus plain pipelining.

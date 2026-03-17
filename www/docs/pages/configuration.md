@@ -1,3 +1,27 @@
+---
+title: Configuration — BetterKV
+description: Configure BetterKV for your workload. Redis-compatible config model with tuning options for latency, threading, persistence, TLS, and authentication.
+head:
+  - - meta
+    - property: og:title
+      content: Configuration — BetterKV
+  - - meta
+    - property: og:description
+      content: Configure BetterKV for your workload. Redis-compatible config model with tuning options for latency, threading, persistence, TLS, and authentication.
+  - - meta
+    - property: og:url
+      content: https://docs.betterkv.com/configuration
+  - - meta
+    - name: twitter:card
+      content: summary_large_image
+  - - meta
+    - name: twitter:title
+      content: Configuration — BetterKV
+  - - meta
+    - name: twitter:description
+      content: Configure BetterKV for your workload. Redis-compatible config model with tuning options for latency, threading, persistence, TLS, and authentication.
+---
+
 # Configuration
 
 BetterKV keeps the Redis-style operational model, but the goal is different: tighter latency distributions, less surprise under pressure, and simpler performance tuning.

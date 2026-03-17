@@ -1,3 +1,27 @@
+---
+title: Security — BetterKV
+description: Secure BetterKV with TLS transport encryption, password authentication, and ACL-based access control. Built in Rust for memory safety by design.
+head:
+  - - meta
+    - property: og:title
+      content: Security — BetterKV
+  - - meta
+    - property: og:description
+      content: Secure BetterKV with TLS transport encryption, password authentication, and ACL-based access control. Built in Rust for memory safety by design.
+  - - meta
+    - property: og:url
+      content: https://docs.betterkv.com/security
+  - - meta
+    - name: twitter:card
+      content: summary_large_image
+  - - meta
+    - name: twitter:title
+      content: Security — BetterKV
+  - - meta
+    - name: twitter:description
+      content: Secure BetterKV with TLS transport encryption, password authentication, and ACL-based access control. Built in Rust for memory safety by design.
+---
+
 # Security
 
 BetterKV is fast, but security still starts with deployment discipline. Treat it like any other Redis-compatible data service: private network first, explicit auth, and least privilege.

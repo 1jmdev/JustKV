@@ -1,3 +1,27 @@
+---
+title: Quick Start — BetterKV
+description: Get BetterKV running in minutes with Docker, Docker Compose, or a local binary. Connect with Node.js, Python, Go, and any existing Redis client.
+head:
+  - - meta
+    - property: og:title
+      content: Quick Start — BetterKV
+  - - meta
+    - property: og:description
+      content: Get BetterKV running in minutes with Docker, Docker Compose, or a local binary. Connect with Node.js, Python, Go, and any existing Redis client.
+  - - meta
+    - property: og:url
+      content: https://docs.betterkv.com/quick-start
+  - - meta
+    - name: twitter:card
+      content: summary_large_image
+  - - meta
+    - name: twitter:title
+      content: Quick Start — BetterKV
+  - - meta
+    - name: twitter:description
+      content: Get BetterKV running in minutes with Docker, Docker Compose, or a local binary. Connect with Node.js, Python, Go, and any existing Redis client.
+---
+
 # Quick Start
 
 This page gets BetterKV running fast, then shows why teams evaluate it against Redis and Valkey in the first place: lower latency, better tail behavior, and a drop-in developer workflow.

@@ -334,6 +334,31 @@ export default defineConfig({
         dark: "/logo-dark.svg",
     },
     globalStyles: path.join(import.meta.dirname, "styles", "global.css"),
+    head: [
+        // Open Graph fallbacks (per-page frontmatter overrides these)
+        ["meta", { property: "og:type", content: "website" }],
+        ["meta", { property: "og:site_name", content: "BetterKV Docs" }],
+        [
+            "meta",
+            {
+                property: "og:image",
+                content: "https://docs.betterkv.com/og-image.png",
+            },
+        ],
+        ["meta", { property: "og:image:width", content: "1200" }],
+        ["meta", { property: "og:image:height", content: "630" }],
+        ["meta", { property: "og:locale", content: "en_US" }],
+        // Twitter Card fallbacks
+        ["meta", { name: "twitter:card", content: "summary_large_image" }],
+        ["meta", { name: "twitter:site", content: "@betterkv" }],
+        [
+            "meta",
+            {
+                name: "twitter:image",
+                content: "https://docs.betterkv.com/og-image.png",
+            },
+        ],
+    ],
     themeConfig: {
         footer: {
             message:
@@ -404,5 +429,49 @@ export default defineConfig({
     },
     markdown: {
         showLineNumbers: true,
+    },
+    builderConfig: {
+        html: {
+            tags: [
+                {
+                    tag: "script",
+                    attrs: { type: "application/ld+json" },
+                    children: JSON.stringify({
+                        "@context": "https://schema.org",
+                        "@graph": [
+                            {
+                                "@type": "Organization",
+                                "@id": "https://betterkv.com/#organization",
+                                name: "BetterKV",
+                                url: "https://betterkv.com",
+                                logo: "https://betterkv.com/favicon.svg",
+                                sameAs: [
+                                    "https://github.com/1jmdev/BetterKV",
+                                ],
+                            },
+                            {
+                                "@type": "WebSite",
+                                "@id": "https://docs.betterkv.com/#website",
+                                url: "https://docs.betterkv.com",
+                                name: "BetterKV Docs",
+                                publisher: {
+                                    "@id": "https://betterkv.com/#organization",
+                                },
+                            },
+                            {
+                                "@type": "TechArticle",
+                                name: "BetterKV Documentation",
+                                description:
+                                    "Complete documentation for BetterKV — a Redis-compatible high-performance key-value store built in Rust.",
+                                url: "https://docs.betterkv.com",
+                                isPartOf: {
+                                    "@id": "https://docs.betterkv.com/#website",
+                                },
+                            },
+                        ],
+                    }),
+                },
+            ],
+        },
     },
 });

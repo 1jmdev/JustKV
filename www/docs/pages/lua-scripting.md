@@ -1,3 +1,27 @@
+---
+title: Lua Scripting — BetterKV
+description: Execute server-side Lua scripts in BetterKV using EVAL and EVALSHA. Redis-compatible scripting with lower tail latency than Redis on script-heavy workloads.
+head:
+  - - meta
+    - property: og:title
+      content: Lua Scripting — BetterKV
+  - - meta
+    - property: og:description
+      content: Execute server-side Lua scripts in BetterKV using EVAL and EVALSHA. Redis-compatible scripting with lower tail latency than Redis on script-heavy workloads.
+  - - meta
+    - property: og:url
+      content: https://docs.betterkv.com/lua-scripting
+  - - meta
+    - name: twitter:card
+      content: summary_large_image
+  - - meta
+    - name: twitter:title
+      content: Lua Scripting — BetterKV
+  - - meta
+    - name: twitter:description
+      content: Execute server-side Lua scripts in BetterKV using EVAL and EVALSHA. Redis-compatible scripting with lower tail latency than Redis on script-heavy workloads.
+---
+
 # Lua Scripting
 
 Lua is one of the best places to explain why BetterKV exists. Server-side logic amplifies latency problems in Redis-compatible systems, so better tail behavior matters even more here.
