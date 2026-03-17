@@ -333,6 +333,7 @@ export default defineConfig({
         light: "/logo-light.svg",
         dark: "/logo-dark.svg",
     },
+    llms: true,
     globalStyles: path.join(import.meta.dirname, "styles", "global.css"),
     head: [
         // Open Graph fallbacks (per-page frontmatter overrides these)
