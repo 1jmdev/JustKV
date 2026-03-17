@@ -5,6 +5,9 @@
     "./*"
   ],
   "scripts": {
+    "dev:landing": "bun run --filter betterkv-landing dev",
+    "dev:docs": "bun run --filter betterkv-docs dev",
+    "dev:server": "bun run --filter betterkv-server dev",
     "check": "biome check landing docs server",
     "check:fix": "biome check --write landing docs server",
     "format": "bun run format:landing && bun run format:docs && bun run format:server",
