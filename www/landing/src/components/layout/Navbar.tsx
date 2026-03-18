@@ -34,6 +34,7 @@ import {
     MenuIcon,
     ChevronDownIcon,
 } from "lucide-react";
+import { Logo } from "../Logo";
 
 const productLinks = [
     {
@@ -307,11 +308,7 @@ export function Navbar() {
                 {/* Logo */}
                 <div className="flex items-center gap-1">
                     <Link to="/" className="mr-4 flex items-center gap-2.5">
-                        <div className="flex size-7 items-center justify-center rounded-lg bg-primary">
-                            <span className="text-sm font-bold text-primary-foreground">
-                                B
-                            </span>
-                        </div>
+                        <Logo />
                         <span className="text-sm font-semibold tracking-tight">
                             BetterKV
                         </span>
@@ -445,11 +442,7 @@ export function Navbar() {
                                     onClick={() => setMobileOpen(false)}
                                     className="flex items-center gap-2.5"
                                 >
-                                    <div className="flex size-7 items-center justify-center rounded-lg bg-primary">
-                                        <span className="text-sm font-bold text-primary-foreground">
-                                            B
-                                        </span>
-                                    </div>
+                                    <Logo />
                                     <span className="text-sm font-semibold tracking-tight">
                                         BetterKV
                                     </span>

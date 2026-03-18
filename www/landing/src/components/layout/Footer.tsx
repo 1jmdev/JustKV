@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { Logo } from "../Logo";
 
 const footerSections = [
     {
@@ -54,11 +55,7 @@ export function Footer() {
                 <div className="grid grid-cols-2 gap-8 md:grid-cols-4 lg:grid-cols-5">
                     <div className="col-span-2 md:col-span-4 lg:col-span-1">
                         <Link to="/" className="flex items-center gap-2.5">
-                            <div className="flex size-7 items-center justify-center rounded-lg bg-primary">
-                                <span className="text-sm font-bold text-primary-foreground">
-                                    B
-                                </span>
-                            </div>
+                            <Logo />
                             <span className="text-sm font-semibold tracking-tight">
                                 BetterKV
                             </span>

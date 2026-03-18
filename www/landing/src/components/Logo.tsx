@@ -1,4 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 60 640 150" width="100%" height="100%">
+export function Logo() {
+    return (
+        <div className="flex size-16 items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" width="100%" height="100%">
   <defs>
     <linearGradient id="coreTop" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#F3E8FF" />
@@ -12,11 +15,13 @@
       <stop offset="0%" stop-color="#A855F7" />
       <stop offset="100%" stop-color="#6B21A8" />
     </linearGradient>
+
     <linearGradient id="edgeGrad" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#F3E8FF" />
       <stop offset="50%" stop-color="#D8B4FE" />
       <stop offset="100%" stop-color="#7E22CE" />
     </linearGradient>
+
     <filter id="coreGlow" x="-50%" y="-50%" width="200%" height="200%">
       <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur1" />
       <feGaussianBlur in="SourceGraphic" stdDeviation="20" result="blur2" />
@@ -28,33 +33,30 @@
     </filter>
   </defs>
 
-  <!-- Logo -->
-  <g transform="translate(0,0)">
+  <g>
     <g opacity="0.12">
       <path d="M150,88 L212.5,124 L212.5,196 L150,232 L87.5,196 L87.5,124 Z" fill="#6B21A8" filter="url(#coreGlow)" />
     </g>
+
     <g filter="url(#coreGlow)" opacity="0.55">
       <path d="M150,108 L178,124 L178,156 L150,172 L122,156 L122,124 Z" fill="#A855F7" />
     </g>
+
     <path d="M150,108 L178,124 L150,140 L122,124 Z" fill="url(#coreTop)" />
     <path d="M122,124 L150,140 L150,172 L122,156 Z" fill="url(#coreLeft)" />
     <path d="M150,140 L178,124 L178,156 L150,172 Z" fill="url(#coreRight)" />
+
     <path d="M150,108 L178,124 L178,156 L150,172 L122,156 L122,124 Z" stroke="#F3E8FF" stroke-width="1.5" fill="none" stroke-linejoin="round" />
     <path d="M150,140 L150,172 M150,140 L122,124 M150,140 L178,124" stroke="#F3E8FF" stroke-width="1.5" fill="none" stroke-linecap="round" />
+
     <path d="M150,68 L212.5,104 L150,140 L87.5,104 Z" fill="#C084FC" fill-opacity="0.12" />
     <path d="M87.5,104 L150,140 L150,212 L87.5,176 Z" fill="#9333EA" fill-opacity="0.18" />
     <path d="M150,140 L212.5,104 L212.5,176 L150,212 Z" fill="#6B21A8" fill-opacity="0.25" />
+
     <path d="M150,68 L212.5,104 L212.5,176 L150,212 L87.5,176 L87.5,104 Z" stroke="url(#edgeGrad)" stroke-width="3" fill="none" stroke-linejoin="round" />
     <path d="M150,140 L150,212 M150,140 L87.5,104 M150,140 L212.5,104" stroke="url(#edgeGrad)" stroke-width="3" fill="none" stroke-linecap="round" />
   </g>
-
-  <!-- Text -->
-  <text x="250" y="177"
-        fill="#000000"
-        font-family="Inter, Arial, sans-serif"
-        font-size="86"
-        font-weight="700"
-        letter-spacing="0">
-    BetterKV
-  </text>
 </svg>
+                        </div>
+    )
+}
