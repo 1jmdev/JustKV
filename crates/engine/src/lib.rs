@@ -44,6 +44,7 @@ use std::hint::spin_loop;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::thread::yield_now;
 
 use parking_lot::RwLock;
 use rapidhash::fast::RandomState;
@@ -349,9 +350,17 @@ impl Store {
 
     #[inline]
     pub fn with_command_gate<T>(&self, operation: impl FnOnce() -> T) -> T {
+        const SPIN_LIMIT: usize = 64;
         loop {
+            let mut spins = 0usize;
             while self.writer_pending.load(Ordering::Acquire) {
-                spin_loop();
+                if spins < SPIN_LIMIT {
+                    spin_loop();
+                    spins += 1;
+                } else {
+                    yield_now();
+                    spins = 0;
+                }
             }
 
             self.active_commands.fetch_add(1, Ordering::Acquire);
@@ -372,10 +381,18 @@ impl Store {
 
     #[inline]
     pub fn with_transaction_gate<T>(&self, operation: impl FnOnce() -> T) -> T {
+        const SPIN_LIMIT: usize = 64;
         let _guard = self.transaction_gate.write();
         self.writer_pending.store(true, Ordering::Release);
+        let mut spins = 0usize;
         while self.active_commands.load(Ordering::Acquire) != 0 {
-            spin_loop();
+            if spins < SPIN_LIMIT {
+                spin_loop();
+                spins += 1;
+            } else {
+                yield_now();
+                spins = 0;
+            }
         }
         let result = operation();
         self.writer_pending.store(false, Ordering::Release);
