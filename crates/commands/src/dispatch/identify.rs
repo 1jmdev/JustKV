@@ -3,7 +3,7 @@ use super::registry::with_command_registry;
 
 #[inline(always)]
 fn eq(a: &[u8], b: &[u8]) -> bool {
-    a.eq_ignore_ascii_case(b)
+    a == b || a.eq_ignore_ascii_case(b)
 }
 
 macro_rules! generate_identify {

@@ -24,8 +24,29 @@ fn bulk_bytes(frame: RespFrame) -> Option<Vec<u8>> {
     match frame {
         RespFrame::Bulk(Some(BulkData::Arg(value))) => Some(value.to_vec()),
         RespFrame::Bulk(Some(BulkData::Value(value))) => Some(value.to_vec()),
+        RespFrame::PreEncoded(value) => decode_preencoded_bulk(value.as_ref()),
         _ => None,
     }
+}
+
+fn decode_preencoded_bulk(value: &[u8]) -> Option<Vec<u8>> {
+    if value == b"$-1\r\n" {
+        return None;
+    }
+    if value.first() != Some(&b'$') {
+        return None;
+    }
+    let len_end = value.windows(2).position(|window| window == b"\r\n")?;
+    let len = std::str::from_utf8(&value[1..len_end])
+        .ok()?
+        .parse::<usize>()
+        .ok()?;
+    let start = len_end + 2;
+    let end = start + len;
+    if value.len() != end + 2 || &value[end..] != b"\r\n" {
+        return None;
+    }
+    Some(value[start..end].to_vec())
 }
 
 #[test]

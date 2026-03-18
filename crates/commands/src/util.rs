@@ -209,3 +209,14 @@ pub fn preencode_bulk_str(value: &str) -> bytes::Bytes {
     out.put_slice(b"\r\n");
     out.freeze()
 }
+
+pub fn preencode_bulk_slice(value: &[u8]) -> bytes::Bytes {
+    let mut len_buf = itoa::Buffer::new();
+    let mut out = BytesMut::with_capacity(1 + 20 + 2 + value.len() + 2);
+    out.put_u8(b'$');
+    out.put_slice(len_buf.format(value.len()).as_bytes());
+    out.put_slice(b"\r\n");
+    out.put_slice(value);
+    out.put_slice(b"\r\n");
+    out.freeze()
+}

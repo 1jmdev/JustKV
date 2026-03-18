@@ -1,5 +1,7 @@
 use std::time::Duration;
 
+use bytes::{BufMut, Bytes, BytesMut};
+
 use crate::store::Store;
 use types::value::{CompactValue, Entry};
 
@@ -9,6 +11,33 @@ use super::super::helpers::{
 use super::write_entry;
 
 impl Store {
+    pub fn get_preencoded(&self, key: &[u8]) -> Result<Bytes, ()> {
+        let idx = self.shard_index(key);
+        let shard = self.shards[idx].read();
+        let entry = if shard.has_ttls() {
+            let now_ms = monotonic_now_ms();
+            get_live_entry(&shard, key, now_ms)
+        } else {
+            shard.entries.get(key)
+        };
+        let Some(entry) = entry else {
+            return Ok(Bytes::from_static(b"$-1\r\n"));
+        };
+        let Some(value) = entry.as_string() else {
+            return Err(());
+        };
+
+        let value_bytes = value.as_slice();
+        let mut buf = BytesMut::with_capacity(1 + 20 + 2 + value_bytes.len() + 2);
+        let mut len_buf = itoa::Buffer::new();
+        buf.put_u8(b'$');
+        buf.put_slice(len_buf.format(value_bytes.len()).as_bytes());
+        buf.put_slice(b"\r\n");
+        buf.put_slice(value_bytes);
+        buf.put_slice(b"\r\n");
+        Ok(buf.freeze())
+    }
+
     pub fn get(&self, key: &[u8]) -> Result<Option<CompactValue>, ()> {
         let idx = self.shard_index(key);
         let shard = self.shards[idx].read();
@@ -30,12 +59,7 @@ impl Store {
     pub fn set(&self, key: &[u8], value: &[u8], ttl: Option<Duration>) {
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
-        write_entry(
-            &mut shard,
-            key,
-            Entry::from_slice(value),
-            ttl.map(deadline_from_ttl),
-        );
+        shard.upsert_string(key, value, ttl.map(deadline_from_ttl));
     }
 
     pub fn setnx(&self, key: &[u8], value: &[u8], ttl: Option<Duration>) -> bool {
@@ -52,12 +76,7 @@ impl Store {
             }
         }
 
-        write_entry(
-            &mut shard,
-            key,
-            Entry::from_slice(value),
-            ttl.map(deadline_from_ttl),
-        );
+        shard.upsert_string(key, value, ttl.map(deadline_from_ttl));
         true
     }
 
@@ -75,42 +94,58 @@ impl Store {
             }
         }
 
-        write_entry(
-            &mut shard,
-            key,
-            Entry::from_slice(value),
-            ttl.map(deadline_from_ttl),
-        );
+        shard.upsert_string(key, value, ttl.map(deadline_from_ttl));
         true
     }
 
-    pub fn getset(&self, key: &[u8], value: &[u8]) -> Result<Option<Vec<u8>>, ()> {
+    pub fn set_with_options(
+        &self,
+        key: &[u8],
+        value: &[u8],
+        ttl: Option<Duration>,
+        must_exist: Option<bool>,
+        return_old: bool,
+    ) -> Result<(bool, Option<CompactValue>), ()> {
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
         if shard.has_ttls() {
             let now_ms = monotonic_now_ms();
-            if purge_if_expired(&mut shard, key, now_ms) {
-                write_entry(&mut shard, key, Entry::from_slice(value), None);
-                return Ok(None);
+            let _ = purge_if_expired(&mut shard, key, now_ms);
+        }
+
+        let mut key_exists = false;
+        let previous = match shard.entries.get::<[u8]>(key) {
+            Some(entry) => {
+                let Some(current) = entry.as_string() else {
+                    return Err(());
+                };
+                key_exists = true;
+                if return_old {
+                    Some(current.clone())
+                } else {
+                    None
+                }
             }
+            None => None,
+        };
+
+        if let Some(must_exist) = must_exist
+            && must_exist != key_exists
+        {
+            return Ok((false, None));
         }
 
-        if let Some(entry) = shard.entries.get_mut::<[u8]>(key) {
-            let Some(current) = entry.as_string() else {
-                return Err(());
-            };
-
-            let old_value = current.to_vec();
-            entry.entry = Entry::from_slice(value);
-            let _ = shard.clear_ttl(key);
-            return Ok(Some(old_value));
-        }
-
-        write_entry(&mut shard, key, Entry::from_slice(value), None);
-        Ok(None)
+        shard.upsert_string(key, value, ttl.map(deadline_from_ttl));
+        Ok((true, if return_old { previous } else { None }))
     }
 
-    pub fn getdel(&self, key: &[u8]) -> Result<Option<Vec<u8>>, ()> {
+    pub fn getset(&self, key: &[u8], value: &[u8]) -> Result<Option<CompactValue>, ()> {
+        let (written, previous) = self.set_with_options(key, value, None, None, true)?;
+        debug_assert!(written);
+        Ok(previous)
+    }
+
+    pub fn getdel(&self, key: &[u8]) -> Result<Option<CompactValue>, ()> {
         let idx = self.shard_index(key);
         let mut shard = self.shards[idx].write();
         if shard.has_ttls() {
@@ -122,7 +157,7 @@ impl Store {
 
         match shard.remove_key(key) {
             Some(entry) => match entry.into_string() {
-                Some(value) => Ok(Some(value.into_vec())),
+                Some(value) => Ok(Some(value)),
                 None => Err(()),
             },
             None => Ok(None),

@@ -1,16 +1,22 @@
 use std::time::Duration;
 
-use crate::util::{Args, parse_u64_bytes, wrong_args, wrong_type};
+use crate::util::{Args, parse_u64_bytes, preencode_bulk_slice, wrong_args, wrong_type};
 use engine::store::Store;
-use protocol::types::{BulkData, RespFrame};
-use types::value::CompactArg;
+use protocol::types::RespFrame;
+
+#[derive(Clone, Copy)]
+enum SetExistenceCondition {
+    Any,
+    Missing,
+    Present,
+}
 
 pub(crate) fn get(store: &Store, args: &Args) -> RespFrame {
     if args.len() != 2 {
         return wrong_args("GET");
     }
-    match store.get(&args[1]) {
-        Ok(value) => RespFrame::Bulk(value.map(BulkData::Value)),
+    match store.get_preencoded(&args[1]) {
+        Ok(value) => RespFrame::PreEncoded(value),
         Err(_) => wrong_type(),
     }
 }
@@ -21,62 +27,62 @@ pub(crate) fn set(store: &Store, args: &Args) -> RespFrame {
     }
 
     let mut ttl = None;
-    let mut nx = false;
-    let mut xx = false;
+    let mut condition = SetExistenceCondition::Any;
     let mut return_old = false;
     let mut index = 3;
 
     while index < args.len() {
-        let option = args[index].as_slice();
-        if option.eq_ignore_ascii_case(b"NX") {
-            nx = true;
-        } else if option.eq_ignore_ascii_case(b"XX") {
-            xx = true;
-        } else if option.eq_ignore_ascii_case(b"GET") {
-            return_old = true;
-        } else if option.eq_ignore_ascii_case(b"EX") || option.eq_ignore_ascii_case(b"PX") {
-            let use_millis = option.eq_ignore_ascii_case(b"PX");
-            index += 1;
-            if index >= args.len() {
-                return wrong_args("SET");
-            }
-            let value = match parse_u64(&args[index]) {
-                Ok(value) => value,
-                Err(response) => return response,
-            };
-            ttl = Some(if use_millis {
-                Duration::from_millis(value)
-            } else {
-                Duration::from_secs(value)
-            });
-        } else {
+        let Some(option) = classify_set_option(args[index].as_slice()) else {
             return crate::util::syntax_error();
+        };
+        match option {
+            SetOption::Nx => {
+                if matches!(condition, SetExistenceCondition::Present) {
+                    return crate::util::syntax_error();
+                }
+                condition = SetExistenceCondition::Missing;
+            }
+            SetOption::Xx => {
+                if matches!(condition, SetExistenceCondition::Missing) {
+                    return crate::util::syntax_error();
+                }
+                condition = SetExistenceCondition::Present;
+            }
+            SetOption::Get => {
+                return_old = true;
+            }
+            SetOption::Ex | SetOption::Px => {
+                let use_millis = matches!(option, SetOption::Px);
+                index += 1;
+                if index >= args.len() {
+                    return wrong_args("SET");
+                }
+                let value = match parse_u64(&args[index]) {
+                    Ok(value) => value,
+                    Err(response) => return response,
+                };
+                ttl = Some(if use_millis {
+                    Duration::from_millis(value)
+                } else {
+                    Duration::from_secs(value)
+                });
+            }
         }
         index += 1;
-    }
-
-    if nx && xx {
-        return crate::util::syntax_error();
     }
 
     let key = args[1].as_slice();
     let value = args[2].as_slice();
 
-    let old_value = if return_old {
-        match store.get(key) {
-            Ok(value) => value.map(BulkData::Value),
-            Err(_) => return wrong_type(),
-        }
-    } else {
-        None
+    let must_exist = match condition {
+        SetExistenceCondition::Any => None,
+        SetExistenceCondition::Missing => Some(false),
+        SetExistenceCondition::Present => Some(true),
     };
-    let success = if nx {
-        store.setnx(key, value, ttl)
-    } else if xx {
-        store.setxx(key, value, ttl)
-    } else {
-        store.set(key, value, ttl);
-        true
+    let (success, old_value) = match store.set_with_options(key, value, ttl, must_exist, return_old)
+    {
+        Ok(result) => result,
+        Err(_) => return wrong_type(),
     };
 
     if !success {
@@ -84,7 +90,10 @@ pub(crate) fn set(store: &Store, args: &Args) -> RespFrame {
     }
 
     if return_old {
-        RespFrame::Bulk(old_value)
+        match old_value {
+            Some(value) => RespFrame::PreEncoded(preencode_bulk_slice(value.as_slice())),
+            None => RespFrame::Bulk(None),
+        }
     } else {
         RespFrame::ok()
     }
@@ -102,7 +111,8 @@ pub(crate) fn getset(store: &Store, args: &Args) -> RespFrame {
         return wrong_args("GETSET");
     }
     match store.getset(&args[1], &args[2]) {
-        Ok(value) => RespFrame::Bulk(value.map(|value| BulkData::Arg(CompactArg::from_vec(value)))),
+        Ok(Some(value)) => RespFrame::PreEncoded(preencode_bulk_slice(value.as_slice())),
+        Ok(None) => RespFrame::Bulk(None),
         Err(_) => wrong_type(),
     }
 }
@@ -112,8 +122,34 @@ pub(crate) fn getdel(store: &Store, args: &Args) -> RespFrame {
         return wrong_args("GETDEL");
     }
     match store.getdel(&args[1]) {
-        Ok(value) => RespFrame::Bulk(value.map(|value| BulkData::Arg(CompactArg::from_vec(value)))),
+        Ok(Some(value)) => RespFrame::PreEncoded(preencode_bulk_slice(value.as_slice())),
+        Ok(None) => RespFrame::Bulk(None),
         Err(_) => wrong_type(),
+    }
+}
+
+#[derive(Clone, Copy)]
+enum SetOption {
+    Ex,
+    Get,
+    Nx,
+    Px,
+    Xx,
+}
+
+fn classify_set_option(value: &[u8]) -> Option<SetOption> {
+    match value {
+        [a, b] => match ((*a) | 0x20, (*b) | 0x20) {
+            (b'e', b'x') => Some(SetOption::Ex),
+            (b'n', b'x') => Some(SetOption::Nx),
+            (b'p', b'x') => Some(SetOption::Px),
+            (b'x', b'x') => Some(SetOption::Xx),
+            _ => None,
+        },
+        [a, b, c] if ((*a) | 0x20, (*b) | 0x20, (*c) | 0x20) == (b'g', b'e', b't') => {
+            Some(SetOption::Get)
+        }
+        _ => None,
     }
 }
 

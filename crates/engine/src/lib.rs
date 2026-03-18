@@ -275,6 +275,43 @@ impl Shard {
         previous
     }
 
+    #[inline]
+    fn update_deadline_for_existing_entry(&mut self, key: &[u8], deadline: Option<u64>) {
+        match deadline {
+            Some(deadline) => {
+                if self
+                    .expirations
+                    .insert(CompactKey::from_slice(key), deadline)
+                    .is_none()
+                {
+                    self.ttl_count += 1;
+                }
+                self.track_deadline(deadline);
+            }
+            None => {
+                let _ = self.clear_ttl(key);
+                if self.ttl_count == 0 {
+                    self.ttl_min_deadline = u64::MAX;
+                }
+            }
+        }
+    }
+
+    #[inline]
+    pub(crate) fn upsert_string(&mut self, key: &[u8], value: &[u8], deadline: Option<u64>) {
+        if let Some(entry) = self.entries.get_mut::<[u8]>(key) {
+            entry.entry = Entry::String(CompactValue::from_slice(value));
+            self.update_deadline_for_existing_entry(key, deadline);
+            return;
+        }
+
+        self.insert_entry(
+            CompactKey::from_slice(key),
+            Entry::String(CompactValue::from_slice(value)),
+            deadline,
+        );
+    }
+
     pub fn insert_entry(&mut self, key: CompactKey, entry: Entry, deadline: Option<u64>) {
         if let Some(deadline) = deadline {
             if self
