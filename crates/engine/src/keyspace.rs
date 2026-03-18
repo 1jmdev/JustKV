@@ -218,28 +218,41 @@ impl Store {
             return Ok(1);
         }
 
+        if from_idx < to_idx {
+            let mut source = self.shards[from_idx].write();
+            let mut destination = self.shards[to_idx].write();
+            if purge_if_expired(&mut source, from, now_ms) {
+                return Err(());
+            }
+            if !purge_if_expired(&mut destination, to, now_ms)
+                && destination.entries.get(to).is_some()
+            {
+                return Ok(0);
+            }
+            let deadline = source.ttl_deadline(from);
+            let Some(entry) = source.remove_key(from) else {
+                return Err(());
+            };
+            let key = CompactKey::from_slice(to);
+            destination.insert_entry(key, entry, deadline);
+            return Ok(1);
+        }
+
+        let mut destination = self.shards[to_idx].write();
         let mut source = self.shards[from_idx].write();
         if purge_if_expired(&mut source, from, now_ms) {
             return Err(());
         }
-
-        let deadline = source.ttl_deadline(from);
-        let Some(entry) = source.entries.get(from).cloned() else {
-            return Err(());
-        };
-        drop(source);
-
-        let mut destination = self.shards[to_idx].write();
         if !purge_if_expired(&mut destination, to, now_ms) && destination.entries.get(to).is_some()
         {
             return Ok(0);
         }
+        let deadline = source.ttl_deadline(from);
+        let Some(entry) = source.remove_key(from) else {
+            return Err(());
+        };
         let key = CompactKey::from_slice(to);
-        destination.insert_entry(key, entry.entry, deadline);
-        drop(destination);
-
-        let mut source = self.shards[from_idx].write();
-        let _ = source.remove_key(from);
+        destination.insert_entry(key, entry, deadline);
         Ok(1)
     }
 
