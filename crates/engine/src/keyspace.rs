@@ -533,7 +533,7 @@ impl Store {
             return None;
         }
         let entry = shard.entries.get(key)?;
-        Some(serialize_entry(entry))
+        serialize_entry(entry)
     }
 
     pub fn restore(
@@ -712,7 +712,7 @@ fn parse_sort_number(raw: &[u8]) -> Option<f64> {
     value.parse::<f64>().ok()
 }
 
-fn serialize_entry(entry: &Entry) -> Vec<u8> {
+fn serialize_entry(entry: &Entry) -> Option<Vec<u8>> {
     let mut out = vec![1u8];
     match entry {
         Entry::String(value) => {
@@ -774,11 +774,11 @@ fn serialize_entry(entry: &Entry) -> Vec<u8> {
         }
         Entry::Json(value) => {
             out.push(7);
-            let encoded = serde_json::to_vec(value).unwrap_or_default();
+            let encoded = serde_json::to_vec(value).ok()?;
             write_bytes(&mut out, &encoded);
         }
     }
-    out
+    Some(out)
 }
 
 fn deserialize_entry(payload: &[u8]) -> Option<Entry> {
