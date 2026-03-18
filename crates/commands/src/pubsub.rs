@@ -2,7 +2,7 @@ use protocol::types::{BulkData, RespFrame};
 use types::value::CompactArg;
 
 use crate::dispatch::CommandId;
-use crate::util::{wrong_args, Args};
+use crate::util::{Args, wrong_args};
 
 pub trait DispatchContext {
     fn publish(&mut self, channel: &[u8], payload: &[u8]) -> i64;

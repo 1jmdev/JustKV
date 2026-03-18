@@ -148,7 +148,12 @@ impl ConnectionHarness {
                 Err(error) => panic!("failed to accept benchmark connection: {error}"),
             };
 
-            if let Err(error) = connection::handle_connection(betterkv_server::connection::ConnectionStream::Tcp(stream), shared).await {
+            if let Err(error) = connection::handle_connection(
+                betterkv_server::connection::ConnectionStream::Tcp(stream),
+                shared,
+            )
+            .await
+            {
                 panic!("connection benchmark task failed: {error}");
             }
 

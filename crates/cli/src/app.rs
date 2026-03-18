@@ -26,11 +26,5 @@ pub async fn run() -> Result<(), String> {
     }
 
     let endpoint_label = options.endpoint_label();
-    repl::run(
-        client,
-        endpoint_label.as_str(),
-        options.db,
-        options.raw,
-    )
-    .await
+    repl::run(client, endpoint_label.as_str(), options.db, options.raw).await
 }

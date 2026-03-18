@@ -17,21 +17,11 @@ use crate::timing;
 use helper::ReplHelper;
 use meta::{MetaCommand, parse as parse_meta};
 
-pub async fn run(
-    mut client: Client,
-    endpoint: &str,
-    db: u32,
-    raw: bool,
-) -> Result<(), String> {
+pub async fn run(mut client: Client, endpoint: &str, db: u32, raw: bool) -> Result<(), String> {
     tokio::task::block_in_place(|| run_blocking(&mut client, endpoint, db, raw))
 }
 
-fn run_blocking(
-    client: &mut Client,
-    endpoint: &str,
-    db: u32,
-    raw: bool,
-) -> Result<(), String> {
+fn run_blocking(client: &mut Client, endpoint: &str, db: u32, raw: bool) -> Result<(), String> {
     let config = Config::builder()
         .history_ignore_space(true)
         .completion_type(CompletionType::List)

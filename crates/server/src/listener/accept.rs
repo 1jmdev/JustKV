@@ -14,7 +14,10 @@ pub(crate) enum ServerListener {
     Unix(UnixListener),
 }
 
-pub(crate) async fn run_accept_loop(listener: ServerListener, shared: ConnectionShared) -> ListenerResult {
+pub(crate) async fn run_accept_loop(
+    listener: ServerListener,
+    shared: ConnectionShared,
+) -> ListenerResult {
     match listener {
         ServerListener::Tcp(listener) => run_tcp_accept_loop(listener, shared).await,
         ServerListener::Unix(listener) => run_unix_accept_loop(listener, shared).await,

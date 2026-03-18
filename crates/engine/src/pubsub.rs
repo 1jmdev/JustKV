@@ -1,6 +1,6 @@
 use std::hash::BuildHasher;
-use std::sync::atomic::{AtomicBool, AtomicU16, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU16, AtomicU64, Ordering};
 
 use hashbrown::{HashMap, HashSet};
 use rapidhash::fast::RandomState;
