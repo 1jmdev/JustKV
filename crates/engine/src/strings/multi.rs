@@ -203,16 +203,48 @@ impl Store {
     }
 
     pub fn msetnx(&self, pairs: Vec<(CompactArg, CompactArg)>) -> bool {
+        if pairs.is_empty() {
+            return true;
+        }
+
         let now_ms = monotonic_now_ms();
-        for (key, _) in &pairs {
-            let idx = self.shard_index(key);
-            let mut shard = self.shards[idx].write();
-            if !purge_if_expired(&mut shard, key, now_ms) && shard.entries.contains_key(key) {
-                return false;
+        let shard_count = self.shards.len();
+        let mut grouped: Vec<Vec<(CompactArg, CompactArg)>> = vec![Vec::new(); shard_count];
+        let mut touched = Vec::with_capacity(pairs.len().min(shard_count));
+
+        for (key, value) in pairs {
+            let idx = self.shard_index(&key);
+            if grouped[idx].is_empty() {
+                touched.push(idx);
+            }
+            grouped[idx].push((key, value));
+        }
+
+        touched.sort_unstable();
+
+        let mut guards = Vec::with_capacity(touched.len());
+        for &idx in &touched {
+            guards.push((idx, self.shards[idx].write()));
+        }
+
+        for (idx, shard) in &mut guards {
+            for (key, _) in &grouped[*idx] {
+                if !purge_if_expired(shard, key, now_ms) && shard.entries.contains_key(key) {
+                    return false;
+                }
             }
         }
 
-        self.mset(pairs);
+        for (idx, shard) in &mut guards {
+            for (key, value) in grouped[*idx].drain(..) {
+                shard.insert_entry(
+                    CompactKey::from_slice(&key),
+                    Entry::from_slice(&value),
+                    None,
+                );
+            }
+        }
+
         true
     }
 }

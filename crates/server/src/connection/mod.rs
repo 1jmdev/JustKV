@@ -48,10 +48,10 @@ impl PubSubSession {
             self.state = Some(ConnectionPubSub::new(hub.next_connection_id()));
         }
 
-        (
-            self.state.as_mut().expect("pubsub state initialized"),
-            self.sink.as_ref().expect("pubsub sink initialized"),
-        )
+        match (self.state.as_mut(), self.sink.as_ref()) {
+            (Some(state), Some(sink)) => (state, sink),
+            _ => unreachable!("pubsub session must be initialized"),
+        }
     }
 
     fn subscribe(&mut self, hub: &PubSubHub, channel: &[u8]) -> i64 {

@@ -187,17 +187,25 @@ impl PubSubHub {
     }
 
     pub fn publish(&self, channel: &[u8], payload: &[u8]) -> i64 {
-        let channel_subscribers = {
-            let idx = self.shard_index(channel);
-            let shard = self.shards[idx].read();
-            shard
-                .channels
-                .get(channel)
-                .map(|subs| subs.values().cloned().collect::<Vec<_>>())
-                .unwrap_or_default()
-        };
+        let channel = CompactArg::from_slice(channel);
+        let payload = CompactArg::from_slice(payload);
+        let mut delivered = 0_i64;
 
-        let mut pattern_subscribers = Vec::new();
+        {
+            let idx = self.shard_index(channel.as_slice());
+            let shard = self.shards[idx].read();
+            if let Some(subscribers) = shard.channels.get(channel.as_slice()) {
+                for sink in subscribers.values() {
+                    if sink.push(PubSubMessage::Message {
+                        channel: channel.clone(),
+                        payload: payload.clone(),
+                    }) {
+                        delivered += 1;
+                    }
+                }
+            }
+        }
+
         for prefix_len in 0..=channel.len() {
             let prefix = &channel[..prefix_len];
             let idx = self.shard_index(prefix);
@@ -207,38 +215,18 @@ impl PubSubHub {
             };
 
             for (pattern, subscribers) in patterns {
-                if !wildcard_match(pattern, channel) {
+                if !wildcard_match(pattern, channel.as_slice()) {
                     continue;
                 }
-                pattern_subscribers.push((
-                    pattern.clone(),
-                    subscribers.values().cloned().collect::<Vec<_>>(),
-                ));
-            }
-        }
-
-        let channel = CompactArg::from_slice(channel);
-        let payload = CompactArg::from_slice(payload);
-        let mut delivered = 0_i64;
-
-        for sink in channel_subscribers {
-            if sink.push(PubSubMessage::Message {
-                channel: channel.clone(),
-                payload: payload.clone(),
-            }) {
-                delivered += 1;
-            }
-        }
-
-        for (pattern, subscribers) in pattern_subscribers {
-            let pattern = CompactArg::from_vec(pattern);
-            for sink in subscribers {
-                if sink.push(PubSubMessage::PatternMessage {
-                    pattern: pattern.clone(),
-                    channel: channel.clone(),
-                    payload: payload.clone(),
-                }) {
-                    delivered += 1;
+                let pattern_arg = CompactArg::from_slice(pattern);
+                for sink in subscribers.values() {
+                    if sink.push(PubSubMessage::PatternMessage {
+                        pattern: pattern_arg.clone(),
+                        channel: channel.clone(),
+                        payload: payload.clone(),
+                    }) {
+                        delivered += 1;
+                    }
                 }
             }
         }
@@ -247,25 +235,19 @@ impl PubSubHub {
     }
 
     pub fn spublish(&self, channel: &[u8], payload: &[u8]) -> i64 {
-        let subscribers = {
-            let idx = self.shard_index(channel);
-            let shard = self.shards[idx].read();
-            shard
-                .shard_channels
-                .get(channel)
-                .map(|subs| subs.values().cloned().collect::<Vec<_>>())
-                .unwrap_or_default()
-        };
-
         let channel = CompactArg::from_slice(channel);
         let payload = CompactArg::from_slice(payload);
         let mut delivered = 0_i64;
-        for sink in subscribers {
-            if sink.push(PubSubMessage::ShardMessage {
-                channel: channel.clone(),
-                payload: payload.clone(),
-            }) {
-                delivered += 1;
+        let idx = self.shard_index(channel.as_slice());
+        let shard = self.shards[idx].read();
+        if let Some(subscribers) = shard.shard_channels.get(channel.as_slice()) {
+            for sink in subscribers.values() {
+                if sink.push(PubSubMessage::ShardMessage {
+                    channel: channel.clone(),
+                    payload: payload.clone(),
+                }) {
+                    delivered += 1;
+                }
             }
         }
         delivered

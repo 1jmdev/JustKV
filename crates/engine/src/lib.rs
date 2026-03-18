@@ -414,18 +414,26 @@ impl Store {
             }
 
             let mut new_min = u64::MAX;
-            let expired_keys: Vec<CompactKey> = guard
-                .expirations
-                .iter()
-                .filter_map(|(key, deadline)| {
-                    if *deadline <= now_ms {
-                        Some(key.clone())
-                    } else {
-                        new_min = new_min.min(*deadline);
-                        None
-                    }
-                })
-                .collect();
+            let mut expired_count = 0usize;
+            for (_key, deadline) in guard.expirations.iter() {
+                if *deadline <= now_ms {
+                    expired_count += 1;
+                } else {
+                    new_min = new_min.min(*deadline);
+                }
+            }
+
+            if expired_count == 0 {
+                guard.ttl_min_deadline = new_min;
+                continue;
+            }
+
+            let mut expired_keys = Vec::with_capacity(expired_count);
+            for (key, deadline) in guard.expirations.iter() {
+                if *deadline <= now_ms {
+                    expired_keys.push(key.clone());
+                }
+            }
 
             for key in &expired_keys {
                 if guard.remove_key(key.as_slice()).is_some() {

@@ -653,18 +653,18 @@ impl Store {
         if options.alpha {
             values.sort_unstable();
         } else {
-            values.sort_unstable_by(|left, right| {
-                parse_sort_number(left)
-                    .zip(parse_sort_number(right))
-                    .map(|(left, right)| left.total_cmp(&right))
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            });
-            if values
-                .iter()
-                .any(|value| parse_sort_number(value).is_none())
-            {
-                return Err(SortError::InvalidNumber);
+            let mut numeric_values = Vec::with_capacity(values.len());
+            for value in values {
+                let Some(score) = parse_sort_number(&value) else {
+                    return Err(SortError::InvalidNumber);
+                };
+                numeric_values.push((value, score));
             }
+            numeric_values.sort_unstable_by(|left, right| left.1.total_cmp(&right.1));
+            values = numeric_values
+                .into_iter()
+                .map(|(value, _score)| value)
+                .collect();
         }
 
         if options.order == SortOrder::Desc {
