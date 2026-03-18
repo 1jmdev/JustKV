@@ -22,6 +22,9 @@ pub(crate) fn run(cli: Cli) -> Result<(), String> {
     if let Some(v) = cli.port {
         config.port = v;
     }
+    if let Some(v) = cli.protected_mode {
+        config.protected_mode = parse_yes_no(&v, "protected-mode")?;
+    }
     if let Some(v) = cli.socket {
         config.socket = Some(v);
     }
@@ -97,6 +100,7 @@ pub(crate) fn run(cli: Cli) -> Result<(), String> {
         listener = %config.listener_label(),
         io_threads = config.io_threads,
         shards = config.shards,
+        protected_mode = config.protected_mode,
         requirepass = config.requirepass.is_some(),
         acl_users = config.user_directives.len(),
         snapshot_path = %config.snapshot_path().display(),
@@ -161,6 +165,9 @@ pub(crate) fn parse_config_content_into(content: &str, config: &mut Config) -> R
                 config.port = values[0]
                     .parse::<u16>()
                     .map_err(|_| format!("invalid port '{}'", values[0]))?;
+            }
+            "protected-mode" => {
+                config.protected_mode = parse_yes_no(values[0].as_str(), "protected-mode")?;
             }
             "io-threads" => {
                 config.io_threads = values[0]
@@ -319,4 +326,22 @@ fn disable_persistence(config: &mut Config) {
     config.save_rules.clear();
     config.snapshot_on_shutdown = false;
     config.appendonly = false;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn protected_mode_defaults_to_enabled() {
+        assert!(Config::default().protected_mode);
+    }
+
+    #[test]
+    fn parse_config_updates_protected_mode() {
+        let mut config = Config::default();
+        parse_config_content_into("protected-mode no\n", &mut config).expect("parse config");
+
+        assert!(!config.protected_mode);
+    }
 }

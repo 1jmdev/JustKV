@@ -52,6 +52,13 @@ pub(crate) struct Cli {
     pub port: Option<u16>,
 
     #[arg(
+        long = "protected-mode",
+        value_name = "yes|no",
+        help = "Reject non-loopback TCP clients unless every enabled user requires a password (default: yes)"
+    )]
+    pub protected_mode: Option<String>,
+
+    #[arg(
         long = "io-threads",
         value_name = "N",
         help = "Number of I/O worker threads (default: number of CPUs)"

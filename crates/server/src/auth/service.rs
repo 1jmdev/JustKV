@@ -117,6 +117,10 @@ impl AuthService {
         self.inner.read().default_user_has_password()
     }
 
+    pub fn has_passwordless_user(&self) -> bool {
+        self.inner.read().has_passwordless_user()
+    }
+
     #[inline(always)]
     pub fn acl_epoch(&self) -> u64 {
         self.acl_epoch.load(Ordering::Relaxed)
@@ -188,6 +192,44 @@ mod tests {
         let session = auth.new_session();
         assert!(session.is_authorized());
         assert_eq!(session.user(), Some("default"));
+        assert!(auth.has_passwordless_user());
+    }
+
+    #[test]
+    fn requirepass_disables_passwordless_access() {
+        let config = Config {
+            requirepass: Some("secret".to_string()),
+            ..Config::default()
+        };
+        let auth = AuthService::from_config(&config).expect("auth service");
+
+        assert!(!auth.has_passwordless_user());
+    }
+
+    #[test]
+    fn passwordless_acl_user_is_detected() {
+        let config = Config {
+            user_directives: vec![
+                UserDirectiveConfig {
+                    name: "default".to_string(),
+                    rules: vec!["reset".to_string()],
+                },
+                UserDirectiveConfig {
+                    name: "guest".to_string(),
+                    rules: vec![
+                        "on".to_string(),
+                        "nopass".to_string(),
+                        "+@all".to_string(),
+                        "allkeys".to_string(),
+                        "allchannels".to_string(),
+                    ],
+                },
+            ],
+            ..Config::default()
+        };
+        let auth = AuthService::from_config(&config).expect("auth service");
+
+        assert!(auth.has_passwordless_user());
     }
 
     #[test]

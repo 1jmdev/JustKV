@@ -29,6 +29,10 @@ impl AuthState {
             .is_some_and(|user| user.enabled && user.nopass)
     }
 
+    pub(super) fn has_passwordless_user(&self) -> bool {
+        self.users.values().any(|user| user.enabled && user.nopass)
+    }
+
     pub(super) fn set_user(&mut self, username: &str, rules: &[String]) -> Result<(), String> {
         let user = self
             .users

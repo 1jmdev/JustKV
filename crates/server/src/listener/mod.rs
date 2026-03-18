@@ -11,7 +11,7 @@ use crate::auth::AuthService;
 use crate::config::Config;
 use crate::connection::ConnectionShared;
 use crate::persistence::{self, PersistenceHandle};
-use accept::{bind_listeners, run_accept_loop};
+use accept::{ProtectedMode, bind_listeners, run_accept_loop};
 use background::{spawn_cached_clock_updater, spawn_expiry_sweeper};
 use engine::pubsub::PubSubHub;
 use engine::store::Store;
@@ -24,6 +24,7 @@ pub async fn run_listener(config: Config) -> Result<(), Box<dyn std::error::Erro
     let store = Store::new(config.shards);
     let pubsub = PubSubHub::new();
     let auth = AuthService::from_config(&config).map_err(io::Error::other)?;
+    let protected_mode = ProtectedMode::new(&config, &auth);
     let restore = persistence::restore(&store, &config).await;
     match restore {
         Ok(restore) => {
@@ -65,6 +66,7 @@ pub async fn run_listener(config: Config) -> Result<(), Box<dyn std::error::Erro
         io_threads = config.io_threads,
         sweep_interval_ms = config.sweep_interval_ms,
         save_rules = config.save_rules.len(),
+        protected_mode = protected_mode.enabled(),
         appendonly = config.appendonly,
         "listener ready"
     );
@@ -72,7 +74,7 @@ pub async fn run_listener(config: Config) -> Result<(), Box<dyn std::error::Erro
     let mut accept_tasks = JoinSet::new();
     for listener in listeners {
         let shared = shared.clone();
-        accept_tasks.spawn(async move { run_accept_loop(listener, shared).await });
+        accept_tasks.spawn(async move { run_accept_loop(listener, shared, protected_mode).await });
     }
 
     loop {
